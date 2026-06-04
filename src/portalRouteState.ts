@@ -48,6 +48,7 @@ export function getInitialTickets() {
 }
 
 const runtimeTicketsKey = "netcomply:runtimeTickets";
+const latestRuntimeTicketIdKey = "netcomply:latestRuntimeTicketId";
 
 export function getRuntimeTickets() {
   const storedTickets = window.sessionStorage.getItem(runtimeTicketsKey);
@@ -68,7 +69,12 @@ export function saveRuntimeTickets(tickets: Ticket[]) {
 export function addRuntimeTicket(ticket: Ticket) {
   const nextTickets = [ticket, ...getRuntimeTickets().filter((item) => item.id !== ticket.id)];
   saveRuntimeTickets(nextTickets);
+  setRouteValue(latestRuntimeTicketIdKey, ticket.id);
   return nextTickets;
+}
+
+export function getLatestRuntimeTicketId() {
+  return window.sessionStorage.getItem(latestRuntimeTicketIdKey) || "";
 }
 
 export function updateRuntimeTicketStatus(id: string, status: TicketStatus) {
