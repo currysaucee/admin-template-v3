@@ -55,6 +55,14 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: #1e293b; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
 .device-icon { width: 34px; height: 34px; border-radius: 10px; background: #eff6ff; color: #0b63f6; display: grid; place-items: center; }
 .wizard-card .p-card-body { padding: 28px; }
+.ticket-stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ticket-stepper-item { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; color: #64748b; }
+.ticket-stepper-item span { width: 28px; height: 28px; flex: 0 0 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 900; font-size: 13px; }
+.ticket-stepper-item strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 900; }
+.ticket-stepper-item.active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+.ticket-stepper-item.active span { background: #2563eb; color: #ffffff; }
+.ticket-stepper-item.complete { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.ticket-stepper-item.complete span { background: #22c55e; color: #ffffff; }
 .step-content { margin-top: 30px; min-height: 430px; }
 .wizard-footer { border-top: 1px solid #e5e7eb; padding-top: 20px; display: flex; justify-content: space-between; }
 .scope-grid, .step-stack { display: grid; gap: 18px; }
@@ -328,6 +336,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .device-cell, .user-cell, .window-cell, .device-mini-card { align-items: flex-start; }
   .device-mini-card { flex-wrap: wrap; }
   .wizard-card .p-card-body { padding: 18px; }
+  .ticket-stepper { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wizard-footer { gap: 10px; flex-wrap: wrap; }
   .wizard-footer .p-button { flex: 1 1 180px; }
   .finding-list-header { display: none; }

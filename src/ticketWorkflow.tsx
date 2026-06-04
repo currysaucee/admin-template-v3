@@ -7,7 +7,6 @@ import { Checkbox } from "primereact/checkbox";
 import { Calendar } from "primereact/calendar";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Card } from "primereact/card";
-import { Steps } from "primereact/steps";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { findFindingKey, formatDate, getFixAvailability, getTemplateCommandCount, hasExecutableFix } from "./helpers";
@@ -45,7 +44,14 @@ export function CreateTicketPage(props: {
     <section className="page-content">
       <PageHeader title="Create Ticket" subtitle="Fix templates are used here immediately after you update them in Fix Templates." />
       <Card className="wizard-card">
-        <Steps model={steps} activeIndex={props.step} readOnly />
+        <div className="ticket-stepper" aria-label="Create ticket steps">
+          {steps.map((item, index) => (
+            <div key={item.label} className={`ticket-stepper-item ${index === props.step ? "active" : ""} ${index < props.step ? "complete" : ""}`}>
+              <span>{index + 1}</span>
+              <strong>{item.label}</strong>
+            </div>
+          ))}
+        </div>
         <div className="step-content">
           {props.step === 0 && <ScopeStep {...props} />}
           {props.step === 1 && <RemediationStep {...props} />}
