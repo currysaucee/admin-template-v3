@@ -3,13 +3,13 @@ import { Card } from "primereact/card";
 
 import { TicketDetailPage } from "./ticketDetail";
 import { PortalPageShell } from "./portalPageShell";
-import { getInitialPolicySettings, getInitialTemplates, getInitialTickets, getRouteValue, navigateToPortalPath, portalRoutePaths } from "./portalRouteState";
+import { getInitialPolicySettings, getInitialTemplates, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 
 type TicketDetailPageProps = Partial<React.ComponentProps<typeof TicketDetailPage>>;
 
 export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {}) {
-  const tickets = getInitialTickets();
+  const tickets = getRuntimeTickets();
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId");
   const ticket = props.ticket ?? tickets.find((item) => item.id === ticketId);
 

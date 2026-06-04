@@ -47,6 +47,36 @@ export function getInitialTickets() {
   return initialTickets;
 }
 
+const runtimeTicketsKey = "netcomply:runtimeTickets";
+
+export function getRuntimeTickets() {
+  const storedTickets = window.sessionStorage.getItem(runtimeTicketsKey);
+  if (!storedTickets) return getInitialTickets();
+
+  try {
+    const parsedTickets = JSON.parse(storedTickets) as Ticket[];
+    return Array.isArray(parsedTickets) ? parsedTickets : getInitialTickets();
+  } catch {
+    return getInitialTickets();
+  }
+}
+
+export function saveRuntimeTickets(tickets: Ticket[]) {
+  window.sessionStorage.setItem(runtimeTicketsKey, JSON.stringify(tickets));
+}
+
+export function addRuntimeTicket(ticket: Ticket) {
+  const nextTickets = [ticket, ...getRuntimeTickets().filter((item) => item.id !== ticket.id)];
+  saveRuntimeTickets(nextTickets);
+  return nextTickets;
+}
+
+export function updateRuntimeTicketStatus(id: string, status: TicketStatus) {
+  const nextTickets = updateTicketStatus(getRuntimeTickets(), id, status);
+  saveRuntimeTickets(nextTickets);
+  return nextTickets;
+}
+
 export type CreateTicketState = {
   selectedDeviceIds: string[];
   selectedFindingKeys: string[];

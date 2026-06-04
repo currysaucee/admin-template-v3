@@ -2,7 +2,7 @@ import React from "react";
 
 import { CreateTicketPage } from "./ticketWorkflow";
 import { PortalPageShell } from "./portalPageShell";
-import { createInitialTicketState, createPendingTicket, getInitialDevices, getInitialPolicySettings, getInitialTemplates, getInitialTickets, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths } from "./portalRouteState";
+import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getInitialDevices, getInitialPolicySettings, getInitialTemplates, getRuntimeTickets, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
 import type { Ticket } from "./types";
 
 type CreateTicketPageProps = Partial<React.ComponentProps<typeof CreateTicketPage>>;
@@ -12,7 +12,7 @@ export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {
   const templates = props.templates ?? getInitialTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();
   const [step, setStep] = React.useState(0);
-  const [tickets, setTickets] = React.useState<Ticket[]>(getInitialTickets);
+  const [tickets, setTickets] = React.useState<Ticket[]>(getRuntimeTickets);
   const [state, setState] = React.useState(() => {
     const initial = createInitialTicketState();
     const routeDeviceIds = getRouteValue("deviceIds", "netcomply:selectedDeviceIds");
@@ -59,7 +59,8 @@ export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {
         onCancel={props.onCancel ?? (() => navigateToPortalPath(portalRoutePaths.dashboard))}
         onSubmit={props.onSubmit ?? (() => {
           const nextTicket = createPendingTicket("Network Engineer", tickets, selectedTicketDevices, state);
-          setTickets((prev) => [nextTicket, ...prev]);
+          setTickets(addRuntimeTicket(nextTicket));
+          setRouteValue("netcomply:selectedTicketId", nextTicket.id);
           navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: nextTicket.id });
         })}
       />
