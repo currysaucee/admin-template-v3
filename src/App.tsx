@@ -7,7 +7,13 @@ import "primeicons/primeicons.css";
 
 import { SideMenu, TopBar } from "./sharedUi";
 import { TicketEditDialog } from "./ticketDetail";
-import { CreateTicketPageWrapper, DashboardPageWrapper, DeviceDetailPageWrapper, InventoryPageWrapper, TemplatePageWrapper, TemplateRequestsPageWrapper, TicketDetailPageWrapper } from "./pageWrappers";
+import CreateTicketPageWrapper from "./createTicketPageWrapper";
+import DashboardPageWrapper from "./dashboardPageWrapper";
+import DeviceDetailPageWrapper from "./deviceDetailPageWrapper";
+import InventoryPageWrapper from "./inventoryPageWrapper";
+import TemplatePageWrapper from "./templatePageWrapper";
+import TemplateRequestsPageWrapper from "./templateRequestsPageWrapper";
+import TicketDetailPageWrapper from "./ticketDetailPageWrapper";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
 import { styles } from "./styles";
