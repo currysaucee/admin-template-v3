@@ -13,6 +13,7 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const devices = props.devices ?? getInitialDevices();
   const templates = props.templates ?? getInitialTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();
+  const selectedBulkDevices = props.bulkInventorySelection ?? bulkInventorySelection;
 
   const startCreateTicket = (device?: Device) => {
     if (device) setRouteValue("netcomply:selectedDeviceId", device.id);
@@ -25,10 +26,10 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
         devices={devices}
         templates={templates}
         policySettings={policySettings}
-        bulkInventorySelection={props.bulkInventorySelection ?? bulkInventorySelection}
+        bulkInventorySelection={selectedBulkDevices}
         setBulkInventorySelection={props.setBulkInventorySelection ?? setBulkInventorySelection}
         onBulkCreate={props.onBulkCreate ?? (() => {
-          const selectedIds = bulkInventorySelection.map((device) => device.id).join(",");
+          const selectedIds = selectedBulkDevices.map((device) => device.id).join(",");
           setRouteValue("netcomply:selectedDeviceIds", selectedIds);
           navigateToPortalPath(portalRoutePaths.createTicket, { deviceIds: selectedIds });
         })}

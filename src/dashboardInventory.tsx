@@ -48,6 +48,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ComplianceStatus | "All">("All");
   const filteredDevices = devices.filter((device) => `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase()) && (status === "All" || device.complianceStatus === status));
+  const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && device.findings.length > 0;
 
   return (
     <section className="page-content">
@@ -64,7 +65,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <div className="bulk-selection-info">{bulkInventorySelection.length} selected</div>
           <Button label="Create Bulk Ticket" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={onBulkCreate} />
         </div>
-        <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter((device) => device.complianceStatus === "Non-Compliant" && getAvailableFixCount(device, templates, policySettings) > 0))} isDataSelectable={(event) => (event.data as Device).complianceStatus === "Non-Compliant" && getAvailableFixCount(event.data as Device, templates, policySettings) > 0} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
+        <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter(canBulkSelectDevice))} isDataSelectable={(event) => canBulkSelectDevice(event.data as Device)} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
           <Column selectionMode="multiple" headerStyle={{ width: '4rem' }} bodyStyle={{ opacity: 1 }} />
           <Column header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />
           <Column field="hardwareType" header="Hardware Type" sortable />
