@@ -8,7 +8,7 @@ import { PageHeader } from "./sharedUi";
 
 type DeviceDetailPageProps = Partial<React.ComponentProps<typeof DeviceDetailPage>>;
 
-export default function DeviceDetailPageWrapper(props: DeviceDetailPageProps) {
+export default function DeviceDetailPageWrapper(props: DeviceDetailPageProps = {}) {
   const devices = getInitialDevices();
   const templates = props.templates ?? getInitialTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();

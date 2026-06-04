@@ -8,7 +8,7 @@ import { PageHeader } from "./sharedUi";
 
 type TicketDetailPageProps = Partial<React.ComponentProps<typeof TicketDetailPage>>;
 
-export default function TicketDetailPageWrapper(props: TicketDetailPageProps) {
+export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {}) {
   const tickets = getInitialTickets();
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId");
   const ticket = props.ticket ?? tickets.find((item) => item.id === ticketId);

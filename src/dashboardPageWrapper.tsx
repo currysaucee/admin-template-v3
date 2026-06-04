@@ -7,7 +7,7 @@ import type { UserRole } from "./types";
 
 type DashboardPageProps = Partial<React.ComponentProps<typeof DashboardPage>>;
 
-export default function DashboardPageWrapper(props: DashboardPageProps) {
+export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
   const [tickets, setTickets] = React.useState(getInitialTickets);
   const currentRole = props.currentRole ?? "Network Engineer";
 

@@ -7,7 +7,7 @@ import type { RemediationTemplate, TemplateRequest } from "./types";
 
 type TemplatePageProps = Partial<React.ComponentProps<typeof TemplatePage>>;
 
-export default function TemplatePageWrapper(props: TemplatePageProps) {
+export default function TemplatePageWrapper(props: TemplatePageProps = {}) {
   const [templates, setTemplates] = React.useState<RemediationTemplate[]>(getInitialTemplates);
   const [, setTemplateRequests] = React.useState<TemplateRequest[]>(getInitialTemplateRequests);
 

@@ -8,7 +8,7 @@ import type { Device } from "./types";
 
 type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
 
-export default function InventoryPageWrapper(props: InventoryPageProps) {
+export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const [bulkInventorySelection, setBulkInventorySelection] = React.useState<Device[]>([]);
   const devices = props.devices ?? getInitialDevices();
   const templates = props.templates ?? getInitialTemplates();
