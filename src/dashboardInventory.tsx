@@ -10,7 +10,7 @@ import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus, UserRole } from "./types";
 import { ticketStatusOptions } from "./types";
-import { getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, resolveTemplateForDevice } from "./helpers";
+import { getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, hasConfigSnapshot, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, WindowCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
@@ -48,7 +48,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ComplianceStatus | "All">("All");
   const filteredDevices = devices.filter((device) => `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase()) && (status === "All" || device.complianceStatus === status));
-  const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && device.findings.length > 0;
+  const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && getAvailableFixCount(device, templates, policySettings) > 0;
 
   return (
     <section className="page-content">
@@ -76,7 +76,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <Column header="Actions" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />
-              <Button label="Create Ticket" icon="pi pi-plus-circle" size="small" disabled={row.complianceStatus !== "Non-Compliant" || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
+              <Button label="Create Ticket" icon="pi pi-plus-circle" size="small" disabled={row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
             </div>
           )} />
         </DataTable>
@@ -92,7 +92,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
         <div className="plain-page-title"><h1>Device Findings</h1></div>
         <div className="detail-actions">
           <Button label="Back to Exceptions" icon="pi pi-arrow-left" outlined onClick={onBack} />
-          <Button label="Create Ticket" icon="pi pi-plus-circle" disabled={getAvailableFixCount(device, templates, policySettings) === 0} onClick={() => onCreateTicket(device)} />
+          <Button label="Create Ticket" icon="pi pi-plus-circle" disabled={!hasConfigSnapshot(device) || getAvailableFixCount(device, templates, policySettings) === 0} onClick={() => onCreateTicket(device)} />
         </div>
       </div>
       <Card className="device-detail-card">

@@ -78,7 +78,15 @@ export function isExecutableTemplate(template?: RemediationTemplate) {
   return template.approvalStatus === "Approved" && template.implementationCommands.length > 0 && template.implementationCommands.every((command) => command.trim().length > 0 && !/unknown|not configured|<[^>]+>/i.test(command));
 }
 
-export function getFixAvailability(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
+export function hasConfigSnapshot(device: { configSnapshotPath?: string }) {
+  return Boolean(device.configSnapshotPath?.trim());
+}
+
+export function getFixAvailability(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
+  if (!hasConfigSnapshot(device)) {
+    return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "Device config snapshot is required before a remediation ticket can be created." };
+  }
+
   const findingHash = hashAgreedSetting(finding.expectedValue);
   const hashMatches = templates.filter((template) => hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingHash);
   const hardwareMatches = hashMatches.filter((template) => template.hardwareTypes.includes(device.hardwareType));
@@ -98,7 +106,7 @@ export function getFixAvailability(device: { hardwareType: string }, finding: Fi
   return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "No template has the same agreed-setting payload." };
 }
 
-export function hasExecutableFix(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
+export function hasExecutableFix(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
   return getFixAvailability(device, finding, templates, policySettings).executable;
 }
 
