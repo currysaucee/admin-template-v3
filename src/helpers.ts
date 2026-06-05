@@ -82,11 +82,7 @@ export function hasConfigSnapshot(device: { configSnapshotPath?: string }) {
   return Boolean(device.configSnapshotPath?.trim());
 }
 
-export function getFixAvailability(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
-  if (!hasConfigSnapshot(device)) {
-    return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "Device config snapshot is required before a remediation ticket can be created." };
-  }
-
+export function getTemplateAvailability(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
   const findingHash = hashAgreedSetting(finding.expectedValue);
   const hashMatches = templates.filter((template) => hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingHash);
   const hardwareMatches = hashMatches.filter((template) => template.hardwareTypes.includes(device.hardwareType));
@@ -104,6 +100,16 @@ export function getFixAvailability(device: { hardwareType: string; configSnapsho
     return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: `Agreed setting matches a template, but hardware type is ${hardwareTypes || "not set"} instead of ${device.hardwareType}.` };
   }
   return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "No template has the same agreed-setting payload." };
+}
+
+export function getFixAvailability(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
+  const availability = getTemplateAvailability(device, finding, templates, policySettings);
+
+  if (availability.executable && !hasConfigSnapshot(device)) {
+    return { ...availability, executable: false, severity: "warning" as const, note: "Fix template is available, but device config snapshot is required before a remediation ticket can be created." };
+  }
+
+  return availability;
 }
 
 export function hasExecutableFix(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
