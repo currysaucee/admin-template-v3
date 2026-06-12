@@ -87,6 +87,9 @@ export function MetaTile({ label, value }: { label: string; value: string }) {
 }
 
 export function StatusPill({ value, severity }: { value: string; severity: string }) {
+  if (value === "Partially Complete") {
+    return <div className="status-cell"><span className="status-pill partial-complete-status">{value}</span></div>;
+  }
   return <div className="status-cell"><Tag className={`status-pill ${value === "Partially Complete" ? "partial-complete-status" : ""}`} value={value} severity={severity as any} rounded /></div>;
 }
 

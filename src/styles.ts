@@ -45,7 +45,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .action-row { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
 .action-row .p-button { white-space: nowrap; flex: 0 0 auto; }
 .status-cell { display: flex; justify-content: center; align-items: center; width: 100%; }
-.status-pill { min-width: 132px; justify-content: center; text-align: center; font-weight: 800; }
+.status-pill { min-width: 132px; justify-content: center; text-align: center; font-weight: 800; display: inline-flex; align-items: center; border-radius: 999px; padding: 0.25rem 0.5rem; line-height: 1.5; }
 .partial-complete-status, .p-tag.partial-complete-status, .status-pill.partial-complete-status { background: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; }
 .p-button { min-width: 0; }
 .p-button .p-button-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
