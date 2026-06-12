@@ -48,12 +48,13 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
   if (status === "Partially Complete") {
     return (
       <div className="status-cell">
-        <span
+        <Tag
           className="status-pill partial-complete-status"
+          value={status}
+          severity="success"
+          rounded
           style={{ background: "#dcfce7", color: "#166534", border: "1px solid #86efac" }}
-        >
-          {status}
-        </span>
+        />
       </div>
     );
   }
