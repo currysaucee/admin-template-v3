@@ -5,13 +5,13 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
     case "Compliant":
     case "Approved":
     case "Complete":
+    case "Partially Complete":
       return "success";
     case "Non-Compliant":
     case "Rejected":
       return "danger";
     case "Pending Approval":
     case "Scan Pending":
-    case "Partially Complete":
       return "warning";
     case "Released":
     case "In Progress":
