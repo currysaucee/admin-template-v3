@@ -99,6 +99,14 @@ export type ValidationRunResult = {
   analysedAt: string;
 };
 
+export type FindingExecutionStatus = "Executed Successfully" | "Skipped" | "Post-check Failed";
+
+export type FindingExecutionResult = {
+  findingId: string;
+  status: FindingExecutionStatus;
+  message?: string;
+};
+
 export type DeploymentRunResult = {
   runId: string;
   status: "Successful" | "Failed" | "Not Started";
@@ -107,6 +115,7 @@ export type DeploymentRunResult = {
   preChecks: ValidationRunResult[];
   implementationCommands: Array<{ command: string; status: "Executed" | "Skipped" }>;
   postChecks: ValidationRunResult[];
+  findingResults?: FindingExecutionResult[];
 };
 
 export type Ticket = {

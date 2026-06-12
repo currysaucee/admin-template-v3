@@ -87,7 +87,7 @@ export function MetaTile({ label, value }: { label: string; value: string }) {
 }
 
 export function StatusPill({ value, severity }: { value: string; severity: string }) {
-  return <div className="status-cell"><Tag className="status-pill" value={value} severity={severity as any} rounded /></div>;
+  return <div className="status-cell"><Tag className={`status-pill ${value === "Partially Complete" ? "partial-complete-status" : ""}`} value={value} severity={severity as any} rounded /></div>;
 }
 
 export function UserCell({ name, role }: { name: string; role: string }) {

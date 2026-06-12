@@ -46,6 +46,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .action-row .p-button { white-space: nowrap; flex: 0 0 auto; }
 .status-cell { display: flex; justify-content: center; align-items: center; width: 100%; }
 .status-pill { min-width: 132px; justify-content: center; text-align: center; font-weight: 800; }
+.partial-complete-status { background: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; }
 .p-button { min-width: 0; }
 .p-button .p-button-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .link-button { border: 0; background: transparent; color: #0b63f6; font-weight: 800; cursor: pointer; font-size: 15px; }
@@ -104,6 +105,12 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .config-download-empty { color: #64748b; font-weight: 700; }
 .device-snapshot-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; margin-top: 16px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; }
 .device-snapshot-row span { color: #475569; font-size: 13px; font-weight: 850; }
+.device-reversion-warning { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; padding: 12px 14px; border: 1px solid #fbbf24; border-left: 4px solid #d97706; border-radius: 8px; background: #fffbeb; color: #78350f; }
+.device-reversion-warning i { margin-top: 2px; color: #d97706; }
+.device-reversion-warning strong { display: block; }
+.device-reversion-warning p { margin: 4px 0 0; color: #92400e; line-height: 1.45; }
+.finding-result-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #f0fdf4; color: #166534; font-weight: 700; }
+.finding-result-note.failed { background: #fef2f2; color: #991b1b; }
 .fix-availability-cell, .template-availability-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fix-availability-cell { display: grid; justify-items: start; }
 .template-availability-row { margin-top: 8px; }

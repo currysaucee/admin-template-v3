@@ -29,7 +29,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
             <h2 className="detail-title">{ticket.id}</h2>
             <p className="detail-subtitle">{ticket.crNumber} • Requested by {ticket.requestor}</p>
           </div>
-          <Tag value={ticket.status} severity={getStatusSeverity(ticket.status) as any} rounded />
+          <Tag className={ticket.status === "Partially Complete" ? "partial-complete-status" : undefined} value={ticket.status} severity={getStatusSeverity(ticket.status) as any} rounded />
         </div>
         <div className="device-meta-grid">
           <MetaTile label="Requestor" value={ticket.requestor} />
@@ -48,8 +48,9 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
         <div className="reason-box"><span>Reversion Plan</span><p>{ticket.backoutPlan}</p></div>
       </Card>
       <div className="finding-detail-list">
-        {ticket.devices.map((device) => (
-          <Card key={device.deviceId} className="finding-detail-card">
+        {ticket.devices.map((device) => {
+          const requiresReversion = device.deploymentRun?.status === "Failed" || device.deploymentRun?.findingResults?.some((result) => result.status === "Post-check Failed");
+          return <Card key={device.deviceId} className="finding-detail-card">
             <div className="finding-detail-header">
               <div><h3>{device.hostname}</h3><p>{device.role} • {device.hardwareType} • {device.managementIp}</p></div>
               <div className="action-row">
@@ -61,14 +62,16 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
               <span>Device Config Snapshot</span>
               <ConfigSnapshotDownload path={device.configSnapshotPath} filename={device.configSnapshotFilename} />
             </div>
+            {requiresReversion && <div className="device-reversion-warning"><i className="pi pi-exclamation-triangle" /><div><strong>Reversion required</strong><p>Notify the responsible engineer and execute the approved reversion plan for this device.</p></div></div>}
             {device.findings.map((finding) => {
               const template = resolveTemplateForDevice(device, finding, templates, policySettings);
               const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined;
               const evidenceRun = getDeploymentRunForTemplate(device.deploymentRun ?? ticket.deploymentRun, template);
-              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} showPolicyModel run={evidenceRun} defaultExpanded={Boolean(evidenceRun)} />;
+              const executionResult = device.deploymentRun?.findingResults?.find((result) => result.findingId === finding.id);
+              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} showPolicyModel run={evidenceRun} executionResult={executionResult} defaultExpanded={Boolean(evidenceRun || executionResult)} />;
             })}
           </Card>
-        ))}
+        })}
       </div>
     </section>
   );

@@ -3,14 +3,15 @@ import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
-import type { AutomationValidation, DeploymentRunResult, Finding, PolicySetting, RemediationTemplate, TicketDevice, ValidationRunResult } from "./types";
+import type { AutomationValidation, DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice, ValidationRunResult } from "./types";
 import { findRunResultsForTemplate, getPassConditions, getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice, splitCapturedOutputs, splitDisplayLines } from "./helpers";
 
 export function ConfigSnapshotDownload({ path, filename }: { path?: string; filename?: string }) {
-  if (!path) return <span className="config-download-empty">No device config snapshot available.</span>;
+  const resolvedPath = path || (filename ? `/config-snapshots/${filename}` : "");
+  if (!resolvedPath) return <span className="config-download-empty">No device config snapshot available.</span>;
   const downloadSnapshot = async () => {
-    const response = await fetch(path);
-    if (!response.ok) throw new Error(`Unable to download config snapshot from ${path}`);
+    const response = await fetch(resolvedPath);
+    if (!response.ok) throw new Error(`Unable to download config snapshot from ${resolvedPath}`);
     const snapshotText = await response.text();
     const blob = new Blob([snapshotText], { type: "text/plain;charset=utf-8" });
     const objectUrl = window.URL.createObjectURL(blob);
@@ -25,19 +26,20 @@ export function ConfigSnapshotDownload({ path, filename }: { path?: string; file
   return <Button className="config-download-button" label="Download Config Snapshot" icon="pi pi-download" size="small" outlined onClick={downloadSnapshot} />;
 }
 
-export function FindingDetailCard({ finding, template, run, defaultExpanded = false, implementationOnly = false, policySetting, showPolicyModel = false }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; showPolicyModel?: boolean }) {
+export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, showPolicyModel = false }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; showPolicyModel?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
         <div><div className="finding-title-row"><Tag value={finding.id} severity="info" rounded /><h3>{finding.title}</h3></div><p>{finding.detectedAt}</p></div>
-        <div className="action-row">{run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
+        <div className="action-row">{executionResult && <Tag value={executionResult.status} severity={executionResult.status === "Executed Successfully" ? "success" : executionResult.status === "Post-check Failed" ? "danger" : "secondary"} rounded />}{!executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
       <div className="finding-detail-grid">
         <div className="noncompliance-box success-box"><span>Agreed Settings (policy)</span><strong>{finding.expectedValue}</strong></div>
       </div>
       <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
+      {executionResult?.message && <div className={`finding-result-note ${executionResult.status === "Post-check Failed" ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
     </Card>
   );

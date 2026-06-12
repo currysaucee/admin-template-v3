@@ -79,8 +79,8 @@ export function isExecutableTemplate(template?: RemediationTemplate) {
   return template.approvalStatus === "Approved" && template.implementationCommands.length > 0 && template.implementationCommands.every((command) => command.trim().length > 0 && !/unknown|not configured|<[^>]+>/i.test(command));
 }
 
-export function hasConfigSnapshot(device: { configSnapshotPath?: string }) {
-  return Boolean(device.configSnapshotPath?.trim());
+export function hasConfigSnapshot(device: { configSnapshotPath?: string; configSnapshotFilename?: string }) {
+  return Boolean(device.configSnapshotPath?.trim() || device.configSnapshotFilename?.trim());
 }
 
 export function getTemplateAvailability(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
