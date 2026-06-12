@@ -150,7 +150,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
 function RemediationStep({ selectedTicketDevices, templates, policySettings, selectedCommandCount }: Parameters<typeof CreateTicketPage>[0]) {
   return (
     <div className="step-stack">
-      {selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} showPolicyModel defaultExpanded />)}
+      {selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} showPolicyModel implementationOnly defaultExpanded />)}
     </div>
   );
 }
@@ -190,7 +190,7 @@ function ReviewStep({ selectedTicketDevices, templates, policySettings, selected
           <p className="section-subtitle">Open each device and finding to review the approved implementation commands before submission.</p>
         </div>
         <div className="review-remediation-stack">
-          {selectedTicketDevices.length === 0 ? <p className="empty-text">No remediation selected.</p> : selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} showPolicyModel showFailureBehaviour />)}
+          {selectedTicketDevices.length === 0 ? <p className="empty-text">No remediation selected.</p> : selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} showPolicyModel showFailureBehaviour implementationOnly />)}
         </div>
       </div>
       <div className="review-card"><h3>2. Change Request</h3><p><strong>Change Window:</strong> {formatDate(plannedStart)} to {formatDate(plannedEnd)}</p></div>

@@ -45,7 +45,7 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
   );
 }
 
-export function DeviceFixGroup({ device, templates, policySettings = [], defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false }: { device: TicketDevice; templates: RemediationTemplate[]; policySettings?: PolicySetting[]; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean }) {
+export function DeviceFixGroup({ device, templates, policySettings = [], defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false }: { device: TicketDevice; templates: RemediationTemplate[]; policySettings?: PolicySetting[]; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const stepCount = device.findings.reduce((total, finding) => total + getTemplateCommandCount(resolveTemplateForDevice(device, finding, templates, policySettings)), 0);
   return (
@@ -69,7 +69,7 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
           </div>
           {device.findings.map((finding, index) => {
             const template = resolveTemplateForDevice(device, finding, templates, policySettings);
-            return <FindingFixAccordion key={finding.id} finding={finding} template={template} policySetting={template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined} defaultExpanded={index === 0} showFailureBehaviour={showFailureBehaviour} showPolicyModel={showPolicyModel} />;
+            return <FindingFixAccordion key={finding.id} finding={finding} template={template} policySetting={template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined} defaultExpanded={index === 0} showFailureBehaviour={showFailureBehaviour} showPolicyModel={showPolicyModel} implementationOnly={implementationOnly} />;
           })}
         </div>
       )}
@@ -77,7 +77,7 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
   );
 }
 
-function FindingFixAccordion({ finding, template, policySetting, defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false }: { finding: Finding; template?: RemediationTemplate; policySetting?: PolicySetting; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean }) {
+function FindingFixAccordion({ finding, template, policySetting, defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false }: { finding: Finding; template?: RemediationTemplate; policySetting?: PolicySetting; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <div className="command-block">
@@ -91,7 +91,7 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
           <i className={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} />
         </div>
       </button>
-      {expanded && <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} />}
+      {expanded && <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} />}
     </div>
   );
 }
