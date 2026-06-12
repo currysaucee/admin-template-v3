@@ -29,14 +29,6 @@ export type Device = {
   findings: Finding[];
 };
 
-export type AutomationValidation = {
-  scriptName: string;
-  command: string;
-  expectedCondition: string;
-  passCriteria: string;
-  capturedResult: string;
-};
-
 export type RemediationTemplate = {
   hardwareTypes: string[];
   key: string;
@@ -44,9 +36,7 @@ export type RemediationTemplate = {
   findingName: string;
   agreedSetting: string;
   standard: string;
-  preChecks: AutomationValidation[];
   implementationCommands: string[];
-  postChecks: AutomationValidation[];
   failureBehaviour: string;
   approvalStatus: TemplateApprovalStatus;
   updatedAt: string;
@@ -88,18 +78,7 @@ export type TicketDevice = {
   deploymentRun?: DeploymentRunResult;
 };
 
-export type ValidationRunResult = {
-  scriptName: string;
-  phase: "Pre-check" | "Post-check";
-  command: string;
-  expectedCondition: string;
-  passCriteria: string;
-  capturedOutput: string;
-  result: "Passed" | "Failed" | "Skipped";
-  analysedAt: string;
-};
-
-export type FindingExecutionStatus = "Executed Successfully" | "Skipped" | "Post-check Failed";
+export type FindingExecutionStatus = "Executed Successfully" | "Skipped" | "Validation Failed";
 
 export type FindingExecutionResult = {
   findingId: string;
@@ -110,11 +89,9 @@ export type FindingExecutionResult = {
 export type DeploymentRunResult = {
   runId: string;
   status: "Successful" | "Failed" | "Not Started";
-  failureStage?: "Pre-check" | "Implementation" | "Post-check";
+  failureStage?: "Validation" | "Implementation";
   failureReason?: string;
-  preChecks: ValidationRunResult[];
   implementationCommands: Array<{ command: string; status: "Executed" | "Skipped" }>;
-  postChecks: ValidationRunResult[];
   findingResults?: FindingExecutionResult[];
 };
 

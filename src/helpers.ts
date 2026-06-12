@@ -1,4 +1,4 @@
-import type { AutomationValidation, DeploymentRunResult, Device, Finding, ComplianceStatus, PolicySetting, RemediationTemplate, TicketDevice, TicketStatus, ValidationRunResult } from "./types";
+import type { DeploymentRunResult, Device, Finding, ComplianceStatus, PolicySetting, RemediationTemplate, TicketDevice, TicketStatus } from "./types";
 
 export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
   switch (status) {
@@ -134,11 +134,6 @@ export function splitDisplayLines(value: string) {
   return value.split(/\r?\n|\\n/).map((line) => line.trim()).filter(Boolean);
 }
 
-export function getPassConditions(check: Pick<AutomationValidation, "expectedCondition" | "passCriteria">) {
-  const merged = [check.expectedCondition, check.passCriteria].filter(Boolean).join("\n");
-  return Array.from(new Set(splitDisplayLines(merged)));
-}
-
 export function splitCapturedOutputs(value: string, commandCount: number) {
   const parts = value.split(/\r?\n---\r?\n|\\n---\\n/).map((part) => part.trim());
   if (parts.length > 1) return parts;
@@ -146,18 +141,11 @@ export function splitCapturedOutputs(value: string, commandCount: number) {
   return [value.trim(), ...Array.from({ length: commandCount - 1 }, () => "No separate output captured.")];
 }
 
-export function findRunResultsForTemplate(rows: ValidationRunResult[], templateRows: AutomationValidation[]) {
-  return templateRows.map((templateRow) => rows.find((row) => row.scriptName === templateRow.scriptName || row.command === templateRow.command));
-}
-
 export function getDeploymentRunForTemplate(run: DeploymentRunResult | undefined, template: RemediationTemplate | undefined) {
   if (!run || !template) return undefined;
-  const templateScripts = new Set([...template.preChecks, ...template.postChecks].map((check) => check.scriptName));
   const templateCommands = new Set(template.implementationCommands.map((command) => command.trim()).filter(Boolean));
-  const hasMatchingValidation = [...run.preChecks, ...run.postChecks].some((row) => templateScripts.has(row.scriptName));
   const hasMatchingImplementation = run.implementationCommands.some((row) => templateCommands.has(row.command.trim()));
-  const hasMatchingEvidence = hasMatchingValidation || hasMatchingImplementation;
-  return hasMatchingEvidence ? run : undefined;
+  return hasMatchingImplementation ? run : undefined;
 }
 
 export function escapeTemplateCell(value: string) {
@@ -166,32 +154,6 @@ export function escapeTemplateCell(value: string) {
 
 export function unescapeTemplateCell(value: string) {
   return value.replace(/\\n/g, "\n");
-}
-
-export function validationToText(check: AutomationValidation) {
-  return [check.scriptName, check.command, getPassConditions(check).join("\\n"), check.capturedResult].map(escapeTemplateCell).join(" :: ");
-}
-
-export function textToValidation(line: string): AutomationValidation {
-  const isStructured = line.includes(" :: ");
-  const parts = isStructured ? line.split(" :: ") : line.split("|");
-  const [scriptName = "unnamed-script", command = "", expectedCondition = "", passCriteria = "", capturedResult = "Captured automatically during deployment run."] = parts.map((part) => unescapeTemplateCell(part.trim()));
-  const combinedCriteria = isStructured ? expectedCondition : [expectedCondition, passCriteria].filter(Boolean).join("\n");
-  return {
-    scriptName: scriptName || "unnamed-script",
-    command: command || "Command not specified",
-    expectedCondition: combinedCriteria || "Pass condition not specified",
-    passCriteria: "",
-    capturedResult: (isStructured ? passCriteria : capturedResult) || "Captured automatically during deployment run.",
-  };
-}
-
-export function validationsToText(checks: AutomationValidation[]) {
-  return checks.map(validationToText).join("\n");
-}
-
-export function textToValidations(value: string) {
-  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map(textToValidation);
 }
 
 export function commandsToText(commands: string[]) {

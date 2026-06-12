@@ -11,7 +11,7 @@ import { Card } from "primereact/card";
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
 import { getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, hasConfigSnapshot, resolveTemplateForDevice } from "./helpers";
-import { DeviceCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, WindowCell, MetaTile } from "./sharedUi";
+import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
 export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ticket[]; onView: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
@@ -22,7 +22,7 @@ export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ti
 
   return (
     <section className="page-content">
-      <PageHeader title="Dashboard" subtitle="View, update, approve, reject, cancel, or deploy remediation tickets." />
+      <PageHeader title="Dashboard" subtitle="View, approve, reject, cancel, or release remediation tickets." />
       <div className="filter-card">
         <span className="p-input-icon-left grow-input">
           <i className="pi pi-search" />
@@ -35,7 +35,7 @@ export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ti
           <Column field="id" header="Ticket ID" sortable body={(row: Ticket) => <button className="link-button" onClick={() => onView(row)}>{row.id}</button>} />
           <Column header="Requestor" body={(row: Ticket) => <UserCell name={row.requestor} role={row.requestorRole} />} />
           <Column header="Device" body={(row: Ticket) => <TicketDeviceCell ticket={row} />} />
-          <Column header="Planned Window" sortable body={(row: Ticket) => <WindowCell start={row.plannedStart} end={row.plannedEnd} />} />
+          <Column header="Implementation Date" sortable body={(row: Ticket) => <ImplementationDateCell date={row.plannedStart} />} />
           <Column header="Status" body={(row: Ticket) => <TicketStatusCell status={row.status} />} />
           <Column header="Actions" body={(row: Ticket) => <TicketActions ticket={row} onView={onView} onStatusChange={onStatusChange} />} />
         </DataTable>
@@ -64,8 +64,13 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
 
 export function InventoryPage({ devices, templates, policySettings, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: () => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
   const [search, setSearch] = useState("");
+  const [findingSearch, setFindingSearch] = useState("");
   const [status, setStatus] = useState<ComplianceStatus | "All">("All");
-  const filteredDevices = devices.filter((device) => `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase()) && (status === "All" || device.complianceStatus === status));
+  const filteredDevices = devices.filter((device) => {
+    const deviceMatch = `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase());
+    const findingMatch = !findingSearch.trim() || device.findings.some((finding) => `${finding.id} ${finding.title} ${finding.standard} ${finding.expectedValue} ${finding.currentValue} ${finding.reason}`.toLowerCase().includes(findingSearch.toLowerCase()));
+    return deviceMatch && findingMatch && (status === "All" || device.complianceStatus === status);
+  });
   const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && getAvailableFixCount(device, templates, policySettings) > 0;
 
   return (
@@ -75,6 +80,10 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
         <span className="p-input-icon-left grow-input">
           <i className="pi pi-search" />
           <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search devices..." />
+        </span>
+        <span className="p-input-icon-left grow-input">
+          <i className="pi pi-filter" />
+          <InputText value={findingSearch} onChange={(e) => setFindingSearch(e.target.value)} placeholder="Filter finding or policy ID..." />
         </span>
         <Dropdown value={status} options={["All", "Non-Compliant"]} onChange={(e) => setStatus(e.value as ComplianceStatus | "All")} placeholder="Compliance Status" />
       </div>

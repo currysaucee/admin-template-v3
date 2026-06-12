@@ -82,7 +82,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
     const nextKey = selectedKey.startsWith("CUSTOM_") ? inferredKey || selectedKey : draftTemplateKey.trim() || selectedKey;
     setTemplates((prev) => prev.map((template) => template.key === selectedKey ? { ...template, ...draftMeta, key: nextKey,
           policySettingId: draftPolicySettingId || undefined, agreedSetting: selectedPolicySetting?.settingPayload ?? template.agreedSetting,
-          standard: selectedPolicySetting?.standard ?? draftMeta.standard, hardwareTypes: draftHardwareTypes.map((item) => item.trim()).filter(Boolean), preChecks: [], implementationCommands: draftImplementationCommands.map((command) => command.trim()).filter(Boolean), postChecks: [], failureBehaviour: draftFailureBehaviour.trim(), updatedAt: formatDate(new Date()) } : template));
+          standard: selectedPolicySetting?.standard ?? draftMeta.standard, hardwareTypes: draftHardwareTypes.map((item) => item.trim()).filter(Boolean), implementationCommands: draftImplementationCommands.map((command) => command.trim()).filter(Boolean), failureBehaviour: draftFailureBehaviour.trim(), updatedAt: formatDate(new Date()) } : template));
     setSelectedKey(nextKey);
     setViewMode("detail");
   };
@@ -114,9 +114,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
       agreedSetting: selectedPolicySetting?.settingPayload ?? "",
       standard: selectedPolicySetting?.standard ?? draftMeta.standard,
       hardwareTypes: draftHardwareTypes.map((item) => item.trim()).filter(Boolean),
-      preChecks: [],
       implementationCommands: draftImplementationCommands.map((command) => command.trim()).filter(Boolean),
-      postChecks: [],
       failureBehaviour: draftFailureBehaviour.trim(),
       approvalStatus: "Pending Approval",
       updatedAt: submittedAt,

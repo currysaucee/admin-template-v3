@@ -96,8 +96,8 @@ export function createInitialTicketState(): CreateTicketState {
   return {
     selectedDeviceIds: [],
     selectedFindingKeys: [],
-    plannedStart: new Date(2025, 4, 24, 22, 0),
-    plannedEnd: new Date(2025, 4, 25, 2, 0),
+    plannedStart: null,
+    plannedEnd: null,
     implementationPlan: "",
     backoutPlan: "",
   };
@@ -135,10 +135,10 @@ export function createPendingTicket(currentRole: UserRole, tickets: Ticket[], se
     requestorRole: currentRole,
     devices: selectedTicketDevices,
     plannedStart: formatDate(state.plannedStart),
-    plannedEnd: formatDate(state.plannedEnd),
+    plannedEnd: "",
     status: "Pending Approval",
-    implementationPlan: state.implementationPlan.trim(),
-    backoutPlan: state.backoutPlan.trim(),
+    implementationPlan: "",
+    backoutPlan: "",
     createdAt: formatDate(new Date()),
   };
 }

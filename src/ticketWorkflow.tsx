@@ -1,17 +1,15 @@
 import React from "react";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
-import { InputText } from "primereact/inputtext";
-import { MultiSelect } from "primereact/multiselect";
 import { Checkbox } from "primereact/checkbox";
 import { Calendar } from "primereact/calendar";
-import { InputTextarea } from "primereact/inputtextarea";
 import { Card } from "primereact/card";
+import { Dialog } from "primereact/dialog";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findFindingKey, formatDate, getFixAvailability, getTemplateCommandCount, hasExecutableFix } from "./helpers";
+import { findFindingKey, getFixAvailability } from "./helpers";
 import { DeviceFixGroup } from "./remediationViews";
-import { DeviceMiniCard, DeviceOptionTemplate, PageHeader } from "./sharedUi";
+import { PageHeader } from "./sharedUi";
 
 export function CreateTicketPage(props: {
   devices: Device[];
@@ -37,59 +35,63 @@ export function CreateTicketPage(props: {
   onCancel: () => void;
   onSubmit: () => void;
 }) {
-  const steps = [{ label: "Scope" }, { label: "Remediation Items" }, { label: "Change Request" }, { label: "Review & Submit" }];
-  const canGoNext = props.step === 0 ? props.selectedDeviceIds.length > 0 && props.selectedFindingKeys.length > 0 : props.step === 1 ? props.selectedCommandCount > 0 : props.step === 2 ? Boolean(props.plannedStart && props.plannedEnd) : true;
+  const [showDateDialog, setShowDateDialog] = React.useState(false);
+  const steps = [{ label: "Findings" }, { label: "Review" }];
+  const currentStep = Math.min(props.step, steps.length - 1);
+  const canGoNext = currentStep === 0 ? props.selectedFindingKeys.length > 0 : props.selectedCommandCount > 0;
 
   return (
     <section className="page-content">
-      <PageHeader title="Create Ticket" subtitle="Fix templates are used here immediately after you update them in Fix Templates." />
+      <PageHeader title="Create Ticket" subtitle="Select approved findings and review the exact implementation commands before submitting." />
       <Card className="wizard-card">
         <div className="ticket-stepper" aria-label="Create ticket steps">
           {steps.map((item, index) => (
-            <div key={item.label} className={`ticket-stepper-item ${index === props.step ? "active" : ""} ${index < props.step ? "complete" : ""}`}>
+            <div key={item.label} className={`ticket-stepper-item ${index === currentStep ? "active" : ""} ${index < currentStep ? "complete" : ""}`}>
               <span>{index + 1}</span>
               <strong>{item.label}</strong>
             </div>
           ))}
         </div>
         <div className="step-content">
-          {props.step === 0 && <ScopeStep {...props} />}
-          {props.step === 1 && <RemediationStep {...props} />}
-          {props.step === 2 && <ChangeRequestStep {...props} />}
-          {props.step === 3 && <ReviewStep {...props} />}
+          {currentStep === 0 && <ScopeStep {...props} />}
+          {currentStep === 1 && <ReviewStep {...props} />}
         </div>
         <div className="wizard-footer">
-          <Button label={props.step === 0 ? "Cancel" : "Back"} icon={props.step === 0 ? undefined : "pi pi-arrow-left"} outlined onClick={() => (props.step === 0 ? props.onCancel() : props.setStep(props.step - 1))} />
-          {props.step < 3 ? (
-            <Button label={props.step === 0 ? "Next: Remediation Items" : props.step === 1 ? "Next: Change Request" : "Next: Review & Submit"} icon="pi pi-arrow-right" iconPos="right" disabled={!canGoNext} onClick={() => props.setStep(props.step + 1)} />
+          <Button label={currentStep === 0 ? "Cancel" : "Back"} icon={currentStep === 0 ? undefined : "pi pi-arrow-left"} outlined onClick={() => (currentStep === 0 ? props.onCancel() : props.setStep(currentStep - 1))} />
+          {currentStep < 1 ? (
+            <Button label="Next: Review" icon="pi pi-arrow-right" iconPos="right" disabled={!canGoNext} onClick={() => props.setStep(props.step + 1)} />
           ) : (
-            <Button label="Create Ticket" icon="pi pi-check" onClick={props.onSubmit} />
+            <Button label="Submit Ticket" icon="pi pi-check" disabled={!canGoNext} onClick={() => setShowDateDialog(true)} />
           )}
         </div>
       </Card>
+      <Dialog visible={showDateDialog} onHide={() => setShowDateDialog(false)} header="Choose Implementation Date" style={{ width: "28rem" }} modal>
+        <div className="template-editor-stack">
+          <div className="field-block">
+            <label>Implementation Date</label>
+            <Calendar value={props.plannedStart} onChange={(event) => props.setPlannedStart(event.value as Date | null)} dateFormat="M dd, yy" showIcon />
+          </div>
+          <div className="wizard-footer compact-footer">
+            <Button label="Cancel" outlined onClick={() => setShowDateDialog(false)} />
+            <Button label="Submit Ticket" icon="pi pi-check" disabled={!props.plannedStart} onClick={() => { setShowDateDialog(false); props.onSubmit(); }} />
+          </div>
+        </div>
+      </Dialog>
     </section>
   );
 }
 
 function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setSelectedDeviceIds, selectedFindingKeys, setSelectedFindingKeys, selectedDevices }: Parameters<typeof CreateTicketPage>[0]) {
+  const visibleDevices = selectedDeviceIds.length > 0 ? selectedDevices : devices;
   return (
     <div className="scope-grid">
-      <div className="field-block full-span">
-        <label>Select Device(s)</label>
-        <MultiSelect value={selectedDeviceIds} options={devices} optionLabel="hostname" optionValue="id" display="chip" placeholder="Search and select device(s)..." filter itemTemplate={(device: Device) => <DeviceOptionTemplate device={device} />} onChange={(e) => { const ids = e.value as string[]; setSelectedDeviceIds(ids); setSelectedFindingKeys((prev) => prev.filter((key) => ids.some((id) => key.startsWith(`${id}:`)))); }} />
-        <small className="muted-note">Only non-compliant devices with findings are shown. Removing a device also removes its selected findings.</small>
-      </div>
-      <div className="summary-card full-span">
-        <h3>Selected Device(s)</h3>
-        {selectedDevices.length === 0 ? <p className="empty-text">No device selected yet.</p> : <div className="device-list-mini">{selectedDevices.map((device) => <DeviceMiniCard key={device.id} device={device} onRemove={() => { setSelectedDeviceIds(selectedDeviceIds.filter((id) => id !== device.id)); setSelectedFindingKeys(selectedFindingKeys.filter((key) => !key.startsWith(`${device.id}:`))); }} />)}</div>}
-      </div>
       <div className="summary-card full-span">
         <h3>Findings</h3>
-        <p className="section-subtitle">Select one or more findings to remediate for the selected device scope.</p>
-        {selectedDevices.length === 0 ? (
-          <p className="empty-text">Select a device to load findings.</p>
+        <p className="section-subtitle">Select one or more approved finding fixes. Use the Exceptions page filters to narrow this list before creating a ticket.</p>
+        {visibleDevices.length === 0 ? (
+          <p className="empty-text">No eligible findings are available.</p>
         ) : (
-          selectedDevices.map((device) => (
+          visibleDevices.map((device) => (
             <div key={device.id} className="finding-group">
               <div className="finding-group-title">{device.hostname}</div>
               {device.findings.length === 0 ? (
@@ -99,13 +101,14 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                   <div className="finding-list-header">
                     <span></span>
                     <span>Finding Rule</span>
-                    <span>Standard / Expected Config</span>
+                    <span>Implementation Commands</span>
                   </div>
                   {device.findings.map((finding) => {
                     const key = findFindingKey(device.id, finding.id);
                     const checked = selectedFindingKeys.includes(key);
                     const availability = getFixAvailability(device, finding, templates, policySettings);
                     const hasTemplateFix = availability.executable;
+                    const implementationCommands = availability.template?.implementationCommands ?? [];
                     return (
                       <div key={key} className={`finding-list-row ${hasTemplateFix ? "" : "finding-list-row-disabled"}`}>
                         <Checkbox
@@ -117,6 +120,11 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                             setSelectedFindingKeys((prev) => {
                               if (next) return Array.from(new Set([...prev, key]));
                               return prev.filter((item) => item !== key);
+                            });
+                            setSelectedDeviceIds((prev) => {
+                              if (next) return Array.from(new Set([...prev, device.id]));
+                              const remainingFindingKeys = selectedFindingKeys.filter((item) => item !== key);
+                              return remainingFindingKeys.some((item) => item.startsWith(`${device.id}:`)) ? prev : prev.filter((id) => id !== device.id);
                             });
                           }}
                         />
@@ -130,8 +138,12 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                           <small className="template-availability-note">{availability.note}</small>
                         </div>
                         <div className="finding-standard-cell">
-                          <span className="mobile-field-label">Standard / Expected Config</span>
-                          <strong className="payload-config-text">Agreed setting: {finding.expectedValue}</strong>
+                          <span className="mobile-field-label">Implementation Commands</span>
+                          <div className="command-list compact-command-list">
+                            {(implementationCommands.length ? implementationCommands : ["No implementation command configured."]).map((command, index) => (
+                              <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>
+                            ))}
+                          </div>
                           {!hasTemplateFix && <div className="template-disabled-note"><i className="pi pi-lock" />No template fix has been configured yet.</div>}
                         </div>
                       </div>
@@ -147,40 +159,15 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
   );
 }
 
-function RemediationStep({ selectedTicketDevices, templates, policySettings, selectedCommandCount }: Parameters<typeof CreateTicketPage>[0]) {
-  return (
-    <div className="step-stack">
-      {selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} showPolicyModel implementationOnly defaultExpanded />)}
-    </div>
-  );
-}
-
-function ChangeRequestStep({ selectedTicketDevices, plannedStart, setPlannedStart, plannedEnd, setPlannedEnd, implementationPlan, setImplementationPlan, backoutPlan, setBackoutPlan }: Parameters<typeof CreateTicketPage>[0]) {
-  return (
-    <div className="step-stack">
-      <div className="summary-card">
-        <h3>Change Request Details</h3>
-        <div className="implementation-banner"><p>Implementation commands are only pushed after automation pre-checks pass for each device and each finding.</p></div>
-        <div className="form-grid">
-          <div className="field-block"><label>Change Start</label><Calendar value={plannedStart} onChange={(e) => setPlannedStart(e.value as Date | null)} showTime hourFormat="12" /></div>
-          <div className="field-block"><label>Change End</label><Calendar value={plannedEnd} onChange={(e) => setPlannedEnd(e.value as Date | null)} showTime hourFormat="12" /></div>
-          <div className="field-block full-span"><label>Implementation Plan</label><InputTextarea value={implementationPlan} onChange={(e) => setImplementationPlan(e.target.value)} rows={4} autoResize /></div>
-          <div className="field-block full-span"><label>Reversion Plan</label><InputTextarea value={backoutPlan} onChange={(e) => setBackoutPlan(e.target.value)} rows={4} autoResize /></div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReviewStep({ selectedTicketDevices, templates, policySettings, selectedCommandCount, plannedStart, plannedEnd }: Parameters<typeof CreateTicketPage>[0]) {
+function ReviewStep({ selectedTicketDevices, templates, policySettings, selectedCommandCount }: Parameters<typeof CreateTicketPage>[0]) {
   const findings = selectedTicketDevices.flatMap((device) => device.findings);
   return (
     <div className="step-stack">
       <div className="review-card">
-        <h3>1. Scope</h3>
+        <h3>Review</h3>
         <div className="review-grid">
           <div><strong>Devices ({selectedTicketDevices.length})</strong>{selectedTicketDevices.length === 0 ? <p>No devices selected.</p> : selectedTicketDevices.map((device) => <p key={device.deviceId}>{device.hostname} • {device.role} • {device.managementIp}</p>)}</div>
-          <div><strong>Remediation Items ({findings.length})</strong>{findings.length === 0 ? <p>No findings selected.</p> : findings.map((finding) => <p key={finding.id}>{finding.id} • {finding.title} • {finding.standard}</p>)}</div>
+          <div><strong>Findings ({findings.length})</strong>{findings.length === 0 ? <p>No findings selected.</p> : findings.map((finding) => <p key={finding.id}>{finding.id} • {finding.title}</p>)}</div>
         </div>
         <div className="review-scope-remediation">
           <div className="review-section-heading">
@@ -190,10 +177,9 @@ function ReviewStep({ selectedTicketDevices, templates, policySettings, selected
           <p className="section-subtitle">Open each device and finding to review the approved implementation commands before submission.</p>
         </div>
         <div className="review-remediation-stack">
-          {selectedTicketDevices.length === 0 ? <p className="empty-text">No remediation selected.</p> : selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} showPolicyModel showFailureBehaviour implementationOnly />)}
+          {selectedTicketDevices.length === 0 ? <p className="empty-text">No remediation selected.</p> : selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} implementationOnly />)}
         </div>
       </div>
-      <div className="review-card"><h3>2. Change Request</h3><p><strong>Change Window:</strong> {formatDate(plannedStart)} to {formatDate(plannedEnd)}</p></div>
     </div>
   );
 }

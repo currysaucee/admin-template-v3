@@ -41,8 +41,8 @@ function NetComplyPrototype() {
   const [bulkInventorySelection, setBulkInventorySelection] = useState<Device[]>([]);
   const [selectedFindingKeys, setSelectedFindingKeys] = useState<string[]>([]);
   const [step, setStep] = useState(0);
-  const [plannedStart, setPlannedStart] = useState<Date | null>(new Date(2025, 4, 24, 22, 0));
-  const [plannedEnd, setPlannedEnd] = useState<Date | null>(new Date(2025, 4, 25, 2, 0));
+  const [plannedStart, setPlannedStart] = useState<Date | null>(null);
+  const [plannedEnd, setPlannedEnd] = useState<Date | null>(null);
   const [implementationPlan, setImplementationPlan] = useState("");
   const [backoutPlan, setBackoutPlan] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -107,8 +107,8 @@ function NetComplyPrototype() {
     setStep(0);
     setSelectedDeviceIds(device ? [device.id] : []);
     setSelectedFindingKeys(device && preselectAllFindings ? getExecutableFindings(device, templates, policySettings).map((finding) => findFindingKey(device.id, finding.id)) : []);
-    setPlannedStart(new Date(2025, 4, 24, 22, 0));
-    setPlannedEnd(new Date(2025, 4, 25, 2, 0));
+    setPlannedStart(null);
+    setPlannedEnd(null);
     setImplementationPlan("");
     setBackoutPlan("");
   };
@@ -123,10 +123,10 @@ function NetComplyPrototype() {
       requestorRole: currentRole,
       devices: selectedTicketDevices,
       plannedStart: formatDate(plannedStart),
-      plannedEnd: formatDate(plannedEnd),
+      plannedEnd: "",
       status: "Pending Approval",
-      implementationPlan: implementationPlan.trim(),
-      backoutPlan: backoutPlan.trim(),
+      implementationPlan: "",
+      backoutPlan: "",
       createdAt: formatDate(new Date()),
     };
     setTickets((prev) => [nextTicket, ...prev]);

@@ -3,9 +3,9 @@ import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
-import type { DeploymentRunResult, PolicySetting, RemediationTemplate, Ticket, TicketStatus, ValidationRunResult } from "./types";
+import type { PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { getDeploymentRunForTemplate, getStatusSeverity, resolveTemplateForDevice } from "./helpers";
-import { ConfigSnapshotDownload, FindingDetailCard, ScriptValidationBlock } from "./remediationViews";
+import { ConfigSnapshotDownload, FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
 export function TicketDetailPage({ ticket, templates, policySettings, onBack, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
@@ -34,8 +34,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
         <div className="device-meta-grid">
           <MetaTile label="Requestor" value={ticket.requestor} />
           <MetaTile label="Role" value={ticket.requestorRole} />
-          <MetaTile label="Start" value={ticket.plannedStart} />
-          <MetaTile label="End" value={ticket.plannedEnd} />
+          <MetaTile label="Implementation Date" value={ticket.plannedStart || "Not selected"} />
         </div>
         {hasDeviceResults && <div className="device-meta-grid ticket-result-summary">
           <MetaTile label="Successful Devices" value={String(completedDevices)} />
@@ -43,13 +42,9 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
           <MetaTile label="Not Completed" value={String(pendingDevices)} />
         </div>}
       </Card>
-      <Card className="device-detail-card">
-        <div className="reason-box"><span>Implementation Plan</span><p>{ticket.implementationPlan}</p></div>
-        <div className="reason-box"><span>Reversion Plan</span><p>{ticket.backoutPlan}</p></div>
-      </Card>
       <div className="finding-detail-list">
         {ticket.devices.map((device) => {
-          const requiresReversion = device.deploymentRun?.status === "Failed" || device.deploymentRun?.findingResults?.some((result) => result.status === "Post-check Failed");
+          const requiresReversion = device.deploymentRun?.status === "Failed" || device.deploymentRun?.findingResults?.some((result) => result.status === "Validation Failed");
           return <Card key={device.deviceId} className="finding-detail-card">
             <div className="finding-detail-header">
               <div><h3>{device.hostname}</h3><p>{device.role} • {device.hardwareType} • {device.managementIp}</p></div>
@@ -74,47 +69,6 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
         })}
       </div>
     </section>
-  );
-}
-
-function DeploymentRunPanel({ run }: { run: DeploymentRunResult }) {
-  return (
-    <div className="deployment-run-panel">
-      <div className="deployment-run-header">
-        <div>
-          <h3>Deployment Run Output</h3>
-          <p>{run.runId}</p>
-        </div>
-        <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />
-      </div>
-      {run.failureReason && <div className="run-alert"><strong>{run.failureStage} failed</strong><p>{run.failureReason}</p></div>}
-      <RunResultTable title="Pre-check Output" rows={run.preChecks} />
-      <div className="execution-section">
-        <div className="execution-section-header"><strong>Implementation Commands</strong><Tag value={run.implementationCommands.some((item) => item.status === "Executed") ? "Executed" : "Skipped"} severity={run.implementationCommands.some((item) => item.status === "Executed") ? "success" : "secondary"} /></div>
-        <div className="command-list">{run.implementationCommands.map((item, index) => <div key={`${item.command}-${index}`} className="command-line"><span>{index + 1}</span><code>{item.command}</code><Tag value={item.status} severity={item.status === "Executed" ? "success" : "secondary"} /></div>)}</div>
-      </div>
-      <RunResultTable title="Post-check Output" rows={run.postChecks} />
-    </div>
-  );
-}
-
-function RunResultTable({ title, rows }: { title: string; rows: ValidationRunResult[] }) {
-  return (
-    <div className="execution-section">
-      <div className="execution-section-header"><strong>{title}</strong><Tag value={`${rows.length} script${rows.length === 1 ? "" : "s"}`} severity="info" /></div>
-      <div className="script-check-list">
-        {rows.map((row, index) => (
-          <div key={`${row.phase}-${row.scriptName}`} className="script-check-block">
-            <ScriptValidationBlock check={row} index={index} result={row.result} />
-            <div className="captured-output-panel">
-              <div className="numbered-line-title">Captured Output</div>
-              <code>{row.capturedOutput || "<empty output>"}</code>
-              <small>{row.analysedAt}</small>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 

@@ -112,6 +112,10 @@ export function WindowCell({ start, end }: { start: string; end: string }) {
   return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{start.split(",")[0]}</strong><span>{start.includes(",") ? start.split(",").slice(1).join(",") : start} to {end}</span></div></div>;
 }
 
+export function ImplementationDateCell({ date }: { date: string }) {
+  return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{date || "Not selected"}</strong><span>Implementation date</span></div></div>;
+}
+
 export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void; showView?: boolean }) {
   const canDecide = ticket.status === "Pending Approval";
   const canRelease = ticket.status === "Approved";
