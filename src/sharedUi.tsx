@@ -109,11 +109,19 @@ export function WindowCell({ start, end }: { start: string; end: string }) {
   return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{start.split(",")[0]}</strong><span>{start.includes(",") ? start.split(",").slice(1).join(",") : start} to {end}</span></div></div>;
 }
 
-export function TicketActions({ ticket, currentRole, onView, onEdit, onStatusChange }: { ticket: Ticket; currentRole: UserRole; onView: (ticket: Ticket) => void; onEdit: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
-  const canApprove = (currentRole === "Approver" || currentRole === "Change Manager") && ticket.status === "Pending Approval";
-  const canDeploy = currentRole === "Network Engineer" && ticket.status === "Approved";
-  const canCancel = currentRole !== "Approver" && ["Pending Approval", "Approved", "Scheduled", "In Progress"].includes(ticket.status);
-  return <div className="action-row"><Button label="View" icon="pi pi-eye" size="small" onClick={() => onView(ticket)} /><Button label="Update" icon="pi pi-pencil" size="small" severity="warning" onClick={() => onEdit(ticket)} />{canApprove && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}{canApprove && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}{canDeploy && <Button label="Deploy" icon="pi pi-upload" size="small" onClick={() => onStatusChange(ticket.id, "Deployed")} />}{canCancel && <Button label="Cancel" icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}</div>;
+export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void; showView?: boolean }) {
+  const canDecide = ticket.status === "Pending Approval";
+  const canRelease = ticket.status === "Approved";
+  const canCancel = ["Pending Approval", "Approved", "Released", "In Progress"].includes(ticket.status);
+  return (
+    <div className="action-row">
+      {showView && onView && <Button label="View" icon="pi pi-eye" size="small" onClick={() => onView(ticket)} />}
+      {canDecide && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}
+      {canDecide && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}
+      {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => onStatusChange(ticket.id, "Released")} />}
+      {canCancel && <Button label="Cancel" icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
+    </div>
+  );
 }
 
 export function DeviceOptionTemplate({ device }: { device: Device }) {

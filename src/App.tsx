@@ -6,7 +6,6 @@ import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 
 import { SideMenu, TopBar } from "./sharedUi";
-import { TicketEditDialog } from "./ticketDetail";
 import CreateTicketPageWrapper from "./createTicketPageWrapper";
 import DashboardPageWrapper from "./dashboardPageWrapper";
 import DeviceDetailPageWrapper from "./deviceDetailPageWrapper";
@@ -48,7 +47,6 @@ function NetComplyPrototype() {
   const [backoutPlan, setBackoutPlan] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedTicketDetail, setSelectedTicketDetail] = useState<Ticket | null>(null);
-  const [ticketDraft, setTicketDraft] = useState<Ticket | null>(null);
   const [selectedDeviceDetail, setSelectedDeviceDetail] = useState<Device | null>(null);
 
   const selectedDevices = useMemo(() => devices.filter((device) => selectedDeviceIds.includes(device.id)), [devices, selectedDeviceIds]);
@@ -139,13 +137,7 @@ function NetComplyPrototype() {
 
   const updateTicketStatus = (id: string, status: TicketStatus) => {
     setTickets((prev) => prev.map((ticket) => (ticket.id === id ? { ...ticket, status } : ticket)));
-  };
-
-  const saveTicketDraft = () => {
-    if (!ticketDraft) return;
-    setTickets((prev) => prev.map((ticket) => (ticket.id === ticketDraft.id ? ticketDraft : ticket)));
-    setSelectedTicketDetail(ticketDraft);
-    setTicketDraft(null);
+    setSelectedTicketDetail((prev) => prev?.id === id ? { ...prev, status } : prev);
   };
 
   return (
@@ -154,7 +146,7 @@ function NetComplyPrototype() {
       <SideMenu activePage={page} onNavigate={setPage} onCreate={() => startCreateTicket()} />
       <main className="main-panel">
         <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} />
-        {page === "dashboard" && <DashboardPageWrapper tickets={tickets} currentRole={currentRole} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onEdit={(ticket) => setTicketDraft({ ...ticket })} onStatusChange={updateTicketStatus} />}
+        {page === "dashboard" && <DashboardPageWrapper tickets={tickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onStatusChange={updateTicketStatus} />}
         {page === "inventory" && (
           <InventoryPageWrapper
             devices={devices}
@@ -178,7 +170,7 @@ function NetComplyPrototype() {
           />
         )}
         {page === "deviceDetail" && selectedDeviceDetail && <DeviceDetailPageWrapper device={selectedDeviceDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("inventory")} onCreateTicket={(device) => startCreateTicket(device, true)} />}
-        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={selectedTicketDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} onEdit={(ticket) => setTicketDraft({ ...ticket })} />}
+        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={selectedTicketDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} onStatusChange={updateTicketStatus} />}
         {page === "createTicket" && (
           <CreateTicketPageWrapper
             devices={selectableTicketDevices}
@@ -208,7 +200,6 @@ function NetComplyPrototype() {
         {page === "templateRequests" && <TemplateRequestsPageWrapper requests={templateRequests} setRequests={setTemplateRequests} templates={templates} setTemplates={setTemplates} policySettings={policySettings} />}
         {page === "templates" && <TemplatePageWrapper templates={templates} setTemplates={setTemplates} setTemplateRequests={setTemplateRequests} policySettings={policySettings} onRequestSubmitted={() => setPage("templateRequests")} />}
       </main>
-      <TicketEditDialog ticketDraft={ticketDraft} setTicketDraft={setTicketDraft} onSave={saveTicketDraft} />
     </div>
   );
 }

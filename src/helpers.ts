@@ -4,15 +4,16 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
   switch (status) {
     case "Compliant":
     case "Approved":
-    case "Deployed":
+    case "Complete":
       return "success";
     case "Non-Compliant":
     case "Rejected":
       return "danger";
     case "Pending Approval":
-    case "Scheduled":
     case "Scan Pending":
+    case "Partially Complete":
       return "warning";
+    case "Released":
     case "In Progress":
       return "info";
     case "Cancelled":
@@ -152,7 +153,10 @@ export function findRunResultsForTemplate(rows: ValidationRunResult[], templateR
 export function getDeploymentRunForTemplate(run: DeploymentRunResult | undefined, template: RemediationTemplate | undefined) {
   if (!run || !template) return undefined;
   const templateScripts = new Set([...template.preChecks, ...template.postChecks].map((check) => check.scriptName));
-  const hasMatchingEvidence = [...run.preChecks, ...run.postChecks].some((row) => templateScripts.has(row.scriptName));
+  const templateCommands = new Set(template.implementationCommands.map((command) => command.trim()).filter(Boolean));
+  const hasMatchingValidation = [...run.preChecks, ...run.postChecks].some((row) => templateScripts.has(row.scriptName));
+  const hasMatchingImplementation = run.implementationCommands.some((row) => templateCommands.has(row.command.trim()));
+  const hasMatchingEvidence = hasMatchingValidation || hasMatchingImplementation;
   return hasMatchingEvidence ? run : undefined;
 }
 

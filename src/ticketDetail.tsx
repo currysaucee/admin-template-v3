@@ -1,25 +1,26 @@
 import React from "react";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
-import { InputTextarea } from "primereact/inputtextarea";
-import { Dropdown } from "primereact/dropdown";
 import { Card } from "primereact/card";
-import { Dialog } from "primereact/dialog";
 
 import type { DeploymentRunResult, PolicySetting, RemediationTemplate, Ticket, TicketStatus, ValidationRunResult } from "./types";
-import { ticketStatusOptions } from "./types";
 import { getDeploymentRunForTemplate, getStatusSeverity, resolveTemplateForDevice } from "./helpers";
 import { ConfigSnapshotDownload, FindingDetailCard, ScriptValidationBlock } from "./remediationViews";
-import { MetaTile, PageHeader } from "./sharedUi";
+import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
-export function TicketDetailPage({ ticket, templates, policySettings, onBack, onEdit }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onEdit: (ticket: Ticket) => void }) {
+export function TicketDetailPage({ ticket, templates, policySettings, onBack, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
+  const completedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Successful").length;
+  const failedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Failed").length;
+  const pendingDevices = ticket.devices.length - completedDevices - failedDevices;
+  const hasDeviceResults = completedDevices > 0 || failedDevices > 0;
+
   return (
     <section className="page-content">
       <div className="detail-header-row">
         <PageHeader title="Ticket Details" subtitle="Review ticket scope, planned window, and finding-level remediation evidence." />
         <div className="detail-actions">
           <Button label="Back to Dashboard" icon="pi pi-arrow-left" outlined onClick={onBack} />
-          <Button label="Update Ticket" icon="pi pi-pencil" outlined onClick={() => onEdit(ticket)} />
+          <TicketActions ticket={ticket} showView={false} onStatusChange={onStatusChange} />
         </div>
       </div>
       <Card className="device-detail-card">
@@ -36,6 +37,11 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
           <MetaTile label="Start" value={ticket.plannedStart} />
           <MetaTile label="End" value={ticket.plannedEnd} />
         </div>
+        {hasDeviceResults && <div className="device-meta-grid ticket-result-summary">
+          <MetaTile label="Successful Devices" value={String(completedDevices)} />
+          <MetaTile label="Failed Devices" value={String(failedDevices)} />
+          <MetaTile label="Not Completed" value={String(pendingDevices)} />
+        </div>}
       </Card>
       <Card className="device-detail-card">
         <div className="reason-box"><span>Implementation Plan</span><p>{ticket.implementationPlan}</p></div>
@@ -46,7 +52,10 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
           <Card key={device.deviceId} className="finding-detail-card">
             <div className="finding-detail-header">
               <div><h3>{device.hostname}</h3><p>{device.role} • {device.hardwareType} • {device.managementIp}</p></div>
-              <Tag value={`${device.findings.length} finding${device.findings.length === 1 ? "" : "s"}`} severity="info" rounded />
+              <div className="action-row">
+                {device.deploymentRun && <Tag value={device.deploymentRun.status} severity={device.deploymentRun.status === "Successful" ? "success" : device.deploymentRun.status === "Failed" ? "danger" : "secondary"} rounded />}
+                <Tag value={`${device.findings.length} finding${device.findings.length === 1 ? "" : "s"}`} severity="info" rounded />
+              </div>
             </div>
             <div className="device-snapshot-row">
               <span>Device Config Snapshot</span>
@@ -55,7 +64,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
             {device.findings.map((finding) => {
               const template = resolveTemplateForDevice(device, finding, templates, policySettings);
               const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined;
-              const evidenceRun = getDeploymentRunForTemplate(ticket.deploymentRun, template);
+              const evidenceRun = getDeploymentRunForTemplate(device.deploymentRun ?? ticket.deploymentRun, template);
               return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} showPolicyModel run={evidenceRun} defaultExpanded={Boolean(evidenceRun)} />;
             })}
           </Card>
@@ -103,21 +112,6 @@ function RunResultTable({ title, rows }: { title: string; rows: ValidationRunRes
         ))}
       </div>
     </div>
-  );
-}
-
-export function TicketEditDialog({ ticketDraft, setTicketDraft, onSave }: { ticketDraft: Ticket | null; setTicketDraft: (ticket: Ticket | null) => void; onSave: () => void }) {
-  return (
-    <Dialog visible={Boolean(ticketDraft)} onHide={() => setTicketDraft(null)} header={ticketDraft ? `Update ${ticketDraft.id}` : "Update Ticket"} style={{ width: "48rem" }} modal>
-      {!ticketDraft ? null : (
-        <div className="template-editor-stack">
-          <div className="field-block"><label>Status</label><Dropdown value={ticketDraft.status} options={ticketStatusOptions} onChange={(e) => setTicketDraft({ ...ticketDraft, status: e.value as TicketStatus })} /></div>
-          <div className="field-block"><label>Implementation Plan</label><InputTextarea value={ticketDraft.implementationPlan} onChange={(e) => setTicketDraft({ ...ticketDraft, implementationPlan: e.target.value })} rows={5} autoResize /></div>
-          <div className="field-block"><label>Reversion Plan</label><InputTextarea value={ticketDraft.backoutPlan} onChange={(e) => setTicketDraft({ ...ticketDraft, backoutPlan: e.target.value })} rows={4} autoResize /></div>
-          <Button label="Save Ticket Update" icon="pi pi-save" onClick={onSave} />
-        </div>
-      )}
-    </Dialog>
   );
 }
 

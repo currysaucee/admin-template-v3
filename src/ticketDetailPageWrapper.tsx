@@ -3,13 +3,13 @@ import { Card } from "primereact/card";
 
 import { TicketDetailPage } from "./ticketDetail";
 import { PortalPageShell } from "./portalPageShell";
-import { getInitialPolicySettings, getInitialTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths } from "./portalRouteState";
+import { getInitialPolicySettings, getInitialTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 
 type TicketDetailPageProps = Partial<React.ComponentProps<typeof TicketDetailPage>>;
 
 export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {}) {
-  const tickets = getRuntimeTickets();
+  const [tickets, setTickets] = React.useState(getRuntimeTickets);
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId") || getLatestRuntimeTicketId();
   const ticket = props.ticket ?? tickets.find((item) => item.id === ticketId) ?? tickets[0];
 
@@ -24,7 +24,7 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
         templates={props.templates ?? getInitialTemplates()}
         policySettings={props.policySettings ?? getInitialPolicySettings()}
         onBack={props.onBack ?? (() => navigateToPortalPath(portalRoutePaths.dashboard))}
-        onEdit={props.onEdit ?? (() => undefined)}
+        onStatusChange={props.onStatusChange ?? ((id, status) => setTickets(updateRuntimeTicketStatus(id, status)))}
       />
     </PortalPageShell>
   );

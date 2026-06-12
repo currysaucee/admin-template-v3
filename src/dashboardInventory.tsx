@@ -8,13 +8,13 @@ import { Dropdown } from "primereact/dropdown";
 import { MultiSelect } from "primereact/multiselect";
 import { Card } from "primereact/card";
 
-import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus, UserRole } from "./types";
+import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
 import { getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, hasConfigSnapshot, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, WindowCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
-export function DashboardPage({ tickets, currentRole, onView, onEdit, onStatusChange }: { tickets: Ticket[]; currentRole: UserRole; onView: (ticket: Ticket) => void; onEdit: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
+export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ticket[]; onView: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TicketStatus | "All">("All");
   const statusOptions: Array<TicketStatus | "All"> = ["All", ...ticketStatusOptions];
@@ -37,7 +37,7 @@ export function DashboardPage({ tickets, currentRole, onView, onEdit, onStatusCh
           <Column header="Device" body={(row: Ticket) => <TicketDeviceCell ticket={row} />} />
           <Column header="Planned Window" sortable body={(row: Ticket) => <WindowCell start={row.plannedStart} end={row.plannedEnd} />} />
           <Column header="Status" body={(row: Ticket) => <StatusPill value={row.status} severity={getStatusSeverity(row.status)} />} />
-          <Column header="Actions" body={(row: Ticket) => <TicketActions ticket={row} currentRole={currentRole} onView={onView} onEdit={onEdit} onStatusChange={onStatusChange} />} />
+          <Column header="Actions" body={(row: Ticket) => <TicketActions ticket={row} onView={onView} onStatusChange={onStatusChange} />} />
         </DataTable>
       </Card>
     </section>

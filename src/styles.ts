@@ -168,6 +168,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .meta-tile:last-child { border-bottom: 0; }
 .meta-tile span { color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .meta-tile strong { color: #0f172a; font-size: 14px; font-weight: 750; text-align: right; overflow-wrap: anywhere; }
+.ticket-result-summary { margin-top: 18px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
 .finding-detail-list { display: grid; gap: 18px; }
 .finding-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .finding-detail-header h3 { margin: 0; }
