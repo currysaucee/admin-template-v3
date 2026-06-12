@@ -36,12 +36,29 @@ export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ti
           <Column header="Requestor" body={(row: Ticket) => <UserCell name={row.requestor} role={row.requestorRole} />} />
           <Column header="Device" body={(row: Ticket) => <TicketDeviceCell ticket={row} />} />
           <Column header="Planned Window" sortable body={(row: Ticket) => <WindowCell start={row.plannedStart} end={row.plannedEnd} />} />
-          <Column header="Status" body={(row: Ticket) => <StatusPill value={row.status} severity={getStatusSeverity(row.status)} />} />
+          <Column header="Status" body={(row: Ticket) => <TicketStatusCell status={row.status} />} />
           <Column header="Actions" body={(row: Ticket) => <TicketActions ticket={row} onView={onView} onStatusChange={onStatusChange} />} />
         </DataTable>
       </Card>
     </section>
   );
+}
+
+function TicketStatusCell({ status }: { status: TicketStatus }) {
+  if (status === "Partially Complete") {
+    return (
+      <div className="status-cell">
+        <span
+          className="status-pill partial-complete-status"
+          style={{ background: "#dcfce7", color: "#166534", border: "1px solid #86efac" }}
+        >
+          {status}
+        </span>
+      </div>
+    );
+  }
+
+  return <StatusPill value={status} severity={getStatusSeverity(status)} />;
 }
 
 export function InventoryPage({ devices, templates, policySettings, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: () => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
