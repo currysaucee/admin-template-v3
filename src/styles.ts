@@ -71,6 +71,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .field-block label { font-weight: 750; color: #334155; }
 .field-block .p-autocomplete, .field-block .p-autocomplete-input, .field-block .p-autocomplete-multiple-container { width: 100%; }
 .field-block .p-autocomplete-multiple-container { min-height: 42px; align-items: center; }
+.policy-setting-dropdown { width: 100%; min-width: 0; }
+.policy-setting-dropdown .p-dropdown-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.policy-setting-dropdown-panel { width: min(680px, calc(100vw - 32px)); max-width: calc(100vw - 32px); }
+.policy-setting-dropdown-panel .p-dropdown-item { white-space: normal; line-height: 1.4; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 16px; }
 .summary-card, .review-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; }
 .summary-card h3, .review-card h3 { margin: 0 0 12px; }

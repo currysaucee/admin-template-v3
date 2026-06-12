@@ -12,7 +12,21 @@ import { formatDate, getTemplatePolicySetting } from "./helpers";
 import { TemplateExecutionPreview } from "./remediationViews";
 import { MetaTile, PageHeader } from "./sharedUi";
 
-const hardwareTypeOptions: string[] = [];
+const defaultHardwareTypeOptions = [
+  "Arista Switch",
+  "Cisco Switch",
+  "Cisco Router",
+  "Juniper Switch",
+  "Juniper Router",
+  "Fortinet Firewall",
+  "Palo Alto Firewall",
+  "F5 Load Balancer",
+  "Network Switch",
+  "Network Router",
+  "Network Firewall",
+  "Wireless Controller",
+  "Load Balancer",
+];
 
 function filterOptions(options: string[], query: string) {
   const normalizedQuery = query.trim().toLowerCase();
@@ -21,6 +35,7 @@ function filterOptions(options: string[], query: string) {
 }
 
 export function TemplatePage({ templates, setTemplates, setTemplateRequests, policySettings, onRequestSubmitted }: { templates: RemediationTemplate[]; setTemplates: React.Dispatch<React.SetStateAction<RemediationTemplate[]>>; setTemplateRequests: React.Dispatch<React.SetStateAction<TemplateRequest[]>>; policySettings: PolicySetting[]; onRequestSubmitted: () => void }) {
+  const hardwareTypeOptions = Array.from(new Set([...defaultHardwareTypeOptions, ...templates.flatMap((template) => template.hardwareTypes)])).sort();
   const [selectedKey, setSelectedKey] = useState(templates[0]?.key ?? "");
   const [viewMode, setViewMode] = useState<"list" | "detail" | "edit" | "create">("list");
   const [search, setSearch] = useState("");
@@ -175,11 +190,13 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
               <div className="field-block full-span">
                 <label>Policy Setting</label>
                 <Dropdown
+                  className="policy-setting-dropdown"
                   value={draftPolicySettingId}
                   options={policySettings}
                   optionLabel="title"
                   optionValue="id"
                   filter
+                  panelClassName="policy-setting-dropdown-panel"
                   placeholder="Select policy setting"
                   onChange={(event) => {
                     const setting = policySettings.find((item) => item.id === event.value);
