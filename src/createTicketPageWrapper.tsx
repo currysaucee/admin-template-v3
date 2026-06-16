@@ -3,14 +3,14 @@ import React from "react";
 import { CreateTicketPage } from "./ticketWorkflow";
 import { PortalPageShell } from "./portalPageShell";
 import { hasConfigSnapshot } from "./helpers";
-import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getInitialDevices, getInitialPolicySettings, getInitialTemplates, getRuntimeTickets, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
+import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, getRuntimeTickets, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
 import type { Ticket } from "./types";
 
 type CreateTicketPageProps = Partial<React.ComponentProps<typeof CreateTicketPage>>;
 
 export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {}) {
   const devices = props.devices ?? getInitialDevices().filter((device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && device.findings.length > 0);
-  const templates = props.templates ?? getInitialTemplates();
+  const templates = props.templates ?? getRuntimeTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();
   const [step, setStep] = React.useState(0);
   const [tickets, setTickets] = React.useState<Ticket[]>(getRuntimeTickets);

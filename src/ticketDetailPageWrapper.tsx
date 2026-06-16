@@ -3,7 +3,7 @@ import { Card } from "primereact/card";
 
 import { TicketDetailPage } from "./ticketDetail";
 import { PortalPageShell } from "./portalPageShell";
-import { getInitialDevices, getInitialPolicySettings, getInitialTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus } from "./portalRouteState";
+import { getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import type { Device } from "./types";
 
@@ -34,7 +34,7 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
     <PortalPageShell pageName="ticket-detail">
       <TicketDetailPage
         ticket={hydratedTicket}
-        templates={props.templates ?? getInitialTemplates()}
+        templates={props.templates ?? getRuntimeTemplates()}
         policySettings={props.policySettings ?? getInitialPolicySettings()}
         onBack={props.onBack ?? (() => navigateToPortalPath(portalRoutePaths.dashboard))}
         onStatusChange={props.onStatusChange ?? ((id, status) => setTickets(updateRuntimeTicketStatus(id, status)))}

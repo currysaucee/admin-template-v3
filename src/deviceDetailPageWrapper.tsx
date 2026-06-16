@@ -3,14 +3,14 @@ import { Card } from "primereact/card";
 
 import { DeviceDetailPage } from "./dashboardInventory";
 import { PortalPageShell } from "./portalPageShell";
-import { getInitialDevices, getInitialPolicySettings, getInitialTemplates, getPreselectedFindingKeys, getRouteValue, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
+import { getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, getPreselectedFindingKeys, getRouteValue, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 
 type DeviceDetailPageProps = Partial<React.ComponentProps<typeof DeviceDetailPage>>;
 
 export default function DeviceDetailPageWrapper(props: DeviceDetailPageProps = {}) {
   const devices = getInitialDevices();
-  const templates = props.templates ?? getInitialTemplates();
+  const templates = props.templates ?? getRuntimeTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();
   const deviceId = getRouteValue("deviceId", "netcomply:selectedDeviceId");
   const device = props.device ?? devices.find((item) => item.id === deviceId);

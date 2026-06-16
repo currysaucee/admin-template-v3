@@ -14,7 +14,8 @@ import TemplatePageWrapper from "./templatePageWrapper";
 import TemplateRequestsPageWrapper from "./templateRequestsPageWrapper";
 import TicketDetailPageWrapper from "./ticketDetailPageWrapper";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
-import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
+import { initialDevices, initialPolicySettings, initialTickets } from "./mockData";
+import { getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
 import { styles } from "./styles";
 import { pageValues } from "./types";
 import type { Device, PolicySetting, Page, RemediationTemplate, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
@@ -34,8 +35,8 @@ function NetComplyPrototype() {
   const [currentRole, setCurrentRole] = useState<UserRole>("Network Engineer");
   const [devices] = useState<Device[]>(initialDevices);
   const [policySettings] = useState<PolicySetting[]>(initialPolicySettings);
-  const [templateRequests, setTemplateRequests] = useState(initialTemplateRequests);
-  const [templates, setTemplates] = useState<RemediationTemplate[]>(initialTemplates);
+  const [templateRequests, setTemplateRequests] = useState(getRuntimeTemplateRequests);
+  const [templates, setTemplates] = useState<RemediationTemplate[]>(getRuntimeTemplates);
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [bulkInventorySelection, setBulkInventorySelection] = useState<Device[]>([]);
@@ -51,6 +52,14 @@ function NetComplyPrototype() {
 
   const selectedDevices = useMemo(() => devices.filter((device) => selectedDeviceIds.includes(device.id)), [devices, selectedDeviceIds]);
   const selectableTicketDevices = useMemo(() => devices.filter((device) => device.complianceStatus === "Non-Compliant" && device.findings.length > 0), [devices]);
+
+  useEffect(() => {
+    saveRuntimeTemplateRequests(templateRequests);
+  }, [templateRequests]);
+
+  useEffect(() => {
+    saveRuntimeTemplates(templates);
+  }, [templates]);
 
   const selectedTicketDevices = useMemo<TicketDevice[]>(() => {
     return selectedDevices
