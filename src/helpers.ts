@@ -59,6 +59,13 @@ export function hashAgreedSetting(value: string) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+export function normalizePolicyReference(value?: string) {
+  const text = (value ?? "").trim();
+  const match = text.match(/^([A-Za-z]{1,4})[-_\s]?0*(\d{1,4})$/);
+  if (match) return `${match[1].toUpperCase()}${Number(match[2]).toString().padStart(3, "0")}`;
+  return text.toUpperCase();
+}
+
 export function getTemplatePolicySetting(template: RemediationTemplate | undefined, policySettings: PolicySetting[] = []) {
   if (!template?.policySettingId) return undefined;
   return policySettings.find((setting) => setting.id === template.policySettingId);
@@ -69,9 +76,24 @@ export function getTemplateAgreedSetting(template: RemediationTemplate | undefin
   return getTemplatePolicySetting(template, policySettings)?.settingPayload ?? template.agreedSetting;
 }
 
+export function templateMatchesFindingPolicy(template: RemediationTemplate, finding: Finding, policySettings: PolicySetting[] = []) {
+  const setting = getTemplatePolicySetting(template, policySettings);
+  const findingRefs = new Set([normalizePolicyReference(finding.id), normalizePolicyReference(finding.templateKey)].filter(Boolean));
+  const templateRefs = [
+    template.key,
+    template.policySettingId,
+    setting?.id,
+    setting?.settingNumber,
+  ].map((value) => normalizePolicyReference(value)).filter(Boolean);
+
+  return templateRefs.some((ref) => findingRefs.has(ref));
+}
+
 export function resolveTemplateForDevice(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
   const findingAgreedSettingHash = hashAgreedSetting(finding.expectedValue);
-  return templates.find((template) => template.hardwareTypes.includes(device.hardwareType) && hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingAgreedSettingHash);
+  const hardwareMatches = templates.filter((template) => template.hardwareTypes.includes(device.hardwareType));
+  return hardwareMatches.find((template) => templateMatchesFindingPolicy(template, finding, policySettings))
+    ?? hardwareMatches.find((template) => hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingAgreedSettingHash);
 }
 
 export function isExecutableTemplate(template?: RemediationTemplate) {
@@ -85,9 +107,11 @@ export function hasConfigSnapshot(device: { configSnapshotPath?: string; configS
 
 export function getTemplateAvailability(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
   const findingHash = hashAgreedSetting(finding.expectedValue);
+  const policyMatches = templates.filter((template) => templateMatchesFindingPolicy(template, finding, policySettings));
+  const policyHardwareMatches = policyMatches.filter((template) => template.hardwareTypes.includes(device.hardwareType));
   const hashMatches = templates.filter((template) => hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingHash);
   const hardwareMatches = hashMatches.filter((template) => template.hardwareTypes.includes(device.hardwareType));
-  const template = hardwareMatches[0];
+  const template = policyHardwareMatches[0] ?? hardwareMatches[0];
   const executable = isExecutableTemplate(template);
 
   if (template && executable) {
@@ -95,6 +119,10 @@ export function getTemplateAvailability(device: { hardwareType: string }, findin
   }
   if (template) {
     return { template, executable, label: "0 fixes available", severity: "warning" as const, note: "Template matched, but implementation commands are empty or not executable." };
+  }
+  if (policyMatches.length > 0) {
+    const hardwareTypes = Array.from(new Set(policyMatches.flatMap((template) => template.hardwareTypes))).join(", ");
+    return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: `Policy ID matches a template, but hardware type is ${hardwareTypes || "not set"} instead of ${device.hardwareType}.` };
   }
   if (hashMatches.length > 0) {
     const hardwareTypes = Array.from(new Set(hashMatches.flatMap((template) => template.hardwareTypes))).join(", ");
