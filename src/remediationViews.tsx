@@ -33,13 +33,10 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
-        <div><div className="finding-title-row"><Tag value={finding.id} severity="info" rounded /><h3>{finding.title}</h3></div><p>{finding.detectedAt}</p></div>
+        <div><div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><h3>{finding.title}</h3></div><p>{finding.detectedAt}</p></div>
         <div className="action-row">{executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
-      <div className="finding-detail-grid">
-        <div className="noncompliance-box success-box"><span>Agreed Settings (policy)</span><strong>{finding.expectedValue}</strong></div>
-      </div>
       <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
@@ -56,9 +53,8 @@ function displayFailureStage(stage?: string) {
   return stage;
 }
 
-export function DeviceFixGroup({ device, templates, policySettings = [], defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false }: { device: TicketDevice; templates: RemediationTemplate[]; policySettings?: PolicySetting[]; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean }) {
+export function DeviceFixGroup({ device, templates, policySettings = [], defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false, showSnapshot = true }: { device: TicketDevice; templates: RemediationTemplate[]; policySettings?: PolicySetting[]; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean; showSnapshot?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const stepCount = device.findings.reduce((total, finding) => total + getTemplateCommandCount(resolveTemplateForDevice(device, finding, templates, policySettings)), 0);
   return (
     <div className="nested-card collapsible-device-card">
       <button className="collapsible-header device-collapse-header" type="button" onClick={() => setExpanded((prev) => !prev)} aria-expanded={expanded}>
@@ -67,17 +63,15 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
           <p>{device.role} • {device.hardwareType} • {device.managementIp}</p>
         </div>
         <div className="collapse-meta">
-          <Tag value={`${device.findings.length} fix${device.findings.length === 1 ? "" : "es"}`} severity="info" />
-          <Tag value={`${stepCount} step${stepCount === 1 ? "" : "s"}`} severity="secondary" />
           <i className={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} />
         </div>
       </button>
       {expanded && (
         <div className="device-fix-stack">
-          <div className="device-snapshot-row">
+          {showSnapshot && <div className="device-snapshot-row">
             <span>Device Config Snapshot</span>
             <ConfigSnapshotDownload path={device.configSnapshotPath} filename={device.configSnapshotFilename} />
-          </div>
+          </div>}
           {device.findings.map((finding, index) => {
             const template = resolveTemplateForDevice(device, finding, templates, policySettings);
             return <FindingFixAccordion key={finding.id} finding={finding} template={template} policySetting={template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined} defaultExpanded={index === 0} showFailureBehaviour={showFailureBehaviour} showPolicyModel={showPolicyModel} implementationOnly={implementationOnly} />;
@@ -94,11 +88,10 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
     <div className="command-block">
       <button className="collapsible-header command-header" type="button" onClick={() => setExpanded((prev) => !prev)} aria-expanded={expanded}>
         <div>
-          <div className="finding-title-row"><Tag value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
+          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
           <span>{template ? `${getTemplateDisplayName(template)} - updated ${template.updatedAt}` : "No template configured yet"}</span>
         </div>
         <div className="collapse-meta">
-          <Tag value={`${getTemplateCommandCount(template)} steps`} severity={template ? "success" : "secondary"} />
           <i className={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} />
         </div>
       </button>

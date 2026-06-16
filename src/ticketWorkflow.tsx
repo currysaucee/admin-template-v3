@@ -7,8 +7,7 @@ import { Card } from "primereact/card";
 import { Dialog } from "primereact/dialog";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findFindingKey, getFixAvailability } from "./helpers";
-import { DeviceFixGroup } from "./remediationViews";
+import { findFindingKey, getFixAvailability, resolveTemplateForDevice } from "./helpers";
 import { PageHeader } from "./sharedUi";
 
 export function CreateTicketPage(props: {
@@ -130,16 +129,12 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                         />
                         <div className="finding-rule-cell">
                           <span className="mobile-field-label">Finding Rule</span>
-                          <div className="finding-title-row"><Tag value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
-                          <div className="template-availability-row">
-                            <Tag value={availability.label} severity={availability.severity} rounded />
-                            {availability.template && <Tag value={availability.template.findingName} severity="info" rounded />}
-                          </div>
-                          <small className="template-availability-note">{availability.note}</small>
+                          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
+                          {!hasTemplateFix && <small className="template-availability-note">{availability.note}</small>}
                         </div>
                         <div className="finding-standard-cell">
                           <span className="mobile-field-label">Implementation Commands</span>
-                          <div className="command-list compact-command-list">
+                          <div className="command-list compact-command-list implementation-command-preview">
                             {(implementationCommands.length ? implementationCommands : ["No implementation command configured."]).map((command, index) => (
                               <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>
                             ))}
@@ -159,32 +154,46 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
   );
 }
 
-function ReviewStep({ selectedTicketDevices, templates, policySettings, selectedCommandCount }: Parameters<typeof CreateTicketPage>[0]) {
-  const findings = selectedTicketDevices.flatMap((device) => device.findings);
+function ReviewStep({ selectedTicketDevices, templates, policySettings }: Parameters<typeof CreateTicketPage>[0]) {
+  const findingCount = selectedTicketDevices.reduce((total, device) => total + device.findings.length, 0);
+
   return (
     <div className="step-stack">
       <div className="review-card">
-        <h3>Review</h3>
-        <div className="review-grid">
-          <div><strong>Devices ({selectedTicketDevices.length})</strong>{selectedTicketDevices.length === 0 ? <p>No devices selected.</p> : selectedTicketDevices.map((device) => <p key={device.deviceId}>{device.hostname} • {device.role} • {device.managementIp}</p>)}</div>
-          <div><strong>Findings ({findings.length})</strong>{findings.length === 0 ? <p>No findings selected.</p> : findings.map((finding) => <p key={finding.id}>{finding.id} • {finding.title}</p>)}</div>
+        <div className="review-table-title">
+          <h3>Review</h3>
+          <span>{selectedTicketDevices.length} device{selectedTicketDevices.length === 1 ? "" : "s"} - {findingCount} finding{findingCount === 1 ? "" : "s"}</span>
         </div>
-        <div className="review-scope-remediation">
-          <div className="review-section-heading">
-            <strong>Remediation Steps</strong>
-            <Tag value={`${selectedCommandCount} step${selectedCommandCount === 1 ? "" : "s"}`} severity="info" rounded />
+        {selectedTicketDevices.length === 0 ? <p className="empty-text">No remediation selected.</p> : (
+          <div className="review-device-list">
+            {selectedTicketDevices.map((device) => (
+              <div key={device.deviceId} className="review-device-card">
+                <div className="review-device-heading">
+                  <div>
+                    <strong>{device.hostname}</strong>
+                    <span>{device.hardwareType} - {device.managementIp}</span>
+                  </div>
+                </div>
+                <div className="review-finding-list">
+                  {device.findings.map((finding) => {
+                    const template = resolveTemplateForDevice(device, finding, templates, policySettings);
+                    return (
+                      <div key={finding.id} className="review-finding-row">
+                        <div className="finding-title-row"><Tag className="policy-id-tag review-policy-id-tag" value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
+                        <div className="command-list compact-command-list implementation-command-preview">
+                          {(template?.implementationCommands.length ? template.implementationCommands : ["No implementation command configured."]).map((command, index) => (
+                            <div key={`${device.deviceId}-${finding.id}-${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="section-subtitle">Open each device and finding to review the approved implementation commands before submission.</p>
-        </div>
-        <div className="review-remediation-stack">
-          {selectedTicketDevices.length === 0 ? <p className="empty-text">No remediation selected.</p> : selectedTicketDevices.map((device) => <DeviceFixGroup key={device.deviceId} device={device} templates={templates} policySettings={policySettings} implementationOnly />)}
-        </div>
+        )}
       </div>
     </div>
   );
 }
-
-
-
-
-

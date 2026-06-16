@@ -56,8 +56,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: #1e293b; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
 .device-icon { width: 34px; height: 34px; border-radius: 10px; background: #eff6ff; color: #0b63f6; display: grid; place-items: center; }
 .wizard-card .p-card-body { padding: 28px; }
-.ticket-stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.ticket-stepper-item { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; color: #64748b; }
+.ticket-stepper { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 10px; align-items: stretch; }
+.ticket-stepper-item { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; color: #64748b; }
 .ticket-stepper-item span { width: 28px; height: 28px; flex: 0 0 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 900; font-size: 13px; }
 .ticket-stepper-item strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 900; }
 .ticket-stepper-item.active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
@@ -112,7 +112,15 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-result-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #f0fdf4; color: #166534; font-weight: 700; }
 .finding-result-note.failed { background: #fef2f2; color: #991b1b; }
 .fix-availability-cell, .template-availability-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.fix-availability-cell { display: grid; justify-items: start; }
+.fix-availability-cell { display: grid; justify-items: start; gap: 8px; min-width: 260px; }
+.finding-coverage-list { display: grid; gap: 6px; min-width: min(360px, 100%); }
+.finding-coverage-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; color: #334155; font-size: 12px; line-height: 1.35; }
+.finding-coverage-row .policy-code { border: 1px solid #e5e7eb; background: #ffffff; color: #334155; border-radius: 999px; padding: 3px 7px; font-weight: 900; }
+.finding-coverage-row strong { white-space: nowrap; font-size: 11px; }
+.finding-coverage-row strong.ready { color: #15803d; }
+.finding-coverage-row strong.blocked { color: #b45309; }
+.policy-id-tag, .p-tag.policy-id-tag { background: #ffffff !important; color: #334155 !important; border: 1px solid #dbe3ef !important; }
+.review-policy-id-tag, .p-tag.review-policy-id-tag { background: #eaf2ff !important; color: #0b63f6 !important; border: 1px solid #bfdbfe !important; }
 .template-availability-row { margin-top: 8px; }
 .template-availability-note { display: block; color: #64748b; line-height: 1.45; font-weight: 650; }
 .template-disabled-note { display: inline-flex; align-items: center; gap: 7px; width: fit-content; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 800; }
@@ -138,8 +146,27 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .command-header strong { display: block; }
 .command-header span { color: #64748b; font-size: 13px; }
 .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.review-table-title { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.review-table-title h3 { margin: 0; }
+.review-table-title span { color: #64748b; font-size: 13px; font-weight: 800; }
+.review-device-list { display: grid; gap: 14px; margin-top: 14px; }
+.review-device-card { border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; background: #ffffff; }
+.review-device-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+.review-device-heading strong { display: block; color: #0f172a; }
+.review-device-heading span { display: block; margin-top: 4px; color: #64748b; font-size: 13px; }
+.review-finding-list { display: grid; gap: 0; }
+.review-finding-row { display: grid; grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.4fr); gap: 16px; align-items: start; padding: 14px; border-bottom: 1px solid #eef2f7; }
+.review-finding-row:last-child { border-bottom: 0; }
+.review-command-table { display: grid; margin-top: 18px; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #ffffff; }
+.review-command-header, .review-command-row { display: grid; grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(320px, 1.4fr); gap: 14px; align-items: start; }
+.review-command-header { padding: 11px 14px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 850; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; }
+.review-command-row { padding: 14px; border-bottom: 1px solid #eef2f7; }
+.review-command-row:last-child { border-bottom: 0; }
+.review-command-row strong { display: block; color: #0f172a; line-height: 1.35; }
+.review-command-row small { display: block; color: #64748b; margin-top: 5px; line-height: 1.4; }
 .template-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(480px, 0.9fr); gap: 18px; align-items: start; }
 .template-table-toolbar { padding: 14px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: flex-end; }
+.bulk-ticket-footer { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 14px; border-top: 1px solid #e5e7eb; background: #ffffff; }
 .template-editor-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .command-editor { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .structured-editor-section { border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; background: #fff; }
@@ -239,6 +266,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .validation-grid-header { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .validation-grid code, .command-line code { white-space: pre-wrap; word-break: break-word; color: #0f172a; font-size: 13px; }
 .command-list { display: grid; border-top: 1px solid #e5e7eb; }
+.implementation-command-preview { border: 1px solid #fde68a; border-left: 6px solid #d97706; border-radius: 12px; overflow: hidden; background: #ffffff; }
+.implementation-command-preview .command-line:first-child { border-top: 0; }
+.implementation-command-preview .command-line span { color: #92400e; }
 .command-line { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; align-items: start; }
 .command-line span { color: #64748b; font-weight: 800; }
 .deployment-run-panel { display: grid; gap: 14px; margin-top: 10px; }
@@ -286,7 +316,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .top-bar { align-items: flex-start; height: auto; padding: 18px; flex-direction: column; }
   .top-search { width: 100%; }
   .top-actions { flex-wrap: wrap; }
-  .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row { grid-template-columns: 1fr; }
+  .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row, .review-command-row, .review-finding-row { grid-template-columns: 1fr; }
+  .review-command-header { display: none; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }
   .numbered-line-panel + .numbered-line-panel { border-left: 0; border-top: 1px solid #eef2f7; }

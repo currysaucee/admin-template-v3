@@ -88,10 +88,6 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
         <Dropdown value={status} options={["All", "Non-Compliant"]} onChange={(e) => setStatus(e.value as ComplianceStatus | "All")} placeholder="Compliance Status" />
       </div>
       <Card className="table-card">
-        <div className="template-table-toolbar">
-          <div className="bulk-selection-info">{bulkInventorySelection.length} selected</div>
-          <Button label="Create Bulk Ticket" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={onBulkCreate} />
-        </div>
         <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter(canBulkSelectDevice))} isDataSelectable={(event) => canBulkSelectDevice(event.data as Device)} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
           <Column selectionMode="multiple" headerStyle={{ width: '4rem' }} bodyStyle={{ opacity: 1 }} />
           <Column header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />
@@ -103,10 +99,14 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <Column header="Actions" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />
-              <Button label="Create Ticket" icon="pi pi-plus-circle" size="small" disabled={row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
+              <Button label="Create Ticket" icon="pi pi-plus-circle" size="small" disabled={bulkInventorySelection.length > 0 || row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
             </div>
           )} />
         </DataTable>
+        <div className="bulk-ticket-footer">
+          <div className="bulk-selection-info">{bulkInventorySelection.length} selected</div>
+          <Button label="Create Bulk Ticket" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={onBulkCreate} />
+        </div>
       </Card>
     </section>
   );
@@ -158,14 +158,25 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
 }
 
 function FindingFixCount({ device, templates, policySettings }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[] }) {
-  const availableFixCount = getAvailableFixCount(device, templates, policySettings);
-  const hasFindings = device.findings.length > 0;
-  const firstUnavailableFinding = device.findings.map((finding) => getFixAvailability(device, finding, templates, policySettings)).find((availability) => !availability.executable);
+  const findingAvailability = device.findings.map((finding) => ({ finding, availability: getFixAvailability(device, finding, templates, policySettings) }));
+  const availableFixCount = findingAvailability.filter((item) => item.availability.executable).length;
+  const summarySeverity = availableFixCount === device.findings.length && device.findings.length > 0 ? "success" : availableFixCount > 0 ? "warning" : "secondary";
   return (
     <div className="fix-availability-cell">
-      <Tag value={`${device.findings.length} finding${device.findings.length === 1 ? "" : "s"}`} severity={hasFindings ? "warning" : "success"} rounded />
-      <Tag value={`${availableFixCount} fix${availableFixCount === 1 ? "" : "es"} available`} severity={availableFixCount > 0 ? "success" : "secondary"} rounded />
-      {availableFixCount === 0 && firstUnavailableFinding && <small className="template-availability-note">{firstUnavailableFinding.note}</small>}
+      <Tag value={`${availableFixCount} of ${device.findings.length} findings ready`} severity={summarySeverity} rounded />
+      <div className="finding-coverage-list">
+        {findingAvailability.length === 0 ? (
+          <small className="template-availability-note">No open findings.</small>
+        ) : (
+          findingAvailability.map(({ finding, availability }) => (
+            <div key={finding.id} className="finding-coverage-row">
+              <span className="policy-code">{finding.id}</span>
+              <span>{finding.title}</span>
+              <strong className={availability.executable ? "ready" : "blocked"}>{availability.executable ? "Fix ready" : availability.template ? "Needs snapshot" : "No template"}</strong>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
