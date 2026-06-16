@@ -121,6 +121,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-coverage-row strong.blocked { color: #b45309; }
 .policy-id-tag, .p-tag.policy-id-tag { background: #ffffff !important; color: #334155 !important; border: 1px solid #dbe3ef !important; }
 .review-policy-id-tag, .p-tag.review-policy-id-tag { background: #eaf2ff !important; color: #0b63f6 !important; border: 1px solid #bfdbfe !important; }
+.policy-chip-line { display: inline-flex !important; align-items: center; gap: 8px; min-width: 0; vertical-align: middle; }
+.policy-chip-line > span:not(.p-tag) { display: inline !important; margin-top: 0 !important; min-width: 0; overflow-wrap: anywhere; color: inherit; }
+.policy-setting-dropdown .policy-chip-line { width: 100%; }
 .template-availability-row { margin-top: 8px; }
 .template-availability-note { display: block; color: #64748b; line-height: 1.45; font-weight: 650; }
 .template-disabled-note { display: inline-flex; align-items: center; gap: 7px; width: fit-content; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 800; }

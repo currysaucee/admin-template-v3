@@ -5,6 +5,7 @@ import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
+import { Tag } from "primereact/tag";
 
 import type { PolicySetting, RemediationTemplate, TemplateApprovalStatus, TemplateRequest } from "./types";
 import { getTemplatePolicySetting } from "./helpers";
@@ -15,6 +16,10 @@ function requestSeverity(status: TemplateApprovalStatus) {
   if (status === "Approved") return "success";
   if (status === "Rejected") return "danger";
   return "warning";
+}
+
+function PolicyChip({ setting }: { setting: PolicySetting }) {
+  return <span className="policy-chip-line"><Tag className="review-policy-id-tag" value={setting.settingNumber} rounded /><span>{setting.title}</span></span>;
 }
 
 export function TemplateRequestsPage({ requests, setRequests, templates, setTemplates, policySettings }: { requests: TemplateRequest[]; setRequests: React.Dispatch<React.SetStateAction<TemplateRequest[]>>; templates: RemediationTemplate[]; setTemplates: React.Dispatch<React.SetStateAction<RemediationTemplate[]>>; policySettings: PolicySetting[] }) {
@@ -64,7 +69,7 @@ export function TemplateRequestsPage({ requests, setRequests, templates, setTemp
           </div>
         </Card>
         <Card className="device-detail-card">
-          <div className="reason-box"><span>Policy Setting</span><p>{selectedRequest.policySettingTitle}</p></div>
+          <div className="reason-box"><span>Policy Setting</span><p>{policySetting ? <PolicyChip setting={policySetting} /> : selectedRequest.policySettingTitle}</p></div>
           <div className="reason-box"><span>Submitter Comment</span><p>{selectedRequest.submitterComment}</p></div>
           <div className="reason-box"><span>Review Note</span><p>{selectedRequest.reviewNote ?? "Pending SME decision."}</p></div>
         </Card>

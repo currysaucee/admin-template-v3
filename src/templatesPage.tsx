@@ -6,6 +6,7 @@ import { Card } from "primereact/card";
 import { Divider } from "primereact/divider";
 import { AutoComplete, AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { Dropdown } from "primereact/dropdown";
+import { Tag } from "primereact/tag";
 
 import type { PolicySetting, RemediationTemplate, TemplateRequest } from "./types";
 import { formatDate, getTemplatePolicySetting } from "./helpers";
@@ -34,6 +35,10 @@ function filterOptions(options: string[], query: string) {
   return options.filter((option) => option.toLowerCase().includes(normalizedQuery));
 }
 
+function PolicyChip({ setting }: { setting: PolicySetting }) {
+  return <span className="policy-chip-line"><Tag className="review-policy-id-tag" value={setting.settingNumber} rounded /><span>{setting.title}</span></span>;
+}
+
 export function TemplatePage({ templates, setTemplates, setTemplateRequests, policySettings, onRequestSubmitted }: { templates: RemediationTemplate[]; setTemplates: React.Dispatch<React.SetStateAction<RemediationTemplate[]>>; setTemplateRequests: React.Dispatch<React.SetStateAction<TemplateRequest[]>>; policySettings: PolicySetting[]; onRequestSubmitted: () => void }) {
   const hardwareTypeOptions = Array.from(new Set([...defaultHardwareTypeOptions, ...templates.flatMap((template) => template.hardwareTypes)])).sort();
   const [selectedKey, setSelectedKey] = useState(templates[0]?.key ?? "");
@@ -48,6 +53,8 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
   const [draftRequestComment, setDraftRequestComment] = useState("");
   const [hardwareTypeSuggestions, setHardwareTypeSuggestions] = useState<string[]>(hardwareTypeOptions);
   const [draftMeta, setDraftMeta] = useState({ findingName: selectedTemplate?.findingName ?? "", standard: selectedTemplate?.standard ?? "" });
+  const usedPolicySettingIds = new Set(templates.map((template) => template.policySettingId).filter(Boolean));
+  const availablePolicySettings = policySettings.filter((setting) => !usedPolicySettingIds.has(setting.id));
   const filteredTemplates = templates.filter((template) => template.approvalStatus === "Approved").filter((template) => {
     const policySetting = getTemplatePolicySetting(template, policySettings);
     return `${template.findingName} ${policySetting?.title ?? ""} ${policySetting?.settingPayload ?? template.agreedSetting} ${template.hardwareTypes.join(" ")} ${template.standard} ${template.key}`.toLowerCase().includes(search.toLowerCase());
@@ -88,7 +95,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
   };
 
   const startCreateTemplate = () => {
-    const defaultSetting = policySettings[0];
+    const defaultSetting = availablePolicySettings[0];
     setSelectedKey("");
     setDraftTemplateKey("");
     setDraftPolicySettingId(defaultSetting?.id ?? "");
@@ -155,7 +162,10 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
           </div>
           <div className="template-detail-meta">
             <MetaTile label="Hardware Type" value={selectedTemplate.hardwareTypes.join(", ")} />
-            <MetaTile label="Policy Setting" value={selectedPolicySetting ? `${selectedPolicySetting.settingNumber} - ${selectedPolicySetting.title}` : "Not linked"} />
+            <div className="meta-tile">
+              <span>Policy Setting</span>
+              <strong>{selectedPolicySetting ? <PolicyChip setting={selectedPolicySetting} /> : "Not linked"}</strong>
+            </div>
             <MetaTile label="Status" value={selectedTemplate.approvalStatus} />
             <MetaTile label="Updated" value={selectedTemplate.updatedAt} />
           </div>
@@ -168,6 +178,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
   if ((viewMode === "edit" && selectedTemplate) || viewMode === "create") {
     const selectedPolicySetting = policySettings.find((setting) => setting.id === draftPolicySettingId);
     const isCreating = viewMode === "create";
+    const policyDropdownOptions = isCreating ? availablePolicySettings : policySettings;
     return (
       <section className="page-content">
         <div className="detail-header-row">
@@ -190,7 +201,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
                 <Dropdown
                   className="policy-setting-dropdown"
                   value={draftPolicySettingId}
-                  options={policySettings}
+                  options={policyDropdownOptions}
                   optionLabel="title"
                   optionValue="id"
                   filter
@@ -203,10 +214,11 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
                       setDraftMeta((prev) => ({ ...prev, standard: setting.standard }));
                     }
                   }}
-                  itemTemplate={(setting: PolicySetting) => <span>{setting.settingNumber} - {setting.title}</span>}
-                  valueTemplate={(setting?: PolicySetting) => setting ? <span>{setting.settingNumber} - {setting.title}</span> : <span>Select policy setting</span>}
+                  itemTemplate={(setting: PolicySetting) => <PolicyChip setting={setting} />}
+                  valueTemplate={(setting?: PolicySetting) => setting ? <PolicyChip setting={setting} /> : <span>Select policy setting</span>}
                 />
                 <small className="muted-note">Select a setting from the policy source payload.</small>
+                {isCreating && policyDropdownOptions.length === 0 && <small className="muted-note">All onboarded policy settings already have a fix template request or approved template.</small>}
                 {selectedPolicySetting && <small className="muted-note">Mapped from policy source: {selectedPolicySetting.settingNumber} - {selectedPolicySetting.title}</small>}
               </div>
               <div className="field-block">
@@ -227,7 +239,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
             <CommandRowsEditor title="Implementation Commands" commands={draftImplementationCommands} setCommands={setDraftImplementationCommands} addLabel="Add implementation command" />
             {isCreating && <div className="field-block"><label>Request Comment</label><InputTextarea value={draftRequestComment} onChange={(event) => setDraftRequestComment(event.target.value)} rows={3} autoResize placeholder="Explain what the SME should review and why this template is needed" /></div>}
           </div>
-          {isCreating && <div className="template-submit-footer"><Button label="Submit Template Request" icon="pi pi-send" onClick={submitTemplateRequest} disabled={!draftMeta.findingName.trim() || draftHardwareTypes.length === 0 || draftImplementationCommands.every((command) => !command.trim()) || !draftRequestComment.trim()} /></div>}
+          {isCreating && <div className="template-submit-footer"><Button label="Submit Template Request" icon="pi pi-send" onClick={submitTemplateRequest} disabled={!draftPolicySettingId || !draftMeta.findingName.trim() || draftHardwareTypes.length === 0 || draftImplementationCommands.every((command) => !command.trim()) || !draftRequestComment.trim()} /></div>}
         </Card>
       </section>
     );
@@ -249,7 +261,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
             <button key={template.key} className="template-list-row" onClick={() => selectTemplate(template)}>
               <div>
                 <strong>{template.findingName}</strong>
-                <span>{(() => { const setting = getTemplatePolicySetting(template, policySettings); return setting ? `Policy ${setting.settingNumber} - ${setting.title}` : "No policy setting linked"; })()}</span>
+                <span>{(() => { const setting = getTemplatePolicySetting(template, policySettings); return setting ? <PolicyChip setting={setting} /> : "No policy setting linked"; })()}</span>
               </div>
               <div className="template-list-meta">
                 <span>{template.hardwareTypes.join(", ")}</span>

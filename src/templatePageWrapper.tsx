@@ -2,14 +2,28 @@ import React from "react";
 
 import { TemplatePage } from "./templatesPage";
 import { PortalPageShell } from "./portalPageShell";
-import { getInitialPolicySettings, getInitialTemplateRequests, getInitialTemplates, navigateToPortalPath, portalRoutePaths } from "./portalRouteState";
+import { getInitialPolicySettings, getRuntimeTemplateRequests, getRuntimeTemplates, navigateToPortalPath, portalRoutePaths, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
 import type { RemediationTemplate, TemplateRequest } from "./types";
 
 type TemplatePageProps = Partial<React.ComponentProps<typeof TemplatePage>>;
 
 export default function TemplatePageWrapper(props: TemplatePageProps = {}) {
-  const [templates, setTemplates] = React.useState<RemediationTemplate[]>(getInitialTemplates);
-  const [, setTemplateRequests] = React.useState<TemplateRequest[]>(getInitialTemplateRequests);
+  const [templates, setTemplatesState] = React.useState<RemediationTemplate[]>(getRuntimeTemplates);
+  const [, setTemplateRequestsState] = React.useState<TemplateRequest[]>(getRuntimeTemplateRequests);
+  const setTemplates: React.Dispatch<React.SetStateAction<RemediationTemplate[]>> = (updater) => {
+    setTemplatesState((prev) => {
+      const next = typeof updater === "function" ? (updater as (value: RemediationTemplate[]) => RemediationTemplate[])(prev) : updater;
+      saveRuntimeTemplates(next);
+      return next;
+    });
+  };
+  const setTemplateRequests: React.Dispatch<React.SetStateAction<TemplateRequest[]>> = (updater) => {
+    setTemplateRequestsState((prev) => {
+      const next = typeof updater === "function" ? (updater as (value: TemplateRequest[]) => TemplateRequest[])(prev) : updater;
+      saveRuntimeTemplateRequests(next);
+      return next;
+    });
+  };
 
   return (
     <PortalPageShell pageName="templates">

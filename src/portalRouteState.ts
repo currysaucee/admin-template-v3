@@ -49,21 +49,47 @@ export function getInitialTickets() {
 
 const runtimeTicketsKey = "netcomply:runtimeTickets";
 const latestRuntimeTicketIdKey = "netcomply:latestRuntimeTicketId";
+const runtimeTemplatesKey = "netcomply:runtimeTemplates";
+const runtimeTemplateRequestsKey = "netcomply:runtimeTemplateRequests";
 
-export function getRuntimeTickets() {
-  const storedTickets = window.sessionStorage.getItem(runtimeTicketsKey);
-  if (!storedTickets) return getInitialTickets();
+function readRuntimeArray<T>(storageKey: string, fallback: T[]) {
+  const stored = window.sessionStorage.getItem(storageKey);
+  if (!stored) return fallback;
 
   try {
-    const parsedTickets = JSON.parse(storedTickets) as Ticket[];
-    return Array.isArray(parsedTickets) ? parsedTickets : getInitialTickets();
+    const parsed = JSON.parse(stored) as T[];
+    return Array.isArray(parsed) ? parsed : fallback;
   } catch {
-    return getInitialTickets();
+    return fallback;
   }
 }
 
+function writeRuntimeArray<T>(storageKey: string, value: T[]) {
+  window.sessionStorage.setItem(storageKey, JSON.stringify(value));
+}
+
+export function getRuntimeTemplates() {
+  return readRuntimeArray<RemediationTemplate>(runtimeTemplatesKey, getInitialTemplates());
+}
+
+export function saveRuntimeTemplates(templates: RemediationTemplate[]) {
+  writeRuntimeArray(runtimeTemplatesKey, templates);
+}
+
+export function getRuntimeTemplateRequests() {
+  return readRuntimeArray<TemplateRequest>(runtimeTemplateRequestsKey, getInitialTemplateRequests());
+}
+
+export function saveRuntimeTemplateRequests(requests: TemplateRequest[]) {
+  writeRuntimeArray(runtimeTemplateRequestsKey, requests);
+}
+
+export function getRuntimeTickets() {
+  return readRuntimeArray<Ticket>(runtimeTicketsKey, getInitialTickets());
+}
+
 export function saveRuntimeTickets(tickets: Ticket[]) {
-  window.sessionStorage.setItem(runtimeTicketsKey, JSON.stringify(tickets));
+  writeRuntimeArray(runtimeTicketsKey, tickets);
 }
 
 export function addRuntimeTicket(ticket: Ticket) {
