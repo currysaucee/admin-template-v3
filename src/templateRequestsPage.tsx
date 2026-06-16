@@ -22,6 +22,12 @@ function PolicyChip({ setting }: { setting: PolicySetting }) {
   return <span className="policy-chip-line"><Tag className="review-policy-id-tag" value={setting.settingNumber} rounded /><span>{setting.title}</span></span>;
 }
 
+function RequestPolicyCell({ request, template, policySettings }: { request: TemplateRequest; template?: RemediationTemplate; policySettings: PolicySetting[] }) {
+  const policySetting = getTemplatePolicySetting(template, policySettings);
+  if (policySetting) return <PolicyChip setting={policySetting} />;
+  return <span className="policy-chip-line"><Tag className="review-policy-id-tag" value={request.policySettingTitle.split(" - ")[0] || "Policy"} rounded /><span>{request.policySettingTitle}</span></span>;
+}
+
 export function TemplateRequestsPage({ requests, setRequests, templates, setTemplates, policySettings }: { requests: TemplateRequest[]; setRequests: React.Dispatch<React.SetStateAction<TemplateRequest[]>>; templates: RemediationTemplate[]; setTemplates: React.Dispatch<React.SetStateAction<RemediationTemplate[]>>; policySettings: PolicySetting[] }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TemplateApprovalStatus | "All">("All");
@@ -100,6 +106,7 @@ export function TemplateRequestsPage({ requests, setRequests, templates, setTemp
         <DataTable value={filteredRequests} paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
           <Column field="id" header="Request ID" sortable body={(row: TemplateRequest) => <button className="link-button" onClick={() => setSelectedRequest(row)}>{row.id}</button>} />
           <Column header="Requester" body={(row: TemplateRequest) => <UserCell name={row.requestor} role="Template Submitter" />} />
+          <Column header="Policy" sortable sortField="policySettingTitle" body={(row: TemplateRequest) => <RequestPolicyCell request={row} template={templates.find((template) => template.key === row.templateKey)} policySettings={policySettings} />} />
           <Column field="hardwareType" header="Hardware Type" sortable />
           <Column header="Status" body={(row: TemplateRequest) => <StatusPill value={row.status} severity={requestSeverity(row.status)} />} />
           <Column header="Actions" body={(row: TemplateRequest) => (

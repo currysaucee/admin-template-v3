@@ -35,9 +35,21 @@ export function CreateTicketPage(props: {
   onSubmit: () => void;
 }) {
   const [showDateDialog, setShowDateDialog] = React.useState(false);
+  const today = React.useMemo(() => {
+    const value = new Date();
+    value.setHours(0, 0, 0, 0);
+    return value;
+  }, []);
   const steps = [{ label: "Findings" }, { label: "Review" }];
   const currentStep = Math.min(props.step, steps.length - 1);
   const canGoNext = currentStep === 0 ? props.selectedFindingKeys.length > 0 : props.selectedCommandCount > 0;
+  const setImplementationDate = (date: Date | null) => {
+    if (date && date < today) {
+      props.setPlannedStart(null);
+      return;
+    }
+    props.setPlannedStart(date);
+  };
 
   return (
     <section className="page-content">
@@ -68,7 +80,7 @@ export function CreateTicketPage(props: {
         <div className="template-editor-stack">
           <div className="field-block">
             <label>Implementation Date</label>
-            <Calendar value={props.plannedStart} onChange={(event) => props.setPlannedStart(event.value as Date | null)} dateFormat="M dd, yy" showIcon />
+            <Calendar value={props.plannedStart} onChange={(event) => setImplementationDate(event.value as Date | null)} minDate={today} dateFormat="M dd, yy" showIcon />
           </div>
           <div className="wizard-footer compact-footer">
             <Button label="Cancel" outlined onClick={() => setShowDateDialog(false)} />
