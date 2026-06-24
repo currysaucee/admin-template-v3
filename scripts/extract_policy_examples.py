@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Extract one non-compliant finding example per policy from a compliance scan JSON.
-
-The output is a CSV with one row per unique policy found, including the device
-metadata, finding payload/current value, and the full actual config snapshot
-captured for that device.
-"""
+"""Extract one non-compliant finding/config example per policy from scan JSON."""
 
 from __future__ import annotations
 
@@ -81,12 +75,12 @@ def stringify(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def normalize_findings(raw_findings: Any) -> list[dict[str, str]]:
+def normalize_policy_entries(raw_entries: Any, value_field_name: str) -> list[dict[str, str]]:
     findings: list[dict[str, str]] = []
-    if isinstance(raw_findings, dict):
-        raw_iterable = [{key: value} for key, value in raw_findings.items()]
-    elif isinstance(raw_findings, list):
-        raw_iterable = raw_findings
+    if isinstance(raw_entries, dict):
+        raw_iterable = [{key: value} for key, value in raw_entries.items()]
+    elif isinstance(raw_entries, list):
+        raw_iterable = raw_entries
     else:
         raw_iterable = []
 
@@ -94,19 +88,16 @@ def normalize_findings(raw_findings: Any) -> list[dict[str, str]]:
         if isinstance(item, str):
             policy_id = normalize_policy_id(item)
             payload = item
-            title = policy_id
             current_value = ""
         elif isinstance(item, dict):
             if len(item) == 1 and not any(key in item for key in ("id", "policyId", "policyNumber", "settingNumber")):
                 only_key = next(iter(item))
                 policy_id = normalize_policy_id(only_key)
                 payload = stringify(item[only_key])
-                title = policy_id
                 current_value = ""
             else:
                 policy_id = normalize_policy_id(pick(item, "id", "policyId", "policyNumber", "settingNumber", "identifier"))
                 payload = stringify(pick(item, "expectedValue", "agreedSetting", "settingPayload", "payload", "expected", "rule", "description", default=policy_id))
-                title = stringify(pick(item, "title", "findingName", "name", default=policy_id))
                 current_value = stringify(pick(item, "currentValue", "actualValue", "current", "actual", default=""))
         else:
             continue
@@ -114,21 +105,31 @@ def normalize_findings(raw_findings: Any) -> list[dict[str, str]]:
         if policy_id:
             findings.append({
                 "policyId": policy_id,
-                "title": title or policy_id,
-                "findingPayload": payload or policy_id,
+                value_field_name: payload or policy_id,
                 "currentValue": current_value,
             })
     return findings
 
 
-def read_config(device: dict[str, Any], base_dir: Path) -> tuple[str, str]:
-    config_text = pick(device, *CONFIG_KEYS, default="")
-    if config_text:
-        return stringify(config_text).replace("\r\n", "\n"), "embedded"
+def normalize_findings(raw_findings: Any) -> list[dict[str, str]]:
+    return normalize_policy_entries(raw_findings, "findingPayload")
+
+
+def read_actual_config_entries(device: dict[str, Any], base_dir: Path) -> dict[str, str]:
+    raw_config = pick(device, *CONFIG_KEYS, default="")
+    if isinstance(raw_config, (list, dict)):
+        return {
+            entry["policyId"]: entry["actualConfig"]
+            for entry in normalize_policy_entries(raw_config, "actualConfig")
+            if entry.get("policyId") and entry.get("actualConfig")
+        }
+
+    if raw_config:
+        return {"__FULL_CONFIG__": stringify(raw_config).replace("\r\n", "\n")}
 
     config_path = pick(device, *CONFIG_PATH_KEYS, default="")
     if not config_path:
-        return "", ""
+        return {}
 
     path = Path(str(config_path))
     candidates = [path]
@@ -137,9 +138,9 @@ def read_config(device: dict[str, Any], base_dir: Path) -> tuple[str, str]:
 
     for candidate in candidates:
         if candidate.exists() and candidate.is_file():
-            return candidate.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n"), str(candidate)
+            return {"__FULL_CONFIG__": candidate.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")}
 
-    return "", str(config_path)
+    return {}
 
 
 def extract_examples(input_path: Path) -> list[dict[str, str]]:
@@ -151,32 +152,22 @@ def extract_examples(input_path: Path) -> list[dict[str, str]]:
         if not is_non_compliant(device):
             continue
 
-        hostname = stringify(pick(device, "hostname", "hostName", "device", "deviceName", "name")).strip()
-        hardware_type = stringify(pick(device, "hardwareType", "deviceType", "type", "platform")).strip()
-        management_ip = stringify(pick(device, "managementIp", "managementIP", "mgmtIp", "mgmtIP", "ipAddress", "ip")).strip()
-        site = stringify(pick(device, "site", "location", "siteCode")).strip()
-        role = stringify(pick(device, "role", default="")).strip()
-        actual_config, config_source = read_config(device, input_path.parent)
+        actual_config_by_policy = read_actual_config_entries(device, input_path.parent)
         findings = normalize_findings(pick(device, "findings", "policies", "violations", "exceptions", default=[]))
 
-        if not actual_config:
+        if not actual_config_by_policy:
             continue
 
         for finding in findings:
             policy_id = finding["policyId"]
             if policy_id in examples:
                 continue
+            actual_config = actual_config_by_policy.get(policy_id) or actual_config_by_policy.get("__FULL_CONFIG__", "")
+            if not actual_config:
+                continue
             examples[policy_id] = {
                 "policyId": policy_id,
-                "findingTitle": finding["title"],
                 "findingPayload": finding["findingPayload"],
-                "currentValue": finding["currentValue"],
-                "hostname": hostname,
-                "hardwareType": hardware_type,
-                "managementIp": management_ip,
-                "site": site,
-                "role": role,
-                "configSource": config_source,
                 "actualConfig": actual_config,
             }
 
@@ -196,15 +187,7 @@ def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "policyId",
-        "findingTitle",
         "findingPayload",
-        "currentValue",
-        "hostname",
-        "hardwareType",
-        "managementIp",
-        "site",
-        "role",
-        "configSource",
         "actualConfig",
     ]
     with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
