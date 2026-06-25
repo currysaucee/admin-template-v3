@@ -140,14 +140,6 @@ def ts_string(value: Any) -> str:
     return json.dumps(str(value), ensure_ascii=False)
 
 
-def config_to_text(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (list, dict)):
-        return json.dumps(value, ensure_ascii=False, indent=2)
-    return str(value)
-
-
 def write_snapshot(device: dict[str, Any], hostname: str, snapshot_dir: Path) -> tuple[str, str] | None:
     config_text = pick(device, "actualConfig", "configSnapshot", "runningConfig", "rawConfig", "configuration", default="")
     config_path = pick(device, "actualConfigPath", "configSnapshotPath", "snapshotPath", default="")
@@ -156,7 +148,7 @@ def write_snapshot(device: dict[str, Any], hostname: str, snapshot_dir: Path) ->
         snapshot_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{safe_filename(hostname)}.txt"
         path = snapshot_dir / filename
-        path.write_text(config_to_text(config_text).replace("\r\n", "\n"), encoding="utf-8")
+        path.write_text(str(config_text).replace("\r\n", "\n"), encoding="utf-8")
         return f"/config-snapshots/{filename}", filename
 
     if config_path:
@@ -253,21 +245,15 @@ def render_ts(devices: list[dict[str, Any]], scanned_at: str) -> str:
     return "\n".join(chunks)
 
 
-def record_skip(skipped_reasons: dict[str, int], reason: str) -> None:
-    skipped_reasons[reason] = skipped_reasons.get(reason, 0) + 1
-
-
-def convert(input_path: Path, output_path: Path, snapshot_dir: Path) -> tuple[int, int, dict[str, int]]:
+def convert(input_path: Path, output_path: Path, snapshot_dir: Path) -> tuple[int, int]:
     payload = json.loads(input_path.read_text(encoding="utf-8"))
     raw_devices = extract_devices(payload)
     imported: list[dict[str, Any]] = []
     skipped = 0
-    skipped_reasons: dict[str, int] = {}
 
     for raw in raw_devices:
         if not is_non_compliant(raw):
             skipped += 1
-            record_skip(skipped_reasons, "compliance status is not false/non-compliant")
             continue
 
         hostname = str(pick(raw, "hostname", "hostName", "device", "deviceName", "name")).strip()
@@ -279,18 +265,6 @@ def convert(input_path: Path, output_path: Path, snapshot_dir: Path) -> tuple[in
 
         if not (hostname and hardware_type and management_ip and site and findings and snapshot):
             skipped += 1
-            if not hostname:
-                record_skip(skipped_reasons, "missing hostname")
-            elif not hardware_type:
-                record_skip(skipped_reasons, "missing hardware type")
-            elif not management_ip:
-                record_skip(skipped_reasons, "missing management IP")
-            elif not site:
-                record_skip(skipped_reasons, "missing site")
-            elif not findings:
-                record_skip(skipped_reasons, "missing findings")
-            elif not snapshot:
-                record_skip(skipped_reasons, "missing actual config or snapshot path")
             continue
 
         snapshot_path, snapshot_filename = snapshot
@@ -309,7 +283,7 @@ def convert(input_path: Path, output_path: Path, snapshot_dir: Path) -> tuple[in
     output_path.parent.mkdir(parents=True, exist_ok=True)
     scanned_at = datetime.now().strftime("%b %d, %Y %I:%M %p")
     output_path.write_text(render_ts(imported, scanned_at), encoding="utf-8")
-    return len(imported), skipped, skipped_reasons
+    return len(imported), skipped
 
 
 def main() -> None:
@@ -323,17 +297,8 @@ def main() -> None:
     output_path = args.output if args.output.is_absolute() else (Path.cwd() / args.output).resolve()
     snapshot_dir = args.snapshot_dir if args.snapshot_dir.is_absolute() else (Path.cwd() / args.snapshot_dir).resolve()
 
-    print(f"Project root: {PROJECT_ROOT}")
-    print(f"Input: {input_path}")
-    print(f"Output: {output_path}")
-    print(f"Snapshot dir: {snapshot_dir}")
-
-    imported, skipped, skipped_reasons = convert(input_path, output_path, snapshot_dir)
+    imported, skipped = convert(input_path, output_path, snapshot_dir)
     print(f"Imported {imported} non-compliant device(s); skipped {skipped}.")
-    if skipped_reasons:
-        print("Skipped reason(s):")
-        for reason, count in sorted(skipped_reasons.items()):
-            print(f"  - {reason}: {count}")
     print(f"Wrote {output_path}")
     print(f"Wrote config snapshots to {snapshot_dir}")
 
