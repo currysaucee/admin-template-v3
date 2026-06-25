@@ -5,7 +5,7 @@ import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
-import { MultiSelect } from "primereact/multiselect";
+import { AutoComplete, AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
@@ -64,12 +64,24 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
 
 export function InventoryPage({ devices, templates, policySettings, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: () => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
   const [search, setSearch] = useState("");
-  const [findingSearch, setFindingSearch] = useState("");
+  const [selectedPolicyFilters, setSelectedPolicyFilters] = useState<PolicySetting[]>([]);
+  const [policySuggestions, setPolicySuggestions] = useState<PolicySetting[]>([]);
   const [status, setStatus] = useState<ComplianceStatus | "All">("All");
+  const devicePolicyIds = new Set(devices.flatMap((device) => device.findings.map((finding) => finding.id)));
+  const policyOptions = policySettings.filter((setting) => devicePolicyIds.has(setting.settingNumber));
+  const searchPolicyOptions = (event: AutoCompleteCompleteEvent) => {
+    const selectedIds = new Set(selectedPolicyFilters.map((setting) => setting.id));
+    const query = event.query.trim().toLowerCase();
+    setPolicySuggestions(policyOptions.filter((setting) => {
+      const searchable = `${setting.settingNumber} ${setting.title} ${setting.standard}`.toLowerCase();
+      return !selectedIds.has(setting.id) && (!query || searchable.includes(query));
+    }));
+  };
   const filteredDevices = devices.filter((device) => {
     const deviceMatch = `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase());
-    const findingMatch = !findingSearch.trim() || device.findings.some((finding) => `${finding.id} ${finding.title} ${finding.standard} ${finding.expectedValue} ${finding.currentValue} ${finding.reason}`.toLowerCase().includes(findingSearch.toLowerCase()));
-    return deviceMatch && findingMatch && (status === "All" || device.complianceStatus === status);
+    const selectedPolicyIds = new Set(selectedPolicyFilters.map((setting) => setting.settingNumber));
+    const policyMatch = selectedPolicyIds.size === 0 || device.findings.some((finding) => selectedPolicyIds.has(finding.id));
+    return deviceMatch && policyMatch && (status === "All" || device.complianceStatus === status);
   });
   const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && getAvailableFixCount(device, templates, policySettings) > 0;
 
@@ -81,10 +93,22 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <i className="pi pi-search" />
           <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search devices..." />
         </span>
-        <span className="p-input-icon-left grow-input">
-          <i className="pi pi-filter" />
-          <InputText value={findingSearch} onChange={(e) => setFindingSearch(e.target.value)} placeholder="Filter finding or policy ID..." />
-        </span>
+        <div className="policy-filter-autocomplete grow-input">
+          <AutoComplete
+            value={selectedPolicyFilters}
+            suggestions={policySuggestions}
+            completeMethod={searchPolicyOptions}
+            onChange={(event) => setSelectedPolicyFilters(event.value as PolicySetting[])}
+            multiple
+            dropdown
+            field="settingNumber"
+            placeholder="Filter by policy ID..."
+            itemTemplate={(setting: PolicySetting) => (
+              <span className="policy-chip-line"><Tag className="review-policy-id-tag" value={setting.settingNumber} rounded /><span>{setting.title}</span></span>
+            )}
+            selectedItemTemplate={(setting: PolicySetting) => <span>{setting.settingNumber}</span>}
+          />
+        </div>
         <Dropdown value={status} options={["All", "Non-Compliant"]} onChange={(e) => setStatus(e.value as ComplianceStatus | "All")} placeholder="Compliance Status" />
       </div>
       <Card className="table-card">
