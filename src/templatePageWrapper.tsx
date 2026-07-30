@@ -1,8 +1,9 @@
 import React from "react";
 
+import DefaultLayout from "../layout/defaultLayout";
 import { TemplatePage } from "./templatesPage";
-import { PortalPageShell } from "./portalPageShell";
 import { getInitialPolicySettings, getRuntimeTemplateRequests, getRuntimeTemplates, navigateToPortalPath, portalRoutePaths, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
+import { styles } from "./styles";
 import type { RemediationTemplate, TemplateRequest } from "./types";
 
 type TemplatePageProps = Partial<React.ComponentProps<typeof TemplatePage>>;
@@ -26,14 +27,17 @@ export default function TemplatePageWrapper(props: TemplatePageProps = {}) {
   };
 
   return (
-    <PortalPageShell pageName="templates">
-      <TemplatePage
-        templates={props.templates ?? templates}
-        setTemplates={props.setTemplates ?? setTemplates}
-        setTemplateRequests={props.setTemplateRequests ?? setTemplateRequests}
-        policySettings={props.policySettings ?? getInitialPolicySettings()}
-        onRequestSubmitted={props.onRequestSubmitted ?? (() => navigateToPortalPath(portalRoutePaths.templateRequests))}
-      />
-    </PortalPageShell>
+    <DefaultLayout>
+      <style>{styles}</style>
+      <div className="netcomply-page-wrapper netcomply-templates-wrapper">
+        <TemplatePage
+          templates={props.templates ?? templates}
+          setTemplates={props.setTemplates ?? setTemplates}
+          setTemplateRequests={props.setTemplateRequests ?? setTemplateRequests}
+          policySettings={props.policySettings ?? getInitialPolicySettings()}
+          onRequestSubmitted={props.onRequestSubmitted ?? (() => navigateToPortalPath(portalRoutePaths.templateRequests))}
+        />
+      </div>
+    </DefaultLayout>
   );
 }

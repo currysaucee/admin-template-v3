@@ -7,6 +7,7 @@ import { Dropdown } from "primereact/dropdown";
 import type { Device, Page, Ticket, TicketStatus, UserRole } from "./types";
 import { roleOptions, ticketStatusOptions } from "./types";
 import { getStatusSeverity } from "./helpers";
+import type { NetComplyDataMode } from "./dataMode";
 
 export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Page; onNavigate: (page: Page) => void; onCreate: () => void }) {
   const mainItems: Array<{ page: Page; label: string; icon: string; onClick?: () => void }> = [
@@ -51,7 +52,7 @@ export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Pag
   );
 }
 
-export function TopBar({ currentRole, setCurrentRole }: { currentRole: UserRole; setCurrentRole: (role: UserRole) => void }) {
+export function TopBar({ currentRole, setCurrentRole, dataMode, onDataModeChange }: { currentRole: UserRole; setCurrentRole: (role: UserRole) => void; dataMode?: NetComplyDataMode; onDataModeChange?: (mode: NetComplyDataMode) => void }) {
   return (
     <header className="top-bar">
       <span className="p-input-icon-left top-search">
@@ -59,6 +60,12 @@ export function TopBar({ currentRole, setCurrentRole }: { currentRole: UserRole;
         <InputText placeholder="Search devices, tickets, CRs, findings..." />
       </span>
       <div className="top-actions">
+        {dataMode && onDataModeChange && (
+          <div className="mode-toggle" aria-label="Data source mode">
+            <button className={dataMode === "mock" ? "active" : ""} onClick={() => onDataModeChange("mock")}>Mock</button>
+            <button className={dataMode === "real" ? "active" : ""} onClick={() => onDataModeChange("real")}>Real</button>
+          </div>
+        )}
         <div className="scan-clock">
           <i className="pi pi-clock" />
           <div>

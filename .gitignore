@@ -6,3 +6,9 @@ dist/
 vite.config.js
 vite.config.d.ts
 local-mock-data/
+tmp/
+*.sqlite3
+*.db
+public/config-snapshots/*
+!public/config-snapshots/.gitkeep
+.env*.local

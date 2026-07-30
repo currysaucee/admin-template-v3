@@ -16,6 +16,7 @@ import TicketDetailPageWrapper from "./ticketDetailPageWrapper";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTickets } from "./mockData";
 import { getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
+import { getStoredDataMode, loadRealDevices, saveStoredDataMode, type NetComplyDataMode } from "./dataMode";
 import { styles } from "./styles";
 import { pageValues } from "./types";
 import type { Device, PolicySetting, Page, RemediationTemplate, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
@@ -33,7 +34,8 @@ function NetComplyPrototype() {
   const pageHistoryReadyRef = useRef(false);
   const applyingPopStateRef = useRef(false);
   const [currentRole, setCurrentRole] = useState<UserRole>("Network Engineer");
-  const [devices] = useState<Device[]>(initialDevices);
+  const [dataMode, setDataModeState] = useState<NetComplyDataMode>(getStoredDataMode);
+  const [devices, setDevices] = useState<Device[]>(initialDevices);
   const [policySettings] = useState<PolicySetting[]>(initialPolicySettings);
   const [templateRequests, setTemplateRequests] = useState(getRuntimeTemplateRequests);
   const [templates, setTemplates] = useState<RemediationTemplate[]>(getRuntimeTemplates);
@@ -49,6 +51,22 @@ function NetComplyPrototype() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedTicketDetail, setSelectedTicketDetail] = useState<Ticket | null>(null);
   const [selectedDeviceDetail, setSelectedDeviceDetail] = useState<Device | null>(null);
+
+  useEffect(() => {
+    if (dataMode === "mock") {
+      setDevices(initialDevices);
+      return;
+    }
+
+    loadRealDevices()
+      .then(setDevices)
+      .catch(() => setDevices([]));
+  }, [dataMode]);
+
+  const setDataMode = (mode: NetComplyDataMode) => {
+    saveStoredDataMode(mode);
+    setDataModeState(mode);
+  };
 
   const selectedDevices = useMemo(() => devices.filter((device) => selectedDeviceIds.includes(device.id)), [devices, selectedDeviceIds]);
   const selectableTicketDevices = useMemo(() => devices.filter((device) => device.complianceStatus === "Non-Compliant" && device.findings.length > 0), [devices]);
@@ -154,7 +172,7 @@ function NetComplyPrototype() {
       <style>{styles}</style>
       <SideMenu activePage={page} onNavigate={setPage} onCreate={() => startCreateTicket()} />
       <main className="main-panel">
-        <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} />
+        <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} dataMode={dataMode} onDataModeChange={setDataMode} />
         {page === "dashboard" && <DashboardPageWrapper tickets={tickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onStatusChange={updateTicketStatus} />}
         {page === "inventory" && (
           <InventoryPageWrapper

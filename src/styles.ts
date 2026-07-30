@@ -23,6 +23,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .p-input-icon-left > i { position: absolute; left: 0.85rem; z-index: 1; color: #64748b; pointer-events: none; }
 .p-input-icon-left > .p-inputtext { padding-left: 2.35rem; }
 .top-actions { display: flex; align-items: center; gap: 18px; }
+.mode-toggle { display: inline-flex; align-items: center; padding: 3px; border: 1px solid #dbe4ef; background: #f8fafc; border-radius: 8px; }
+.mode-toggle button { border: 0; background: transparent; color: #64748b; padding: 7px 11px; border-radius: 6px; font-weight: 800; cursor: pointer; }
+.mode-toggle button.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
 .scan-clock { display: flex; align-items: center; gap: 10px; color: #334155; }
 .scan-clock i { color: #64748b; }
 .scan-clock strong { display: block; font-size: 13px; }
@@ -37,11 +40,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .plain-page-title { margin-bottom: 22px; }
 .plain-page-title h1 { margin: 0; font-size: 30px; letter-spacing: -0.04em; }
 .filter-card { display: flex; gap: 16px; align-items: center; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); padding: 16px; border-radius: 14px; margin-bottom: 18px; }
-.policy-filter-autocomplete { min-width: min(420px, 100%); }
-.policy-filter-autocomplete .p-autocomplete { width: 100%; }
-.policy-filter-autocomplete .p-autocomplete-multiple-container { width: 100%; min-height: 42px; align-items: center; border-radius: 10px; }
-.policy-filter-autocomplete .p-autocomplete-token { background: #eaf2ff; color: #0b63f6; border: 1px solid #bfdbfe; border-radius: 999px; font-weight: 850; }
-.policy-filter-autocomplete .p-autocomplete-input-token input { min-width: 150px; }
 .grow-input { flex: 1; min-width: 260px; }
 .table-card, .wizard-card, .editor-card, .device-detail-card, .finding-detail-card { border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); }
 .table-card .p-datatable-wrapper { overflow-x: auto; max-width: 100%; }

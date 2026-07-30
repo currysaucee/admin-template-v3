@@ -1,9 +1,10 @@
 import React from "react";
 
+import DefaultLayout from "../layout/defaultLayout";
 import { InventoryPage } from "./dashboardInventory";
 import { getExecutableFindings } from "./helpers";
-import { PortalPageShell } from "./portalPageShell";
 import { getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
+import { styles } from "./styles";
 import type { Device } from "./types";
 
 type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
@@ -21,25 +22,28 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   };
 
   return (
-    <PortalPageShell pageName="exceptions">
-      <InventoryPage
-        devices={devices}
-        templates={templates}
-        policySettings={policySettings}
-        bulkInventorySelection={selectedBulkDevices}
-        setBulkInventorySelection={props.setBulkInventorySelection ?? setBulkInventorySelection}
-        onBulkCreate={props.onBulkCreate ?? (() => {
-          const selectedIds = selectedBulkDevices.map((device) => device.id).join(",");
-          setRouteValue("netcomply:selectedDeviceIds", selectedIds);
-          navigateToPortalPath(portalRoutePaths.createTicket, { deviceIds: selectedIds });
-        })}
-        onCreateTicket={props.onCreateTicket ?? startCreateTicket}
-        onViewDevice={props.onViewDevice ?? ((device) => {
-          setRouteValue("netcomply:selectedDeviceId", device.id);
-          setRouteValue("netcomply:selectedFindingKeys", getExecutableFindings(device, templates, policySettings).map((finding) => `${device.id}:${finding.id}`).join(","));
-          navigateToPortalPath(portalRoutePaths.deviceDetail, { deviceId: device.id });
-        })}
-      />
-    </PortalPageShell>
+    <DefaultLayout>
+      <style>{styles}</style>
+      <div className="netcomply-page-wrapper netcomply-exceptions-wrapper">
+        <InventoryPage
+          devices={devices}
+          templates={templates}
+          policySettings={policySettings}
+          bulkInventorySelection={selectedBulkDevices}
+          setBulkInventorySelection={props.setBulkInventorySelection ?? setBulkInventorySelection}
+          onBulkCreate={props.onBulkCreate ?? (() => {
+            const selectedIds = selectedBulkDevices.map((device) => device.id).join(",");
+            setRouteValue("netcomply:selectedDeviceIds", selectedIds);
+            navigateToPortalPath(portalRoutePaths.createTicket, { deviceIds: selectedIds });
+          })}
+          onCreateTicket={props.onCreateTicket ?? startCreateTicket}
+          onViewDevice={props.onViewDevice ?? ((device) => {
+            setRouteValue("netcomply:selectedDeviceId", device.id);
+            setRouteValue("netcomply:selectedFindingKeys", getExecutableFindings(device, templates, policySettings).map((finding) => `${device.id}:${finding.id}`).join(","));
+            navigateToPortalPath(portalRoutePaths.deviceDetail, { deviceId: device.id });
+          })}
+        />
+      </div>
+    </DefaultLayout>
   );
 }
