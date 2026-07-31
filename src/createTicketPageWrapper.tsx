@@ -3,14 +3,15 @@ import React from "react";
 import DefaultLayout from "../layout/defaultLayout";
 import { CreateTicketPage } from "./ticketWorkflow";
 import { hasConfigSnapshot } from "./helpers";
-import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, getRuntimeTickets, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
+import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getInitialPolicySettings, getRuntimeTemplates, getRuntimeTickets, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices } from "./portalRouteState";
 import { styles } from "./styles";
 import type { Ticket } from "./types";
 
 type CreateTicketPageProps = Partial<React.ComponentProps<typeof CreateTicketPage>>;
 
 export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {}) {
-  const devices = props.devices ?? getInitialDevices().filter((device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && device.findings.length > 0);
+  const { devices: sourceDevices } = usePortalDevices(props.devices);
+  const devices = sourceDevices.filter((device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && device.findings.length > 0);
   const templates = props.templates ?? getRuntimeTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();
   const [step, setStep] = React.useState(0);

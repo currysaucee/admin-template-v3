@@ -1,3 +1,6 @@
+import React from "react";
+
+import { getStoredDataMode, loadRealDevices } from "./dataMode";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
 import type { Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
@@ -29,6 +32,51 @@ export function setRouteValue(storageKey: string, value: string) {
 
 export function getInitialDevices() {
   return initialDevices;
+}
+
+export function usePortalDevices(overrideDevices?: Device[]) {
+  const [devices, setDevices] = React.useState<Device[]>(overrideDevices ?? getInitialDevices());
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (overrideDevices) {
+      setDevices(overrideDevices);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    if (getStoredDataMode() !== "real") {
+      setDevices(getInitialDevices());
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    loadRealDevices()
+      .then((nextDevices) => {
+        if (!cancelled) setDevices(nextDevices);
+      })
+      .catch((nextError: unknown) => {
+        if (!cancelled) {
+          setDevices([]);
+          setError(nextError instanceof Error ? nextError.message : "Unable to load real scan devices.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [overrideDevices]);
+
+  return { devices, loading, error };
 }
 
 export function getInitialPolicySettings() {

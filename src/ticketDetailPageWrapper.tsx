@@ -3,7 +3,7 @@ import { Card } from "primereact/card";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { TicketDetailPage } from "./ticketDetail";
-import { getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus } from "./portalRouteState";
+import { getInitialPolicySettings, getRuntimeTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus, usePortalDevices } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import { styles } from "./styles";
 import type { Device } from "./types";
@@ -14,7 +14,7 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
   const [tickets, setTickets] = React.useState(getRuntimeTickets);
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId") || getLatestRuntimeTicketId();
   const ticket = props.ticket ?? tickets.find((item) => item.id === ticketId) ?? tickets[0];
-  const sourceDevices = props.devices ?? getInitialDevices();
+  const { devices: sourceDevices } = usePortalDevices(props.devices);
   const hydratedTicket = ticket ? {
     ...ticket,
     devices: ticket.devices.map((ticketDevice) => {

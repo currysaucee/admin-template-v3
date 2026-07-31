@@ -3,7 +3,7 @@ import React from "react";
 import DefaultLayout from "../layout/defaultLayout";
 import { InventoryPage } from "./dashboardInventory";
 import { getExecutableFindings } from "./helpers";
-import { getInitialDevices, getInitialPolicySettings, getRuntimeTemplates, navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
+import { getInitialPolicySettings, getRuntimeTemplates, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices } from "./portalRouteState";
 import { styles } from "./styles";
 import type { Device } from "./types";
 
@@ -11,7 +11,7 @@ type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
 
 export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const [bulkInventorySelection, setBulkInventorySelection] = React.useState<Device[]>([]);
-  const devices = props.devices ?? getInitialDevices();
+  const { devices } = usePortalDevices(props.devices);
   const templates = props.templates ?? getRuntimeTemplates();
   const policySettings = props.policySettings ?? getInitialPolicySettings();
   const selectedBulkDevices = props.bulkInventorySelection ?? bulkInventorySelection;
