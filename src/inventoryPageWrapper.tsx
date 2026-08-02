@@ -3,7 +3,7 @@ import React from "react";
 import DefaultLayout from "../layout/defaultLayout";
 import { InventoryPage } from "./dashboardInventory";
 import { getExecutableFindings } from "./helpers";
-import { getInitialPolicySettings, getRuntimeTemplates, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices } from "./portalRouteState";
+import { navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
 import { styles } from "./styles";
 import type { Device } from "./types";
 
@@ -12,8 +12,8 @@ type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
 export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const [bulkInventorySelection, setBulkInventorySelection] = React.useState<Device[]>([]);
   const { devices } = usePortalDevices(props.devices);
-  const templates = props.templates ?? getRuntimeTemplates();
-  const policySettings = props.policySettings ?? getInitialPolicySettings();
+  const { items: templates } = usePortalTemplates(props.templates);
+  const { items: policySettings } = usePortalPolicySettings(props.policySettings);
   const selectedBulkDevices = props.bulkInventorySelection ?? bulkInventorySelection;
 
   const startCreateTicket = (device?: Device) => {

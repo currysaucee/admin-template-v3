@@ -79,3 +79,58 @@ class ComplianceScanActualConfig(models.Model):
 
     def __str__(self) -> str:
         return f"{self.device.hostname} {self.policy_id}"
+
+
+class PolicySettingRecord(models.Model):
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "netcomply_scans"
+        db_table = "netcomply_policy_setting"
+
+    def __str__(self) -> str:
+        return str(self.payload.get("settingNumber") or self.payload.get("id") or self.id)
+
+
+class RemediationTemplateRecord(models.Model):
+    template_key = models.CharField(max_length=180, unique=True)
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "netcomply_scans"
+        db_table = "netcomply_remediation_template"
+
+    def __str__(self) -> str:
+        return self.template_key
+
+
+class TemplateRequestRecord(models.Model):
+    request_id = models.CharField(max_length=80, unique=True)
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "netcomply_scans"
+        db_table = "netcomply_template_request"
+
+    def __str__(self) -> str:
+        return self.request_id
+
+
+class RemediationTicketRecord(models.Model):
+    ticket_id = models.CharField(max_length=80, unique=True)
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "netcomply_scans"
+        db_table = "netcomply_remediation_ticket"
+
+    def __str__(self) -> str:
+        return self.ticket_id

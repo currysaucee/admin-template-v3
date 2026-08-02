@@ -3,18 +3,30 @@ import { Card } from "primereact/card";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { TicketDetailPage } from "./ticketDetail";
-import { getInitialPolicySettings, getRuntimeTemplates, getLatestRuntimeTicketId, getRouteValue, getRuntimeTickets, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus, usePortalDevices } from "./portalRouteState";
+import { getLatestRuntimeTicketId, getRouteValue, navigateToPortalPath, portalRoutePaths, saveRuntimeTickets, updateTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import { styles } from "./styles";
-import type { Device } from "./types";
+import type { Device, Ticket } from "./types";
 
 type TicketDetailPageProps = Partial<React.ComponentProps<typeof TicketDetailPage>> & { devices?: Device[] };
 
 export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {}) {
-  const [tickets, setTickets] = React.useState(getRuntimeTickets);
+  const overrideTickets = React.useMemo(() => props.ticket ? [props.ticket] : undefined, [props.ticket]);
+  const { items: loadedTickets } = usePortalTickets(overrideTickets);
+  const [tickets, setTicketsState] = React.useState(loadedTickets);
+  React.useEffect(() => setTicketsState(loadedTickets), [loadedTickets]);
+  const setTickets: React.Dispatch<React.SetStateAction<Ticket[]>> = (updater) => {
+    setTicketsState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveRuntimeTickets(next);
+      return next;
+    });
+  };
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId") || getLatestRuntimeTicketId();
   const ticket = props.ticket ?? tickets.find((item) => item.id === ticketId) ?? tickets[0];
   const { devices: sourceDevices } = usePortalDevices(props.devices);
+  const { items: templates } = usePortalTemplates(props.templates);
+  const { items: policySettings } = usePortalPolicySettings(props.policySettings);
   const hydratedTicket = ticket ? {
     ...ticket,
     devices: ticket.devices.map((ticketDevice) => {
@@ -44,10 +56,10 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
       <div className="netcomply-page-wrapper netcomply-ticket-detail-wrapper">
         <TicketDetailPage
           ticket={hydratedTicket}
-          templates={props.templates ?? getRuntimeTemplates()}
-          policySettings={props.policySettings ?? getInitialPolicySettings()}
+          templates={templates}
+          policySettings={policySettings}
           onBack={props.onBack ?? (() => navigateToPortalPath(portalRoutePaths.dashboard))}
-          onStatusChange={props.onStatusChange ?? ((id, status) => setTickets(updateRuntimeTicketStatus(id, status)))}
+          onStatusChange={props.onStatusChange ?? ((id, status) => setTickets((prev) => updateTicketStatus(prev, id, status)))}
         />
       </div>
     </DefaultLayout>

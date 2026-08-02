@@ -6,13 +6,27 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 
-from .models import ComplianceScanActualConfig, ComplianceScanBatch, ComplianceScanDevice, ComplianceScanFinding
+from .models import (
+    ComplianceScanActualConfig,
+    ComplianceScanBatch,
+    ComplianceScanDevice,
+    ComplianceScanFinding,
+    PolicySettingRecord,
+    RemediationTemplateRecord,
+    RemediationTicketRecord,
+    TemplateRequestRecord,
+)
 
 
 FALSE_STRINGS = {"false", "non-compliant", "non compliant", "failed", "fail", "no", "0"}
 TRUE_STRINGS = {"true", "compliant", "passed", "pass", "yes", "1"}
+
+
+def scan_db_alias() -> str:
+    return getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default")
 
 
 def pick(obj: dict[str, Any], *keys: str, default: Any = "") -> Any:
@@ -91,7 +105,8 @@ def write_latest_payload(payload: list[dict[str, Any]], tmp_dir: Path, consumed_
 
 def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | str, source: str = "external-api") -> ComplianceScanBatch:
     consumed_at = timezone.now()
-    batch = ComplianceScanBatch.objects.create(
+    db_alias = scan_db_alias()
+    batch = ComplianceScanBatch.objects.using(db_alias).create(
         source=source,
         consumed_at=consumed_at,
         raw_payload_path=str(raw_payload_path),
@@ -110,7 +125,7 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
         if not (hostname and hardware_type and management_ip and site):
             continue
 
-        device = ComplianceScanDevice.objects.create(
+        device = ComplianceScanDevice.objects.using(db_alias).create(
             batch=batch,
             hostname=hostname,
             hardware_type=hardware_type,
@@ -122,7 +137,7 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
         )
 
         for finding in normalize_keyed_payload(pick(raw_device, "findings", "policies", "violations", "exceptions", default=[])):
-            ComplianceScanFinding.objects.create(
+            ComplianceScanFinding.objects.using(db_alias).create(
                 device=device,
                 policy_id=finding["policy_id"],
                 finding_payload=finding["payload"],
@@ -130,7 +145,7 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
             )
 
         for config in normalize_keyed_payload(pick(raw_device, "actualConfig", "actualConfigs", "configSnapshot", "runningConfig", "rawConfig", "configuration", default=[])):
-            ComplianceScanActualConfig.objects.create(
+            ComplianceScanActualConfig.objects.using(db_alias).create(
                 device=device,
                 policy_id=config["policy_id"],
                 config_payload=config["payload"],
@@ -141,12 +156,14 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
 
 
 def latest_devices_for_frontend() -> list[dict[str, Any]]:
-    batch = ComplianceScanBatch.objects.order_by("-consumed_at").first()
+    db_alias = scan_db_alias()
+    batch = ComplianceScanBatch.objects.using(db_alias).order_by("-consumed_at").first()
     if not batch:
         return []
 
     devices: list[dict[str, Any]] = []
-    for device in batch.devices.prefetch_related("findings", "actual_configs"):
+    device_rows = ComplianceScanDevice.objects.using(db_alias).filter(batch=batch).prefetch_related("findings", "actual_configs")
+    for device in device_rows:
         config_by_policy = {config.policy_id: config.config_payload for config in device.actual_configs.all()}
         devices.append({
             "id": f"{device.hostname.lower().replace(' ', '-')}-{device.id}",
@@ -172,3 +189,64 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             ],
         })
     return devices
+
+
+def list_policy_settings_for_frontend() -> list[dict[str, Any]]:
+    return [record.payload for record in PolicySettingRecord.objects.using(scan_db_alias()).order_by("id")]
+
+
+def replace_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    db_alias = scan_db_alias()
+    PolicySettingRecord.objects.using(db_alias).all().delete()
+    PolicySettingRecord.objects.using(db_alias).bulk_create([PolicySettingRecord(payload=payload) for payload in payloads])
+    return list_policy_settings_for_frontend()
+
+
+def list_templates_for_frontend() -> list[dict[str, Any]]:
+    return [record.payload for record in RemediationTemplateRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+
+
+def replace_templates(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    db_alias = scan_db_alias()
+    RemediationTemplateRecord.objects.using(db_alias).all().delete()
+    RemediationTemplateRecord.objects.using(db_alias).bulk_create([
+        RemediationTemplateRecord(template_key=str(payload.get("key") or f"template-{index}"), payload=payload)
+        for index, payload in enumerate(payloads, start=1)
+    ])
+    return list_templates_for_frontend()
+
+
+def list_template_requests_for_frontend() -> list[dict[str, Any]]:
+    return [record.payload for record in TemplateRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+
+
+def replace_template_requests(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    db_alias = scan_db_alias()
+    TemplateRequestRecord.objects.using(db_alias).all().delete()
+    TemplateRequestRecord.objects.using(db_alias).bulk_create([
+        TemplateRequestRecord(request_id=str(payload.get("id") or f"request-{index}"), payload=payload)
+        for index, payload in enumerate(payloads, start=1)
+    ])
+    return list_template_requests_for_frontend()
+
+
+def list_tickets_for_frontend() -> list[dict[str, Any]]:
+    return [record.payload for record in RemediationTicketRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+
+
+def replace_tickets(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    db_alias = scan_db_alias()
+    RemediationTicketRecord.objects.using(db_alias).all().delete()
+    RemediationTicketRecord.objects.using(db_alias).bulk_create([
+        RemediationTicketRecord(ticket_id=str(payload.get("id") or f"ticket-{index}"), payload=payload)
+        for index, payload in enumerate(payloads, start=1)
+    ])
+    return list_tickets_for_frontend()
+
+
+def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
+    ticket_id = str(payload.get("id") or "")
+    if not ticket_id:
+        raise ValueError("Ticket payload requires id")
+    RemediationTicketRecord.objects.using(scan_db_alias()).update_or_create(ticket_id=ticket_id, defaults={"payload": payload})
+    return payload

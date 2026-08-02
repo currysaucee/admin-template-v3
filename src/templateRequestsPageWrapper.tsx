@@ -2,15 +2,20 @@ import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { TemplateRequestsPage } from "./templateRequestsPage";
-import { getInitialPolicySettings, getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
+import { saveRuntimeTemplateRequests, saveRuntimeTemplates, usePortalPolicySettings, usePortalTemplateRequests, usePortalTemplates } from "./portalRouteState";
 import { styles } from "./styles";
 import type { RemediationTemplate, TemplateRequest } from "./types";
 
 type TemplateRequestsPageProps = Partial<React.ComponentProps<typeof TemplateRequestsPage>>;
 
 export default function TemplateRequestsPageWrapper(props: TemplateRequestsPageProps = {}) {
-  const [requests, setRequestsState] = React.useState<TemplateRequest[]>(getRuntimeTemplateRequests);
-  const [templates, setTemplatesState] = React.useState<RemediationTemplate[]>(getRuntimeTemplates);
+  const { items: loadedRequests } = usePortalTemplateRequests(props.requests);
+  const { items: loadedTemplates } = usePortalTemplates(props.templates);
+  const { items: policySettings } = usePortalPolicySettings(props.policySettings);
+  const [requests, setRequestsState] = React.useState<TemplateRequest[]>(loadedRequests);
+  const [templates, setTemplatesState] = React.useState<RemediationTemplate[]>(loadedTemplates);
+  React.useEffect(() => setRequestsState(loadedRequests), [loadedRequests]);
+  React.useEffect(() => setTemplatesState(loadedTemplates), [loadedTemplates]);
   const setRequests: React.Dispatch<React.SetStateAction<TemplateRequest[]>> = (updater) => {
     setRequestsState((prev) => {
       const next = typeof updater === "function" ? (updater as (value: TemplateRequest[]) => TemplateRequest[])(prev) : updater;
@@ -35,7 +40,7 @@ export default function TemplateRequestsPageWrapper(props: TemplateRequestsPageP
           setRequests={props.setRequests ?? setRequests}
           templates={props.templates ?? templates}
           setTemplates={props.setTemplates ?? setTemplates}
-          policySettings={props.policySettings ?? getInitialPolicySettings()}
+          policySettings={policySettings}
         />
       </div>
     </DefaultLayout>

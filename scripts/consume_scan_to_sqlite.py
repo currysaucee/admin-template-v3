@@ -136,6 +136,33 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS netcomply_scan_device_batch_hostname ON netcomply_compliance_scan_device(batch_id, hostname);
         CREATE INDEX IF NOT EXISTS netcomply_scan_finding_policy ON netcomply_compliance_scan_finding(policy_id);
         CREATE INDEX IF NOT EXISTS netcomply_scan_actual_config_policy ON netcomply_compliance_scan_actual_config(policy_id);
+        CREATE TABLE IF NOT EXISTS netcomply_policy_setting (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          payload JSON NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS netcomply_remediation_template (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          template_key VARCHAR(180) NOT NULL UNIQUE,
+          payload JSON NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS netcomply_template_request (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          request_id VARCHAR(80) NOT NULL UNIQUE,
+          payload JSON NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS netcomply_remediation_ticket (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ticket_id VARCHAR(80) NOT NULL UNIQUE,
+          payload JSON NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
 

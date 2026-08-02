@@ -2,13 +2,22 @@ import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { DashboardPage } from "./dashboardInventory";
-import { getRuntimeTickets, navigateToPortalPath, portalRoutePaths, setRouteValue, updateRuntimeTicketStatus } from "./portalRouteState";
+import { navigateToPortalPath, portalRoutePaths, saveRuntimeTickets, setRouteValue, updateTicketStatus, usePortalTickets } from "./portalRouteState";
 import { styles } from "./styles";
 
 type DashboardPageProps = Partial<React.ComponentProps<typeof DashboardPage>>;
 
 export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
-  const [tickets, setTickets] = React.useState(getRuntimeTickets);
+  const { items: loadedTickets } = usePortalTickets(props.tickets);
+  const [tickets, setTicketsState] = React.useState(loadedTickets);
+  React.useEffect(() => setTicketsState(loadedTickets), [loadedTickets]);
+  const setTickets: React.Dispatch<React.SetStateAction<typeof tickets>> = (updater) => {
+    setTicketsState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveRuntimeTickets(next);
+      return next;
+    });
+  };
 
   return (
     <DefaultLayout>
@@ -20,7 +29,7 @@ export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
             setRouteValue("netcomply:selectedTicketId", ticket.id);
             navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: ticket.id });
           })}
-          onStatusChange={props.onStatusChange ?? ((id, status) => setTickets(updateRuntimeTicketStatus(id, status)))}
+          onStatusChange={props.onStatusChange ?? ((id, status) => setTickets((prev) => updateTicketStatus(prev, id, status)))}
         />
       </div>
     </DefaultLayout>
