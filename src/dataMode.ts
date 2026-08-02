@@ -4,7 +4,7 @@ export type NetComplyDataMode = "mock" | "real";
 
 const dataModeKey = "netcomply:dataMode";
 const defaultMode = (import.meta.env.VITE_NETCOMPLY_DATA_MODE === "real" ? "real" : "mock") as NetComplyDataMode;
-const realDevicesEndpoint = import.meta.env.VITE_NETCOMPLY_REAL_DEVICES_ENDPOINT || "/api/netcomply/scan/devices/";
+const realDevicesEndpoint = import.meta.env.VITE_NETCOMPLY_REAL_DEVICES_ENDPOINT || "https://127.0.0.1:8443/api/hcc/scan/devices/";
 
 export function getStoredDataMode(): NetComplyDataMode {
   const stored = window.localStorage.getItem(dataModeKey);

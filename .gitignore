@@ -12,3 +12,5 @@ tmp/
 public/config-snapshots/*
 !public/config-snapshots/.gitkeep
 .env*.local
+__pycache__/
+*.py[cod]
