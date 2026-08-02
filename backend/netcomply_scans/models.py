@@ -10,6 +10,7 @@ class ComplianceScanBatch(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        app_label = "netcomply_scans"
         db_table = "netcomply_compliance_scan_batch"
         ordering = ["-consumed_at"]
 
@@ -29,6 +30,7 @@ class ComplianceScanDevice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        app_label = "netcomply_scans"
         db_table = "netcomply_compliance_scan_device"
         indexes = [
             models.Index(fields=["batch", "hostname"]),
@@ -49,6 +51,7 @@ class ComplianceScanFinding(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        app_label = "netcomply_scans"
         db_table = "netcomply_compliance_scan_finding"
         indexes = [
             models.Index(fields=["policy_id"]),
@@ -67,6 +70,7 @@ class ComplianceScanActualConfig(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        app_label = "netcomply_scans"
         db_table = "netcomply_compliance_scan_actual_config"
         indexes = [
             models.Index(fields=["policy_id"]),
