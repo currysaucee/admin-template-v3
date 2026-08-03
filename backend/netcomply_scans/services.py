@@ -46,14 +46,14 @@ def find_device_snapshot(hostname: str) -> tuple[str, str] | None:
     directory = snapshot_dir()
     candidate = directory / filename
     if candidate.is_file():
-        return f"/api/hcc/scan/config-snapshots/{filename}", filename
+        return f"/api/HCCFix/scan/config-snapshots/{filename}", filename
 
     if not directory.exists():
         return None
 
     for snapshot_file in directory.glob("*.txt"):
         if snapshot_file.name.lower() == filename.lower():
-            return f"/api/hcc/scan/config-snapshots/{snapshot_file.name}", snapshot_file.name
+            return f"/api/HCCFix/scan/config-snapshots/{snapshot_file.name}", snapshot_file.name
     return None
 
 
