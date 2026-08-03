@@ -17,6 +17,12 @@ export function resolveRealApiUrl(path: string) {
   return baseOrigin ? `${baseOrigin}${path}` : path;
 }
 
+export function normalizeConfigSnapshotPath(path: string) {
+  return path
+    .replace(/^\/api\/hcc\/scan\/config-snapshots\//i, "/api/HCCFix/scan/config-snapshots/")
+    .replace(/^\/api\/netcomply\/scan\/config-snapshots\//i, "/api/HCCFix/scan/config-snapshots/");
+}
+
 async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
     ...options,

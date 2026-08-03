@@ -5,10 +5,10 @@ import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
-import { resolveRealApiUrl } from "./dataMode";
+import { normalizeConfigSnapshotPath, resolveRealApiUrl } from "./dataMode";
 
 export function ConfigSnapshotDownload({ path, filename }: { path?: string; filename?: string }) {
-  const resolvedPath = path || (filename ? `/config-snapshots/${filename}` : "");
+  const resolvedPath = normalizeConfigSnapshotPath(path || (filename ? `/config-snapshots/${filename}` : ""));
   if (!resolvedPath) return <span className="config-download-empty">No device config snapshot available.</span>;
   const downloadSnapshot = async () => {
     const downloadUrl = resolveRealApiUrl(resolvedPath);

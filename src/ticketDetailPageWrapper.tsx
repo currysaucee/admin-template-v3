@@ -33,8 +33,8 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
       const sourceDevice = sourceDevices.find((device) => device.id === ticketDevice.deviceId || device.hostname === ticketDevice.hostname);
       return {
         ...ticketDevice,
-        configSnapshotPath: ticketDevice.configSnapshotPath ?? sourceDevice?.configSnapshotPath,
-        configSnapshotFilename: ticketDevice.configSnapshotFilename ?? sourceDevice?.configSnapshotFilename,
+        configSnapshotPath: sourceDevice?.configSnapshotPath ?? ticketDevice.configSnapshotPath,
+        configSnapshotFilename: sourceDevice?.configSnapshotFilename ?? ticketDevice.configSnapshotFilename,
       };
     }),
   } : undefined;
