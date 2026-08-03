@@ -5,13 +5,15 @@ import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
+import { resolveRealApiUrl } from "./dataMode";
 
 export function ConfigSnapshotDownload({ path, filename }: { path?: string; filename?: string }) {
   const resolvedPath = path || (filename ? `/config-snapshots/${filename}` : "");
   if (!resolvedPath) return <span className="config-download-empty">No device config snapshot available.</span>;
   const downloadSnapshot = async () => {
-    const response = await fetch(resolvedPath);
-    if (!response.ok) throw new Error(`Unable to download config snapshot from ${resolvedPath}`);
+    const downloadUrl = resolveRealApiUrl(resolvedPath);
+    const response = await fetch(downloadUrl);
+    if (!response.ok) throw new Error(`Unable to download config snapshot from ${downloadUrl}`);
     const snapshotText = await response.text();
     const blob = new Blob([snapshotText], { type: "text/plain;charset=utf-8" });
     const objectUrl = window.URL.createObjectURL(blob);

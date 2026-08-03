@@ -1,6 +1,6 @@
 import json
 
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .services import (
@@ -13,6 +13,7 @@ from .services import (
     replace_template_requests,
     replace_templates,
     replace_tickets,
+    resolve_snapshot_file,
     upsert_ticket,
 )
 
@@ -25,6 +26,18 @@ def read_json_body(request):
 
 def latest_scan_devices(request):
     return JsonResponse({"devices": latest_devices_for_frontend()})
+
+
+def config_snapshot_download(request, filename):
+    snapshot_path = resolve_snapshot_file(filename)
+    if not snapshot_path:
+        raise Http404("Device config snapshot not found")
+    return FileResponse(
+        snapshot_path.open("rb"),
+        as_attachment=True,
+        filename=snapshot_path.name,
+        content_type="text/plain; charset=utf-8",
+    )
 
 
 @csrf_exempt

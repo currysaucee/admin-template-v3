@@ -29,6 +29,45 @@ def scan_db_alias() -> str:
     return getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default")
 
 
+def snapshot_dir() -> Path:
+    configured_dir = getattr(settings, "NETCOMPLY_CONFIG_SNAPSHOT_DIR", None)
+    if configured_dir:
+        return Path(configured_dir)
+    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-config-snapshots"
+
+
+def safe_snapshot_filename(hostname: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9_.-]+", "-", hostname.strip()).strip("-").lower()
+    return f"{normalized or 'device'}.txt"
+
+
+def find_device_snapshot(hostname: str) -> tuple[str, str] | None:
+    filename = safe_snapshot_filename(hostname)
+    directory = snapshot_dir()
+    candidate = directory / filename
+    if candidate.is_file():
+        return f"/api/hcc/scan/config-snapshots/{filename}", filename
+
+    if not directory.exists():
+        return None
+
+    for snapshot_file in directory.glob("*.txt"):
+        if snapshot_file.name.lower() == filename.lower():
+            return f"/api/hcc/scan/config-snapshots/{snapshot_file.name}", snapshot_file.name
+    return None
+
+
+def resolve_snapshot_file(filename: str) -> Path | None:
+    safe_filename = Path(filename).name
+    directory = snapshot_dir().resolve()
+    candidate = (directory / safe_filename).resolve()
+    if directory not in candidate.parents and candidate != directory:
+        return None
+    if candidate.is_file():
+        return candidate
+    return None
+
+
 def pick(obj: dict[str, Any], *keys: str, default: Any = "") -> Any:
     for key in keys:
         if key in obj and obj[key] not in (None, ""):
@@ -165,6 +204,8 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
     device_rows = ComplianceScanDevice.objects.using(db_alias).filter(batch=batch).prefetch_related("findings", "actual_configs")
     for device in device_rows:
         config_by_policy = {config.policy_id: config.config_payload for config in device.actual_configs.all()}
+        snapshot = find_device_snapshot(device.hostname)
+        config_snapshot_path, config_snapshot_filename = snapshot if snapshot else ("", "")
         devices.append({
             "id": f"{device.hostname.lower().replace(' ', '-')}-{device.id}",
             "hostname": device.hostname,
@@ -174,6 +215,8 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             "site": device.site,
             "lastScanned": batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
             "complianceStatus": "Non-Compliant",
+            "configSnapshotPath": config_snapshot_path,
+            "configSnapshotFilename": config_snapshot_filename,
             "findings": [
                 {
                     "id": finding.policy_id,

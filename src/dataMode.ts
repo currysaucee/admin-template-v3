@@ -11,6 +11,12 @@ function endpoint(path: string) {
   return `${realApiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 }
 
+export function resolveRealApiUrl(path: string) {
+  if (!path || /^https?:\/\//i.test(path) || !path.startsWith("/api/")) return path;
+  const baseOrigin = realApiBase.match(/^(https?:\/\/[^/]+)/i)?.[1];
+  return baseOrigin ? `${baseOrigin}${path}` : path;
+}
+
 async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
     ...options,
