@@ -316,13 +316,33 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .request-review-note { display: grid; gap: 4px; color: #64748b; font-size: 13px; line-height: 1.45; }
 .request-review-note strong { color: #334155; font-size: 13px; }
 .sme-label { margin-top: 18px; }
+.developer-console-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr); gap: 18px; align-items: start; margin-bottom: 18px; }
+.developer-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.developer-card-heading h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
+.developer-card-heading p { margin: 6px 0 0; color: #64748b; line-height: 1.5; }
+.developer-row-stack { display: grid; gap: 14px; }
+.developer-policy-row { border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; background: #fff; }
+.developer-policy-row-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+.developer-policy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 14px; }
+.developer-policy-grid .field-block > span { font-weight: 750; color: #334155; }
+.developer-policy-grid .p-inputtext, .developer-policy-grid .p-inputtextarea, .developer-policy-grid .p-dropdown { width: 100%; }
+.developer-submit-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding-top: 18px; border-top: 1px solid #eef2f7; margin-top: 18px; }
+.developer-submit-row span { color: #64748b; font-weight: 800; }
+.developer-upload-drop { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; padding: 24px; border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; cursor: pointer; }
+.developer-upload-drop i { color: #2563eb; font-size: 34px; }
+.developer-upload-drop strong { color: #0f172a; }
+.developer-upload-drop span { max-width: 320px; color: #64748b; line-height: 1.5; }
+.developer-upload-drop input { max-width: 240px; color: #64748b; }
+.developer-policy-table { margin-bottom: 18px; }
+.developer-policy-detail .p-card-body, .developer-intake-card .p-card-body, .developer-upload-card .p-card-body { padding: 22px; }
+.developer-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }
   .main-panel { margin-left: 220px; }
   .top-bar { align-items: flex-start; height: auto; padding: 18px; flex-direction: column; }
   .top-search { width: 100%; }
   .top-actions { flex-wrap: wrap; }
-  .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row, .review-command-row, .review-finding-row { grid-template-columns: 1fr; }
+  .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row, .review-command-row, .review-finding-row, .developer-console-layout, .developer-policy-grid, .developer-detail-grid { grid-template-columns: 1fr; }
   .review-command-header { display: none; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }

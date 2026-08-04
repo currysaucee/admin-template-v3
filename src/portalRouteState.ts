@@ -25,6 +25,7 @@ export const portalRoutePaths = {
   createTicket: "/tickets/create",
   templates: "/fix-templates",
   templateRequests: "/fix-template-requests",
+  developerConsole: "/developer-console",
 };
 
 export function navigateToPortalPath(path: string, params: Record<string, string> = {}) {
@@ -141,7 +142,7 @@ function usePortalCollection<T>(fallback: T[], loader: () => Promise<T[]>, overr
 }
 
 export function usePortalPolicySettings(overridePolicySettings?: PolicySetting[]) {
-  const fallback = React.useMemo(() => getInitialPolicySettings(), []);
+  const fallback = React.useMemo(() => getRuntimePolicySettings(), []);
   return usePortalCollection<PolicySetting>(fallback, loadRealPolicySettings, overridePolicySettings);
 }
 
@@ -174,6 +175,7 @@ export function usePortalTickets(overrideTickets?: Ticket[]) {
 
 const runtimeTicketsKey = "netcomply:runtimeTickets";
 const latestRuntimeTicketIdKey = "netcomply:latestRuntimeTicketId";
+const runtimePolicySettingsKey = "netcomply:runtimePolicySettings";
 const runtimeTemplatesKey = "netcomply:runtimeTemplates";
 const runtimeTemplateRequestsKey = "netcomply:runtimeTemplateRequests";
 
@@ -195,6 +197,18 @@ function writeRuntimeArray<T>(storageKey: string, value: T[]) {
 
 export function getRuntimeTemplates() {
   return readRuntimeArray<RemediationTemplate>(runtimeTemplatesKey, getInitialTemplates());
+}
+
+export function getRuntimePolicySettings() {
+  return readRuntimeArray<PolicySetting>(runtimePolicySettingsKey, getInitialPolicySettings());
+}
+
+export function saveRuntimePolicySettings(policySettings: PolicySetting[]) {
+  if (getStoredDataMode() === "real") {
+    void saveRealPolicySettings(policySettings);
+    return;
+  }
+  writeRuntimeArray(runtimePolicySettingsKey, policySettings);
 }
 
 export function saveRuntimeTemplates(templates: RemediationTemplate[]) {

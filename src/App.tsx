@@ -8,6 +8,7 @@ import "primeicons/primeicons.css";
 import { SideMenu, TopBar } from "./sharedUi";
 import CreateTicketPageWrapper from "./createTicketPageWrapper";
 import DashboardPageWrapper from "./dashboardPageWrapper";
+import DeveloperConsolePageWrapper from "./developerConsolePageWrapper";
 import DeviceDetailPageWrapper from "./deviceDetailPageWrapper";
 import InventoryPageWrapper from "./inventoryPageWrapper";
 import TemplatePageWrapper from "./templatePageWrapper";
@@ -36,7 +37,7 @@ function NetComplyPrototype() {
   const [currentRole, setCurrentRole] = useState<UserRole>("Network Engineer");
   const [dataMode, setDataModeState] = useState<NetComplyDataMode>(getStoredDataMode);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
-  const [policySettings] = useState<PolicySetting[]>(initialPolicySettings);
+  const [policySettings, setPolicySettings] = useState<PolicySetting[]>(initialPolicySettings);
   const [templateRequests, setTemplateRequests] = useState(getRuntimeTemplateRequests);
   const [templates, setTemplates] = useState<RemediationTemplate[]>(getRuntimeTemplates);
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
@@ -226,6 +227,7 @@ function NetComplyPrototype() {
         )}
         {page === "templateRequests" && <TemplateRequestsPageWrapper requests={templateRequests} setRequests={setTemplateRequests} templates={templates} setTemplates={setTemplates} policySettings={policySettings} />}
         {page === "templates" && <TemplatePageWrapper templates={templates} setTemplates={setTemplates} setTemplateRequests={setTemplateRequests} policySettings={policySettings} onRequestSubmitted={() => setPage("templateRequests")} />}
+        {page === "developerConsole" && <DeveloperConsolePageWrapper policySettings={policySettings} setPolicySettings={setPolicySettings} />}
       </main>
     </div>
   );

@@ -19,6 +19,9 @@ export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Pag
     { page: "templateRequests", label: "Template Requests", icon: "pi pi-inbox" },
     { page: "templates", label: "Fix Templates", icon: "pi pi-code" },
   ];
+  const developerItems: Array<{ page: Page; label: string; icon: string; onClick?: () => void }> = [
+    { page: "developerConsole", label: "Developer Console", icon: "pi pi-wrench" },
+  ];
   const isActive = (item: { page: Page }) => activePage === item.page || (activePage === "deviceDetail" && item.page === "inventory") || (activePage === "ticketDetail" && item.page === "dashboard");
 
   return (
@@ -42,6 +45,15 @@ export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Pag
       <div className="menu-group-label sme-label">SME</div>
       <nav className="menu-list">
         {smeItems.map((item) => (
+          <button key={item.page} className={`menu-item ${isActive(item) ? "active" : ""}`} onClick={() => (item.onClick ? item.onClick() : onNavigate(item.page))}>
+            <i className={item.icon} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="menu-group-label sme-label">DEVELOPER</div>
+      <nav className="menu-list">
+        {developerItems.map((item) => (
           <button key={item.page} className={`menu-item ${isActive(item) ? "active" : ""}`} onClick={() => (item.onClick ? item.onClick() : onNavigate(item.page))}>
             <i className={item.icon} />
             <span>{item.label}</span>

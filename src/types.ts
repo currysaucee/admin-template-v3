@@ -1,4 +1,4 @@
-export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" | "createTicket" | "templates" | "templateRequests";
+export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" | "createTicket" | "templates" | "templateRequests" | "developerConsole";
 export type UserRole = "Network Engineer" | "Approver" | "Change Manager";
 export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Scan Pending";
 export type TicketStatus = "Pending Approval" | "Approved" | "Released" | "In Progress" | "Complete" | "Partially Complete" | "Rejected" | "Cancelled";
@@ -44,9 +44,13 @@ export type RemediationTemplate = {
 
 export type PolicySetting = {
   id: string;
+  sourceUuid?: string;
   settingNumber: string;
   title: string;
   settingPayload: string;
+  actualConfigExample?: string;
+  expectedConfigType?: string;
+  riskTag?: string;
   standard: string;
   description: string;
   createdAt: string;
@@ -113,7 +117,7 @@ export type Ticket = {
 
 export const roleOptions: UserRole[] = ["Network Engineer", "Approver", "Change Manager"];
 export const ticketStatusOptions: TicketStatus[] = ["Pending Approval", "Approved", "Released", "In Progress", "Complete", "Partially Complete", "Rejected", "Cancelled"];
-export const pageValues: Page[] = ["dashboard", "inventory", "deviceDetail", "ticketDetail", "createTicket", "templates", "templateRequests"];
+export const pageValues: Page[] = ["dashboard", "inventory", "deviceDetail", "ticketDetail", "createTicket", "templates", "templateRequests", "developerConsole"];
 
 
 
