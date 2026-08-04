@@ -2,11 +2,14 @@ import React from "react";
 
 import {
   getStoredDataMode,
+  deleteRealPolicySettings,
+  extractRealPolicySettingsFromDocument,
   loadRealDevices,
   loadRealPolicySettings,
   loadRealTemplateRequests,
   loadRealTemplates,
   loadRealTickets,
+  onboardRealPolicySettings,
   saveRealPolicySettings,
   saveRealTemplateRequests,
   saveRealTemplates,
@@ -209,6 +212,35 @@ export function saveRuntimePolicySettings(policySettings: PolicySetting[]) {
     return;
   }
   writeRuntimeArray(runtimePolicySettingsKey, policySettings);
+}
+
+export async function onboardRuntimePolicySettings(policySettings: PolicySetting[]) {
+  if (getStoredDataMode() === "real") {
+    return onboardRealPolicySettings(policySettings);
+  }
+  const current = getRuntimePolicySettings();
+  const byId = new Map(current.map((setting) => [setting.id, setting]));
+  policySettings.forEach((setting) => byId.set(setting.id, setting));
+  const next = Array.from(byId.values()).sort((a, b) => (a.settingNumber || a.id).localeCompare(b.settingNumber || b.id));
+  writeRuntimeArray(runtimePolicySettingsKey, next);
+  return next;
+}
+
+export async function deleteRuntimePolicySettings(policySettingIds: string[]) {
+  if (getStoredDataMode() === "real") {
+    return deleteRealPolicySettings(policySettingIds);
+  }
+  const removeIds = new Set(policySettingIds);
+  const next = getRuntimePolicySettings().filter((setting) => !removeIds.has(setting.id));
+  writeRuntimeArray(runtimePolicySettingsKey, next);
+  return next;
+}
+
+export async function extractRuntimePolicySettingsFromDocument(document: File) {
+  if (getStoredDataMode() === "real") {
+    return extractRealPolicySettingsFromDocument(document);
+  }
+  throw new Error("Document extraction is available in Real mode because it runs through the backend parser.");
 }
 
 export function saveRuntimeTemplates(templates: RemediationTemplate[]) {

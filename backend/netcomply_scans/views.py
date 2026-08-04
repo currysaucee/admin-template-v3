@@ -4,6 +4,8 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .services import (
+    delete_policy_settings,
+    extract_policy_settings_from_docx,
     latest_devices_for_frontend,
     list_policy_settings_for_frontend,
     list_template_requests_for_frontend,
@@ -14,6 +16,7 @@ from .services import (
     replace_templates,
     replace_tickets,
     resolve_snapshot_file,
+    upsert_policy_settings,
     upsert_ticket,
 )
 
@@ -44,11 +47,35 @@ def config_snapshot_download(request, filename):
 def policy_settings(request):
     if request.method == "GET":
         return JsonResponse({"policySettings": list_policy_settings_for_frontend()})
+    if request.method == "POST":
+        payload = read_json_body(request) or {}
+        values = payload if isinstance(payload, list) else payload.get("policySettings", [payload])
+        return JsonResponse({"policySettings": upsert_policy_settings(values)})
     if request.method == "PUT":
         payload = read_json_body(request) or {}
         values = payload if isinstance(payload, list) else payload.get("policySettings", [])
         return JsonResponse({"policySettings": replace_policy_settings(values)})
+    if request.method == "DELETE":
+        payload = read_json_body(request) or {}
+        values = payload if isinstance(payload, list) else payload.get("ids", payload.get("policySettingIds", []))
+        return JsonResponse({"policySettings": delete_policy_settings(values)})
     return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def policy_settings_extract_document(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    uploaded_file = request.FILES.get("document")
+    if not uploaded_file:
+        return JsonResponse({"detail": "Upload a .docx file using the 'document' form field."}, status=400)
+    if not uploaded_file.name.lower().endswith(".docx"):
+        return JsonResponse({"detail": "Only .docx files are supported for this experimental extractor."}, status=400)
+    try:
+        extracted = extract_policy_settings_from_docx(uploaded_file)
+    except Exception as exc:
+        return JsonResponse({"detail": f"Unable to extract policy settings: {exc}"}, status=400)
+    return JsonResponse({"policySettings": extracted})
 
 
 @csrf_exempt

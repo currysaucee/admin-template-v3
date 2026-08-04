@@ -3,6 +3,7 @@ import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
+import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Tag } from "primereact/tag";
@@ -31,19 +32,6 @@ function normalizePolicyNumber(value: string) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
-function toPolicySetting(row: DraftPolicyRow): PolicySetting {
-  const settingNumber = normalizePolicyNumber(row.settingNumber);
-  return {
-    id: settingNumber,
-    settingNumber,
-    title: row.title.trim() || settingNumber,
-    settingPayload: row.expectedConfig.trim(),
-    standard: derivePolicyType(row.title, row.expectedConfig),
-    description: "",
-    createdAt: formatDate(new Date()),
-  };
-}
-
 function derivePolicyType(title = "", expectedConfig = "") {
   const text = `${title} ${expectedConfig}`.toLowerCase();
   if (/password|secret|credential|username/.test(text)) return "Password Policy";
@@ -58,6 +46,34 @@ function derivePolicyType(title = "", expectedConfig = "") {
   return "General Policy";
 }
 
+function toPolicySetting(row: DraftPolicyRow): PolicySetting {
+  const settingNumber = normalizePolicyNumber(row.settingNumber);
+  return {
+    id: settingNumber,
+    settingNumber,
+    title: row.title.trim() || settingNumber,
+    settingPayload: row.expectedConfig.trim(),
+    standard: derivePolicyType(row.title, row.expectedConfig),
+    description: "",
+    createdAt: formatDate(new Date()),
+  };
+}
+
+function toDraftRow(setting: PolicySetting): DraftPolicyRow {
+  return {
+    rowId: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    settingNumber: setting.settingNumber || setting.id,
+    title: setting.title,
+    expectedConfig: setting.settingPayload,
+  };
+}
+
+function mergePolicySettings(current: PolicySetting[], nextPolicies: PolicySetting[]) {
+  const byId = new Map(current.map((setting) => [setting.id, setting]));
+  nextPolicies.forEach((setting) => byId.set(setting.id, setting));
+  return Array.from(byId.values()).sort((a, b) => (a.settingNumber || a.id).localeCompare(b.settingNumber || b.id));
+}
+
 function PolicyChip({ setting }: { setting: PolicySetting }) {
   return (
     <span className="policy-chip-line">
@@ -67,10 +83,28 @@ function PolicyChip({ setting }: { setting: PolicySetting }) {
   );
 }
 
-export function DeveloperConsolePage({ policySettings, setPolicySettings }: { policySettings: PolicySetting[]; setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>> }) {
+export function DeveloperConsolePage({
+  policySettings,
+  setPolicySettings,
+  onOnboardPolicySettings,
+  onDeletePolicySetting,
+  onExtractDocument,
+}: {
+  policySettings: PolicySetting[];
+  setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
+  onOnboardPolicySettings?: (policySettings: PolicySetting[]) => Promise<PolicySetting[]>;
+  onDeletePolicySetting?: (policySettingId: string) => Promise<PolicySetting[]>;
+  onExtractDocument?: (document: File) => Promise<PolicySetting[]>;
+}) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
   const [selectedPolicy, setSelectedPolicy] = React.useState<PolicySetting | null>(policySettings[0] ?? null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState("");
+  const [documentDialogOpen, setDocumentDialogOpen] = React.useState(false);
+  const [documentFile, setDocumentFile] = React.useState<File | null>(null);
+  const [documentProcessing, setDocumentProcessing] = React.useState(false);
+  const [documentError, setDocumentError] = React.useState("");
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.standard, setting.settingPayload].join(" ").toLowerCase();
@@ -91,26 +125,72 @@ export function DeveloperConsolePage({ policySettings, setPolicySettings }: { po
     setDraftRows((rows) => (rows.length === 1 ? rows : rows.filter((row) => row.rowId !== rowId)));
   };
 
-  const onboardPolicies = () => {
+  const onboardPolicies = async () => {
     const nextPolicies = validRows.map(toPolicySetting);
-    setPolicySettings((current) => {
-      const byId = new Map(current.map((setting) => [setting.id, setting]));
-      nextPolicies.forEach((setting) => byId.set(setting.id, setting));
-      return Array.from(byId.values()).sort((a, b) => (a.settingNumber || a.id).localeCompare(b.settingNumber || b.id));
-    });
-    setDraftRows([createDraftRow()]);
+    setSubmitting(true);
+    try {
+      if (onOnboardPolicySettings) {
+        const savedPolicies = await onOnboardPolicySettings(nextPolicies);
+        setPolicySettings(savedPolicies);
+      } else {
+        setPolicySettings((current) => mergePolicySettings(current, nextPolicies));
+      }
+      setDraftRows([createDraftRow()]);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const deletePolicy = async (policy: PolicySetting) => {
+    const policyId = policy.id || policy.settingNumber;
+    if (!policyId || !window.confirm(`Delete policy setting ${policy.settingNumber || policy.id}?`)) return;
+    setDeletingId(policyId);
+    try {
+      if (onDeletePolicySetting) {
+        const nextPolicies = await onDeletePolicySetting(policyId);
+        setPolicySettings(nextPolicies);
+      } else {
+        setPolicySettings((current) => current.filter((setting) => setting.id !== policyId));
+      }
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const processDocument = async () => {
+    if (!documentFile || !onExtractDocument) return;
+    setDocumentProcessing(true);
+    setDocumentError("");
+    try {
+      const extractedPolicies = await onExtractDocument(documentFile);
+      const extractedRows = extractedPolicies.map(toDraftRow);
+      if (extractedRows.length === 0) {
+        setDocumentError("No policy rows were detected. Check that the document contains policy numbers such as AS003 or HWS-001.");
+        return;
+      }
+      setDraftRows((rows) => {
+        const filledRows = rows.filter((row) => normalizePolicyNumber(row.settingNumber) || row.title.trim() || row.expectedConfig.trim());
+        return [...filledRows, ...extractedRows];
+      });
+      setDocumentDialogOpen(false);
+      setDocumentFile(null);
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Unable to process document.");
+    } finally {
+      setDocumentProcessing(false);
+    }
   };
 
   return (
     <section className="page-content developer-console-page">
-      <PageHeader title="Developer Console" subtitle="Onboard policy settings, inspect source mappings, and prepare policy IDs before fixes are exposed to engineers." />
+      <PageHeader title="Developer Console" subtitle="Onboard policy settings, inspect policy mappings, and prepare policy IDs before fixes are exposed to engineers." />
 
       <div className="developer-console-layout">
         <Card className="editor-card developer-intake-card">
           <div className="developer-card-heading">
             <div>
               <h2>Policy Intake</h2>
-              <p>Add policy settings in batches. Existing policy numbers are overwritten so developers can correct a source row without editing code.</p>
+              <p>Add policy settings in batches. Existing policy numbers are overwritten so developers can correct a policy row without editing code.</p>
             </div>
             <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
           </div>
@@ -142,7 +222,7 @@ export function DeveloperConsolePage({ policySettings, setPolicySettings }: { po
 
           <div className="developer-submit-row">
             <span>{validRows.length} ready to onboard</span>
-            <Button label="Onboard Policy Settings" icon="pi pi-check" disabled={validRows.length === 0} onClick={onboardPolicies} />
+            <Button label="Onboard Policy Settings" icon="pi pi-check" disabled={validRows.length === 0} loading={submitting} onClick={onboardPolicies} />
           </div>
         </Card>
 
@@ -150,15 +230,14 @@ export function DeveloperConsolePage({ policySettings, setPolicySettings }: { po
           <div className="developer-card-heading">
             <div>
               <h2>Experimental Document Upload</h2>
-              <p>Use this as a future intake slot for `.docx` policy documents. Parsing should be handled server-side before it writes into the same policy setting table.</p>
+              <p>Upload a `.docx` policy document, run extraction, then review the detected rows in Policy Intake before submitting.</p>
             </div>
           </div>
-          <label className="developer-upload-drop">
+          <button className="developer-upload-drop" type="button" onClick={() => setDocumentDialogOpen(true)}>
             <i className="pi pi-file-word" />
-            <strong>Drop-in parser placeholder</strong>
-            <span>Accepts `.docx` selection for now; extraction is intentionally not executed in the browser.</span>
-            <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-          </label>
+            <strong>Open Document Intake</strong>
+            <span>Process a Word document into staged policy rows, then submit only after review.</span>
+          </button>
         </Card>
       </div>
 
@@ -174,6 +253,7 @@ export function DeveloperConsolePage({ policySettings, setPolicySettings }: { po
           <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
           <Column header="Policy Type" field="standard" body={(row: PolicySetting) => <Tag value={row.standard || derivePolicyType(row.title, row.settingPayload)} severity="secondary" rounded />} />
           <Column header="Updated" field="createdAt" />
+          <Column header="Actions" body={(row: PolicySetting) => <Button icon="pi pi-trash" rounded text severity="danger" aria-label={`Delete ${row.settingNumber || row.id}`} loading={deletingId === (row.id || row.settingNumber)} onClick={() => deletePolicy(row)} />} />
         </DataTable>
       </Card>
 
@@ -192,6 +272,22 @@ export function DeveloperConsolePage({ policySettings, setPolicySettings }: { po
           </div>
         </Card>
       )}
+
+      <Dialog header="Process Policy Document" visible={documentDialogOpen} modal style={{ width: "min(620px, calc(100vw - 32px))" }} onHide={() => !documentProcessing && setDocumentDialogOpen(false)}>
+        <div className="document-process-dialog">
+          <label className="developer-upload-drop document-upload-target">
+            <i className="pi pi-file-word" />
+            <strong>{documentFile ? documentFile.name : "Choose a Word document"}</strong>
+            <span>The backend will scan for policy numbers, titles, and expected config text. Nothing is saved until you submit the staged rows.</span>
+            <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={documentProcessing} onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)} />
+          </label>
+          {documentError && <div className="document-process-error"><i className="pi pi-exclamation-triangle" /><span>{documentError}</span></div>}
+          <div className="developer-submit-row">
+            <Button label="Cancel" outlined severity="secondary" disabled={documentProcessing} onClick={() => setDocumentDialogOpen(false)} />
+            <Button label="Process Document" icon="pi pi-cog" loading={documentProcessing} disabled={!documentFile || !onExtractDocument} onClick={processDocument} />
+          </div>
+        </div>
+      </Dialog>
     </section>
   );
 }

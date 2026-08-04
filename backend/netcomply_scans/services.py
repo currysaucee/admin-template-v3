@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import re
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import (
@@ -243,6 +246,91 @@ def replace_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, An
     PolicySettingRecord.objects.using(db_alias).all().delete()
     PolicySettingRecord.objects.using(db_alias).bulk_create([PolicySettingRecord(payload=payload) for payload in payloads])
     return list_policy_settings_for_frontend()
+
+
+def upsert_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    db_alias = scan_db_alias()
+    for payload in payloads:
+        setting_id = str(payload.get("id") or payload.get("settingNumber") or "").strip()
+        if not setting_id:
+            continue
+        payload = {**payload, "id": setting_id, "settingNumber": str(payload.get("settingNumber") or setting_id)}
+        record = PolicySettingRecord.objects.using(db_alias).filter(Q(payload__id=setting_id) | Q(payload__settingNumber=setting_id)).first()
+        if record:
+            record.payload = payload
+            record.save(using=db_alias)
+        else:
+            PolicySettingRecord.objects.using(db_alias).create(payload=payload)
+    return list_policy_settings_for_frontend()
+
+
+def delete_policy_settings(setting_ids: list[str]) -> list[dict[str, Any]]:
+    normalized_ids = [str(setting_id).strip() for setting_id in setting_ids if str(setting_id).strip()]
+    if normalized_ids:
+        PolicySettingRecord.objects.using(scan_db_alias()).filter(Q(payload__id__in=normalized_ids) | Q(payload__settingNumber__in=normalized_ids)).delete()
+    return list_policy_settings_for_frontend()
+
+
+def derive_policy_type(title: str, expected_config: str) -> str:
+    text = f"{title} {expected_config}".lower()
+    if re.search(r"password|secret|credential|username", text):
+        return "Password Policy"
+    if re.search(r"telnet|http|https|service|port|daemon", text):
+        return "Unused / Insecure Services"
+    if re.search(r"tacacs|aaa|authentication|authorization|accounting", text):
+        return "Authentication Services"
+    if "snmp" in text:
+        return "SNMP"
+    if re.search(r"syslog|logging|log ", text):
+        return "Logging"
+    if re.search(r"ntp|time", text):
+        return "Time Synchronization"
+    if "banner" in text:
+        return "Banner"
+    if re.search(r"acl|access-list|access group|access-group|control-plane", text):
+        return "Access Control"
+    if re.search(r"ospf|vrf|routing|route", text):
+        return "Routing"
+    return "General Policy"
+
+
+def extract_policy_settings_from_docx(file_obj: Any) -> list[dict[str, Any]]:
+    with zipfile.ZipFile(file_obj) as docx_file:
+        document_xml = docx_file.read("word/document.xml")
+
+    namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    root = ElementTree.fromstring(document_xml)
+    lines: list[str] = []
+    for paragraph in root.findall(".//w:p", namespace):
+        text = "".join(node.text or "" for node in paragraph.findall(".//w:t", namespace)).strip()
+        if text:
+            lines.append(re.sub(r"\s+", " ", text))
+
+    policies: list[dict[str, Any]] = []
+    policy_pattern = re.compile(r"\b([A-Za-z]{1,5})[-_\s]?(\d{1,4})\b")
+    for index, line in enumerate(lines):
+        match = policy_pattern.search(line)
+        if not match:
+            continue
+        setting_number = f"{match.group(1).upper()}{int(match.group(2)):03d}"
+        title = line.replace(match.group(0), "").strip(" :-") or setting_number
+        context_lines = lines[index + 1:index + 5]
+        expected_lines = [item for item in context_lines if re.search(r"must|exist|configured|disabled|enabled|below line", item, re.IGNORECASE)]
+        expected_config = "\n".join(expected_lines) or "\n".join(context_lines[:2])
+        policies.append({
+            "id": setting_number,
+            "settingNumber": setting_number,
+            "title": title,
+            "settingPayload": expected_config,
+            "standard": derive_policy_type(title, expected_config),
+            "description": "",
+            "createdAt": timezone.now().strftime("%b %d, %Y %I:%M %p"),
+        })
+
+    deduped: dict[str, dict[str, Any]] = {}
+    for policy in policies:
+        deduped[policy["id"]] = policy
+    return list(deduped.values())
 
 
 def list_templates_for_frontend() -> list[dict[str, Any]]:

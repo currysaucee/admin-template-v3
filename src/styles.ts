@@ -328,11 +328,16 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .developer-policy-grid .p-inputtext, .developer-policy-grid .p-inputtextarea, .developer-policy-grid .p-dropdown { width: 100%; }
 .developer-submit-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding-top: 18px; border-top: 1px solid #eef2f7; margin-top: 18px; }
 .developer-submit-row span { color: #64748b; font-weight: 800; }
-.developer-upload-drop { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; padding: 24px; border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; cursor: pointer; }
+.developer-upload-drop { width: 100%; min-height: 220px; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; padding: 24px; border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; color: inherit; font: inherit; cursor: pointer; }
+.developer-upload-drop:hover { border-color: #93c5fd; background: #eff6ff; }
 .developer-upload-drop i { color: #2563eb; font-size: 34px; }
 .developer-upload-drop strong { color: #0f172a; }
 .developer-upload-drop span { max-width: 320px; color: #64748b; line-height: 1.5; }
 .developer-upload-drop input { max-width: 240px; color: #64748b; }
+.document-process-dialog { display: grid; gap: 16px; }
+.document-upload-target { min-height: 260px; }
+.document-process-error { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #991b1b; font-weight: 700; line-height: 1.45; }
+.document-process-error i { margin-top: 2px; }
 .developer-policy-table { margin-bottom: 18px; }
 .developer-policy-detail .p-card-body, .developer-intake-card .p-card-body, .developer-upload-card .p-card-body { padding: 22px; }
 .developer-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

@@ -36,6 +36,16 @@ async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>;
 }
 
+async function requestFormJson<T>(url: string, body: FormData): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    body,
+  });
+  if (!response.ok) throw new Error(`Real API returned ${response.status} for ${url}`);
+  return response.json() as Promise<T>;
+}
+
 export function getStoredDataMode(): NetComplyDataMode {
   const stored = window.localStorage.getItem(dataModeKey);
   return stored === "real" || stored === "mock" ? stored : defaultMode;
@@ -64,6 +74,29 @@ export async function saveRealPolicySettings(policySettings: PolicySetting[]): P
     body: JSON.stringify({ policySettings }),
   });
   return payload.policySettings ?? policySettings;
+}
+
+export async function onboardRealPolicySettings(policySettings: PolicySetting[]): Promise<PolicySetting[]> {
+  const payload = await requestJson<{ policySettings?: PolicySetting[] }>(endpoint("policy-settings/"), {
+    method: "POST",
+    body: JSON.stringify({ policySettings }),
+  });
+  return payload.policySettings ?? policySettings;
+}
+
+export async function deleteRealPolicySettings(policySettingIds: string[]): Promise<PolicySetting[]> {
+  const payload = await requestJson<{ policySettings?: PolicySetting[] }>(endpoint("policy-settings/"), {
+    method: "DELETE",
+    body: JSON.stringify({ ids: policySettingIds }),
+  });
+  return payload.policySettings ?? [];
+}
+
+export async function extractRealPolicySettingsFromDocument(document: File): Promise<PolicySetting[]> {
+  const body = new FormData();
+  body.append("document", document);
+  const payload = await requestFormJson<{ policySettings?: PolicySetting[] }>(endpoint("policy-settings/extract-document/"), body);
+  return payload.policySettings ?? [];
 }
 
 export async function loadRealTemplates(): Promise<RemediationTemplate[]> {
