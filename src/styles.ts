@@ -316,10 +316,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .request-review-note { display: grid; gap: 4px; color: #64748b; font-size: 13px; line-height: 1.45; }
 .request-review-note strong { color: #334155; font-size: 13px; }
 .sme-label { margin-top: 18px; }
-.developer-console-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr); gap: 18px; align-items: start; margin-bottom: 18px; }
+.developer-console-layout { display: grid; gap: 18px; align-items: start; margin-bottom: 18px; }
 .developer-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .developer-card-heading h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
 .developer-card-heading p { margin: 6px 0 0; color: #64748b; line-height: 1.5; }
+.developer-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .developer-row-stack { display: grid; gap: 14px; }
 .developer-policy-row { border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; background: #fff; }
 .developer-policy-row-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
@@ -339,7 +340,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .document-process-error { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #991b1b; font-weight: 700; line-height: 1.45; }
 .document-process-error i { margin-top: 2px; }
 .developer-policy-table { margin-bottom: 18px; }
-.developer-policy-detail .p-card-body, .developer-intake-card .p-card-body, .developer-upload-card .p-card-body { padding: 22px; }
+.developer-policy-detail .p-card-body, .developer-intake-card .p-card-body { padding: 22px; }
 .developer-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }

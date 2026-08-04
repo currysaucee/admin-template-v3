@@ -192,7 +192,10 @@ export function DeveloperConsolePage({
               <h2>Policy Intake</h2>
               <p>Add policy settings in batches. Existing policy numbers are overwritten so developers can correct a policy row without editing code.</p>
             </div>
-            <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
+            <div className="developer-heading-actions">
+              <Button label="Process Document" icon="pi pi-file-word" outlined onClick={() => setDocumentDialogOpen(true)} />
+              <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
+            </div>
           </div>
 
           <div className="developer-row-stack">
@@ -226,19 +229,6 @@ export function DeveloperConsolePage({
           </div>
         </Card>
 
-        <Card className="editor-card developer-upload-card">
-          <div className="developer-card-heading">
-            <div>
-              <h2>Experimental Document Upload</h2>
-              <p>Upload a `.docx` policy document, run extraction, then review the detected rows in Policy Intake before submitting.</p>
-            </div>
-          </div>
-          <button className="developer-upload-drop" type="button" onClick={() => setDocumentDialogOpen(true)}>
-            <i className="pi pi-file-word" />
-            <strong>Open Document Intake</strong>
-            <span>Process a Word document into staged policy rows, then submit only after review.</span>
-          </button>
-        </Card>
       </div>
 
       <Card className="table-card developer-policy-table">
