@@ -66,7 +66,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
               const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined;
               const evidenceRun = getDeploymentRunForTemplate(device.deploymentRun ?? ticket.deploymentRun, template);
               const executionResult = device.deploymentRun?.findingResults?.find((result) => result.findingId === finding.id);
-              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} run={noLongerDetected ? undefined : evidenceRun} executionResult={noLongerDetected ? { findingId: finding.id, status: "Skipped", message: finding.latestScanNote } : executionResult} skipRemediationReason={noLongerDetected ? finding.latestScanNote : undefined} implementationOnly defaultExpanded={Boolean(noLongerDetected || evidenceRun || executionResult)} />;
+              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} run={evidenceRun} executionResult={noLongerDetected ? undefined : executionResult} skipRemediationReason={noLongerDetected ? finding.latestScanNote : undefined} implementationOnly defaultExpanded={Boolean(noLongerDetected || evidenceRun || executionResult)} />;
             })}
           </Card>
         })}
