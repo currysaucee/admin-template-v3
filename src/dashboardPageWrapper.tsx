@@ -2,7 +2,8 @@ import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { DashboardPage } from "./dashboardInventory";
-import { navigateToPortalPath, portalRoutePaths, saveRuntimeTickets, setRouteValue, updateTicketStatus, usePortalTickets } from "./portalRouteState";
+import { reconcileTicketWithLatestScan } from "./helpers";
+import { navigateToPortalPath, portalRoutePaths, saveRuntimeTickets, setRouteValue, updateTicketStatus, usePortalDevices, usePortalTickets } from "./portalRouteState";
 import { styles } from "./styles";
 
 type DashboardPageProps = Partial<React.ComponentProps<typeof DashboardPage>>;
@@ -18,13 +19,18 @@ export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
       return next;
     });
   };
+  const { devices, loading: devicesLoading } = usePortalDevices();
+  const reconciledTickets = React.useMemo(() => {
+    const sourceTickets = props.tickets ?? tickets;
+    return devicesLoading ? sourceTickets : sourceTickets.map((ticket) => reconcileTicketWithLatestScan(ticket, devices));
+  }, [devices, devicesLoading, props.tickets, tickets]);
 
   return (
     <DefaultLayout>
       <style>{styles}</style>
       <div className="netcomply-page-wrapper netcomply-dashboard-wrapper">
         <DashboardPage
-          tickets={props.tickets ?? tickets}
+          tickets={reconciledTickets}
           onView={props.onView ?? ((ticket) => {
             setRouteValue("netcomply:selectedTicketId", ticket.id);
             navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: ticket.id });

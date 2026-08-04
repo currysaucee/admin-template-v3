@@ -1,4 +1,4 @@
-import type { DeploymentRunResult, Device, Finding, ComplianceStatus, PolicySetting, RemediationTemplate, TicketDevice, TicketStatus } from "./types";
+import type { DeploymentRunResult, Device, Finding, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketDevice, TicketStatus } from "./types";
 
 export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
   switch (status) {
@@ -64,6 +64,64 @@ export function normalizePolicyReference(value?: string) {
   const match = text.match(/^([A-Za-z]{1,4})[-_\s]?0*(\d{1,4})$/);
   if (match) return `${match[1].toUpperCase()}${Number(match[2]).toString().padStart(3, "0")}`;
   return text.toUpperCase();
+}
+
+function findingReferences(finding: Finding) {
+  return [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value)).filter(Boolean);
+}
+
+export function isFindingNoLongerDetected(finding: Finding) {
+  return finding.latestScanStatus === "No Longer Detected" || finding.latestScanStatus === "Device Not In Latest Scan";
+}
+
+export function reconcileTicketWithLatestScan(ticket: Ticket, latestDevices: Device[]) {
+  return {
+    ...ticket,
+    devices: ticket.devices.map((ticketDevice) => {
+      const latestDevice = latestDevices.find((device) => device.id === ticketDevice.deviceId || device.hostname === ticketDevice.hostname);
+      const latestFindingRefs = new Set(latestDevice?.findings.flatMap(findingReferences) ?? []);
+      return {
+        ...ticketDevice,
+        configSnapshotPath: latestDevice?.configSnapshotPath ?? ticketDevice.configSnapshotPath,
+        configSnapshotFilename: latestDevice?.configSnapshotFilename ?? ticketDevice.configSnapshotFilename,
+        findings: ticketDevice.findings.map((finding) => {
+          const stillDetected = Boolean(latestDevice && findingReferences(finding).some((ref) => latestFindingRefs.has(ref)));
+          if (stillDetected) {
+            return {
+              ...finding,
+              latestScanStatus: "Still Detected" as const,
+              latestScanNote: "This finding is still present in the latest scan and remains in scope for remediation.",
+            };
+          }
+          if (!latestDevice) {
+            return {
+              ...finding,
+              latestScanStatus: "Device Not In Latest Scan" as const,
+              latestScanNote: "This device is not present in the latest non-compliance scan. Treat this finding as skipped unless a fresh scan confirms it again.",
+            };
+          }
+          return {
+            ...finding,
+            latestScanStatus: "No Longer Detected" as const,
+            latestScanNote: "This finding is no longer present in the latest scan. Automation should skip this policy and leave the device untouched for this item.",
+          };
+        }),
+      };
+    }),
+  };
+}
+
+export function getTicketReconciliationSummary(ticket: Ticket) {
+  const findings = ticket.devices.flatMap((device) => device.findings);
+  const skipped = findings.filter(isFindingNoLongerDetected).length;
+  const stillDetected = findings.filter((finding) => finding.latestScanStatus === "Still Detected").length;
+  return {
+    total: findings.length,
+    skipped,
+    stillDetected,
+    hasChangedScope: skipped > 0,
+    allResolved: findings.length > 0 && skipped === findings.length,
+  };
 }
 
 export function getTemplatePolicySetting(template: RemediationTemplate | undefined, policySettings: PolicySetting[] = []) {

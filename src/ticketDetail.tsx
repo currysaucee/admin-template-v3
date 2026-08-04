@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
-import { getDeploymentRunForTemplate, getStatusSeverity, resolveTemplateForDevice } from "./helpers";
+import { getDeploymentRunForTemplate, getStatusSeverity, getTicketReconciliationSummary, isFindingNoLongerDetected, resolveTemplateForDevice } from "./helpers";
 import { ConfigSnapshotDownload, FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
@@ -13,6 +13,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
   const failedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Failed").length;
   const pendingDevices = ticket.devices.length - completedDevices - failedDevices;
   const hasDeviceResults = completedDevices > 0 || failedDevices > 0;
+  const reconciliation = getTicketReconciliationSummary(ticket);
 
   return (
     <section className="page-content">
@@ -41,6 +42,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
           <MetaTile label="Failed Devices" value={String(failedDevices)} />
           <MetaTile label="Not Completed" value={String(pendingDevices)} />
         </div>}
+        {reconciliation.hasChangedScope && <div className={`latest-scan-reconcile-box ${reconciliation.allResolved ? "all-resolved" : ""}`}><i className="pi pi-info-circle" /><div><strong>{reconciliation.allResolved ? "Ticket no longer has active findings in the latest scan" : "Ticket scope changed after the latest scan"}</strong><p>{reconciliation.allResolved ? "All findings in this ticket are no longer detected. The remediation should not push configuration unless a new scan reopens the findings." : `${reconciliation.skipped} of ${reconciliation.total} finding${reconciliation.total === 1 ? "" : "s"} will be skipped because the latest scan no longer detects them. Remaining active findings can still proceed.`}</p></div></div>}
       </Card>
       <div className="finding-detail-list">
         {ticket.devices.map((device) => {
@@ -59,11 +61,12 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
             </div>
             {requiresReversion && <div className="device-reversion-warning"><i className="pi pi-exclamation-triangle" /><div><strong>Reversion required</strong><p>Notify the responsible engineer and execute the approved reversion plan for this device.</p></div></div>}
             {device.findings.map((finding) => {
+              const noLongerDetected = isFindingNoLongerDetected(finding);
               const template = resolveTemplateForDevice(device, finding, templates, policySettings);
               const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined;
               const evidenceRun = getDeploymentRunForTemplate(device.deploymentRun ?? ticket.deploymentRun, template);
               const executionResult = device.deploymentRun?.findingResults?.find((result) => result.findingId === finding.id);
-              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} run={evidenceRun} executionResult={executionResult} implementationOnly defaultExpanded={Boolean(evidenceRun || executionResult)} />;
+              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} run={noLongerDetected ? undefined : evidenceRun} executionResult={noLongerDetected ? { findingId: finding.id, status: "Skipped", message: finding.latestScanNote } : executionResult} skipRemediationReason={noLongerDetected ? finding.latestScanNote : undefined} implementationOnly defaultExpanded={Boolean(noLongerDetected || evidenceRun || executionResult)} />;
             })}
           </Card>
         })}

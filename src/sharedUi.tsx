@@ -6,7 +6,7 @@ import { Dropdown } from "primereact/dropdown";
 
 import type { Device, Page, Ticket, TicketStatus, UserRole } from "./types";
 import { roleOptions, ticketStatusOptions } from "./types";
-import { getStatusSeverity } from "./helpers";
+import { getStatusSeverity, getTicketReconciliationSummary } from "./helpers";
 import type { NetComplyDataMode } from "./dataMode";
 
 export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Page; onNavigate: (page: Page) => void; onCreate: () => void }) {
@@ -124,7 +124,8 @@ export function TicketDeviceCell({ ticket }: { ticket: Ticket }) {
   const first = ticket.devices[0];
   if (!first) return <span>No device</span>;
   const extra = ticket.devices.length - 1;
-  return <div className="device-cell"><div className="device-icon"><i className="pi pi-server" /></div><div><strong>{first.hostname}{extra > 0 ? ` +${extra}` : ""}</strong><span>{first.role} • {first.managementIp}</span></div></div>;
+  const reconciliation = getTicketReconciliationSummary(ticket);
+  return <div className="device-cell"><div className="device-icon"><i className="pi pi-server" /></div><div><strong>{first.hostname}{extra > 0 ? ` +${extra}` : ""}</strong><span>{first.role} - {first.managementIp}</span>{reconciliation.hasChangedScope && <span className="scope-change-note">{reconciliation.allResolved ? "No active findings in latest scan" : `${reconciliation.skipped} finding${reconciliation.skipped === 1 ? "" : "s"} no longer detected`}</span>}</div></div>;
 }
 
 export function WindowCell({ start, end }: { start: string; end: string }) {

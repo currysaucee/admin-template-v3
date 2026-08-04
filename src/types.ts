@@ -13,6 +13,8 @@ export type Finding = {
   currentValue: string;
   expectedValue: string;
   detectedAt: string;
+  latestScanStatus?: "Still Detected" | "No Longer Detected" | "Device Not In Latest Scan";
+  latestScanNote?: string;
 };
 
 export type Device = {

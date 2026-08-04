@@ -14,7 +14,7 @@ import InventoryPageWrapper from "./inventoryPageWrapper";
 import TemplatePageWrapper from "./templatePageWrapper";
 import TemplateRequestsPageWrapper from "./templateRequestsPageWrapper";
 import TicketDetailPageWrapper from "./ticketDetailPageWrapper";
-import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
+import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, reconcileTicketWithLatestScan, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTickets } from "./mockData";
 import { getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
 import { getStoredDataMode, loadRealDevices, saveStoredDataMode, type NetComplyDataMode } from "./dataMode";
@@ -71,6 +71,7 @@ function NetComplyPrototype() {
 
   const selectedDevices = useMemo(() => devices.filter((device) => selectedDeviceIds.includes(device.id)), [devices, selectedDeviceIds]);
   const selectableTicketDevices = useMemo(() => devices.filter((device) => device.complianceStatus === "Non-Compliant" && device.findings.length > 0), [devices]);
+  const reconciledTickets = useMemo(() => tickets.map((ticket) => reconcileTicketWithLatestScan(ticket, devices)), [tickets, devices]);
 
   useEffect(() => {
     saveRuntimeTemplateRequests(templateRequests);
@@ -174,7 +175,7 @@ function NetComplyPrototype() {
       <SideMenu activePage={page} onNavigate={setPage} onCreate={() => startCreateTicket()} />
       <main className="main-panel">
         <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} dataMode={dataMode} onDataModeChange={setDataMode} />
-        {page === "dashboard" && <DashboardPageWrapper tickets={tickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onStatusChange={updateTicketStatus} />}
+        {page === "dashboard" && <DashboardPageWrapper tickets={reconciledTickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onStatusChange={updateTicketStatus} />}
         {page === "inventory" && (
           <InventoryPageWrapper
             devices={devices}
@@ -198,7 +199,7 @@ function NetComplyPrototype() {
           />
         )}
         {page === "deviceDetail" && selectedDeviceDetail && <DeviceDetailPageWrapper device={selectedDeviceDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("inventory")} onCreateTicket={(device) => startCreateTicket(device, true)} />}
-        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={selectedTicketDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} onStatusChange={updateTicketStatus} />}
+        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={reconcileTicketWithLatestScan(selectedTicketDetail, devices)} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} onStatusChange={updateTicketStatus} />}
         {page === "createTicket" && (
           <CreateTicketPageWrapper
             devices={selectableTicketDevices}

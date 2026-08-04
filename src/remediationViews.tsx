@@ -28,18 +28,19 @@ export function ConfigSnapshotDownload({ path, filename }: { path?: string; file
   return <Button className="config-download-button" label="Download Config Snapshot" icon="pi pi-download" size="small" outlined onClick={downloadSnapshot} />;
 }
 
-export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, showPolicyModel = false }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; showPolicyModel?: boolean }) {
+export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, showPolicyModel = false, skipRemediationReason }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; showPolicyModel?: boolean; skipRemediationReason?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const executionStatus = executionResult ? displayExecutionStatus(executionResult.status) : "";
   const executionFailed = executionStatus === "Validation Failed";
+  const isSkippedByLatestScan = Boolean(skipRemediationReason);
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
         <div><div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><h3>{finding.title}</h3></div><p>{finding.detectedAt}</p></div>
-        <div className="action-row">{executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
+        <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}{!isSkippedByLatestScan && <Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded />}<Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
-      <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
+      {isSkippedByLatestScan ? <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>No command will be executed for this finding</strong><p>{skipRemediationReason}</p></div></div> : <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />}
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
     </Card>

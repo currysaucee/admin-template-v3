@@ -3,6 +3,7 @@ import { Card } from "primereact/card";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { TicketDetailPage } from "./ticketDetail";
+import { reconcileTicketWithLatestScan } from "./helpers";
 import { getLatestRuntimeTicketId, getRouteValue, navigateToPortalPath, portalRoutePaths, saveRuntimeTickets, updateTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import { styles } from "./styles";
@@ -24,20 +25,10 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
   };
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId") || getLatestRuntimeTicketId();
   const ticket = props.ticket ?? tickets.find((item) => item.id === ticketId) ?? tickets[0];
-  const { devices: sourceDevices } = usePortalDevices(props.devices);
+  const { devices: sourceDevices, loading: devicesLoading } = usePortalDevices(props.devices);
   const { items: templates } = usePortalTemplates(props.templates);
   const { items: policySettings } = usePortalPolicySettings(props.policySettings);
-  const hydratedTicket = ticket ? {
-    ...ticket,
-    devices: ticket.devices.map((ticketDevice) => {
-      const sourceDevice = sourceDevices.find((device) => device.id === ticketDevice.deviceId || device.hostname === ticketDevice.hostname);
-      return {
-        ...ticketDevice,
-        configSnapshotPath: sourceDevice?.configSnapshotPath ?? ticketDevice.configSnapshotPath,
-        configSnapshotFilename: sourceDevice?.configSnapshotFilename ?? ticketDevice.configSnapshotFilename,
-      };
-    }),
-  } : undefined;
+  const hydratedTicket = ticket ? (devicesLoading ? ticket : reconcileTicketWithLatestScan(ticket, sourceDevices)) : undefined;
 
   if (!hydratedTicket) {
     return (
