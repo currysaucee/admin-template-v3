@@ -44,13 +44,9 @@ export type RemediationTemplate = {
 
 export type PolicySetting = {
   id: string;
-  sourceUuid?: string;
   settingNumber: string;
   title: string;
   settingPayload: string;
-  actualConfigExample?: string;
-  expectedConfigType?: string;
-  riskTag?: string;
   standard: string;
   description: string;
   createdAt: string;
