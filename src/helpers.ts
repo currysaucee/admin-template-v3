@@ -148,10 +148,8 @@ export function templateMatchesFindingPolicy(template: RemediationTemplate, find
 }
 
 export function resolveTemplateForDevice(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
-  const findingAgreedSettingHash = hashAgreedSetting(finding.expectedValue);
   const hardwareMatches = templates.filter((template) => template.hardwareTypes.includes(device.hardwareType));
-  return hardwareMatches.find((template) => templateMatchesFindingPolicy(template, finding, policySettings))
-    ?? hardwareMatches.find((template) => hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingAgreedSettingHash);
+  return hardwareMatches.find((template) => templateMatchesFindingPolicy(template, finding, policySettings));
 }
 
 export function isExecutableTemplate(template?: RemediationTemplate) {
@@ -164,12 +162,9 @@ export function hasConfigSnapshot(device: { configSnapshotPath?: string; configS
 }
 
 export function getTemplateAvailability(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
-  const findingHash = hashAgreedSetting(finding.expectedValue);
   const policyMatches = templates.filter((template) => templateMatchesFindingPolicy(template, finding, policySettings));
   const policyHardwareMatches = policyMatches.filter((template) => template.hardwareTypes.includes(device.hardwareType));
-  const hashMatches = templates.filter((template) => hashAgreedSetting(getTemplateAgreedSetting(template, policySettings)) === findingHash);
-  const hardwareMatches = hashMatches.filter((template) => template.hardwareTypes.includes(device.hardwareType));
-  const template = policyHardwareMatches[0] ?? hardwareMatches[0];
+  const template = policyHardwareMatches[0];
   const executable = isExecutableTemplate(template);
 
   if (template && executable) {
@@ -182,11 +177,7 @@ export function getTemplateAvailability(device: { hardwareType: string }, findin
     const hardwareTypes = Array.from(new Set(policyMatches.flatMap((template) => template.hardwareTypes))).join(", ");
     return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: `Policy ID matches a template, but hardware type is ${hardwareTypes || "not set"} instead of ${device.hardwareType}.` };
   }
-  if (hashMatches.length > 0) {
-    const hardwareTypes = Array.from(new Set(hashMatches.flatMap((template) => template.hardwareTypes))).join(", ");
-    return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: `Agreed setting matches a template, but hardware type is ${hardwareTypes || "not set"} instead of ${device.hardwareType}.` };
-  }
-  return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "No template has the same agreed-setting payload." };
+  return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "No approved template is linked to this policy ID." };
 }
 
 export function getFixAvailability(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
