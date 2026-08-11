@@ -61,7 +61,7 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
   return <StatusPill value={status} severity={getStatusSeverity(status)} />;
 }
 
-export function InventoryPage({ devices, templates, policySettings, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: () => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
+export function InventoryPage({ devices, templates, policySettings, scanImportRunning = false, scanImportMessage = "", bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice, onRunScanImport }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; scanImportRunning?: boolean; scanImportMessage?: string; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: () => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void; onRunScanImport?: () => void }) {
   const [search, setSearch] = useState("");
   const [findingSearch, setFindingSearch] = useState("");
   const [status, setStatus] = useState<ComplianceStatus | "All">("All");
@@ -85,7 +85,9 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <InputText value={findingSearch} onChange={(e) => setFindingSearch(e.target.value)} placeholder="Filter finding or policy ID..." />
         </span>
         <Dropdown value={status} options={["All", "Non-Compliant"]} onChange={(e) => setStatus(e.value as ComplianceStatus | "All")} placeholder="Compliance Status" />
+        {onRunScanImport ? <Button label="Run Scan Import" icon="pi pi-refresh" loading={scanImportRunning} outlined onClick={onRunScanImport} /> : null}
       </div>
+      {scanImportMessage ? <div className="inline-info-row">{scanImportMessage}</div> : null}
       <Card className="table-card">
         <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter(canBulkSelectDevice))} isDataSelectable={(event) => canBulkSelectDevice(event.data as Device)} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
           <Column selectionMode="multiple" headerStyle={{ width: '4rem' }} bodyStyle={{ opacity: 1 }} />

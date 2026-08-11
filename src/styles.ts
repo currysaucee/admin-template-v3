@@ -40,6 +40,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .plain-page-title { margin-bottom: 22px; }
 .plain-page-title h1 { margin: 0; font-size: 30px; letter-spacing: -0.04em; }
 .filter-card { display: flex; gap: 16px; align-items: center; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); padding: 16px; border-radius: 14px; margin-bottom: 18px; }
+.inline-info-row { color: #475569; font-size: 13px; margin: -8px 0 14px; }
 .grow-input { flex: 1; min-width: 260px; }
 .table-card, .wizard-card, .editor-card, .device-detail-card, .finding-detail-card { border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); }
 .table-card .p-datatable-wrapper { overflow-x: auto; max-width: 100%; }

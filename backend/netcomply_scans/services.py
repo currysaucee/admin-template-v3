@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import re
+import ssl
 import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.db.models import Q
@@ -30,6 +33,13 @@ TRUE_STRINGS = {"true", "compliant", "passed", "pass", "yes", "1"}
 
 def scan_db_alias() -> str:
     return getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default")
+
+
+def scan_tmp_dir() -> Path:
+    configured_dir = getattr(settings, "NETCOMPLY_SCAN_TMP_DIR", None)
+    if configured_dir:
+        return Path(configured_dir)
+    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-scans"
 
 
 def snapshot_dir() -> Path:
@@ -143,6 +153,71 @@ def write_latest_payload(payload: list[dict[str, Any]], tmp_dir: Path, consumed_
         encoding="utf-8",
     )
     return output_path
+
+
+def coerce_scan_payload(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict) and isinstance(payload.get("devices"), list):
+        return [item for item in payload["devices"] if isinstance(item, dict)]
+    raise ValueError("Expected scan API response to be a JSON array of device scan objects")
+
+
+def fetch_external_scan_payload() -> list[dict[str, Any]]:
+    api_url = getattr(settings, "NETCOMPLY_SCAN_API_URL", "")
+    if not api_url:
+        raise ValueError("NETCOMPLY_SCAN_API_URL is not configured")
+
+    method = str(getattr(settings, "NETCOMPLY_SCAN_API_METHOD", "GET")).upper()
+    request_payload = getattr(settings, "NETCOMPLY_SCAN_API_PAYLOAD", None)
+    timeout = int(getattr(settings, "NETCOMPLY_SCAN_API_TIMEOUT", 60))
+    headers = {
+        "Accept": "application/json",
+        **getattr(settings, "NETCOMPLY_SCAN_API_HEADERS", {}),
+    }
+    token = getattr(settings, "NETCOMPLY_SCAN_API_TOKEN", "")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    data = None
+    if method != "GET" and request_payload is not None:
+        data = json.dumps(request_payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    ssl_context = None
+    if not bool(getattr(settings, "NETCOMPLY_SCAN_API_VERIFY_SSL", True)):
+        ssl_context = ssl._create_unverified_context()
+
+    request = Request(api_url, data=data, headers=headers, method=method)
+    try:
+        with urlopen(request, timeout=timeout, context=ssl_context) as response:
+            response_body = response.read().decode("utf-8-sig")
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Scan API returned HTTP {exc.code}: {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"Unable to reach scan API: {exc.reason}") from exc
+
+    return coerce_scan_payload(json.loads(response_body))
+
+
+def run_daily_scan_import() -> dict[str, Any]:
+    payload = fetch_external_scan_payload()
+    latest_path = write_latest_payload(payload, scan_tmp_dir())
+    batch = import_scan_payload(
+        payload,
+        latest_path,
+        source=str(getattr(settings, "NETCOMPLY_SCAN_SOURCE", "external-api")),
+    )
+    return {
+        "batchId": batch.id,
+        "source": batch.source,
+        "payloadPath": str(latest_path),
+        "deviceCount": batch.device_count,
+        "nonCompliantDeviceCount": batch.non_compliant_device_count,
+        "consumedAt": batch.consumed_at.isoformat(),
+        "databaseAlias": scan_db_alias(),
+    }
 
 
 def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | str, source: str = "external-api") -> ComplianceScanBatch:

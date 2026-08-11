@@ -62,6 +62,10 @@ export async function loadRealDevices(): Promise<Device[]> {
   return [];
 }
 
+export async function runRealScanImport(): Promise<{ scan?: unknown }> {
+  return requestJson<{ scan?: unknown }>(endpoint("scan/import/"), { method: "POST" });
+}
+
 export async function loadRealPolicySettings(): Promise<PolicySetting[]> {
   const payload = await requestJson<PolicySetting[] | { policySettings?: PolicySetting[] }>(endpoint("policy-settings/"));
   if (Array.isArray(payload)) return payload;

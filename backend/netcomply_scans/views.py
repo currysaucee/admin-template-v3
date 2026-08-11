@@ -16,6 +16,7 @@ from .services import (
     replace_templates,
     replace_tickets,
     resolve_snapshot_file,
+    run_daily_scan_import,
     upsert_policy_settings,
     upsert_ticket,
 )
@@ -29,6 +30,16 @@ def read_json_body(request):
 
 def latest_scan_devices(request):
     return JsonResponse({"devices": latest_devices_for_frontend()})
+
+
+@csrf_exempt
+def run_scan_import(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    try:
+        return JsonResponse({"scan": run_daily_scan_import()})
+    except Exception as exc:
+        return JsonResponse({"detail": f"Unable to run scan import: {exc}"}, status=500)
 
 
 def config_snapshot_download(request, filename):

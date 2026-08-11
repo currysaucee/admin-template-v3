@@ -10,6 +10,7 @@ import {
   loadRealTemplates,
   loadRealTickets,
   onboardRealPolicySettings,
+  runRealScanImport,
   saveRealPolicySettings,
   saveRealTemplateRequests,
   saveRealTemplates,
@@ -93,6 +94,13 @@ export function usePortalDevices(overrideDevices?: Device[]) {
   }, [overrideDevices]);
 
   return { devices, loading, error };
+}
+
+export async function runRuntimeScanImport() {
+  if (getStoredDataMode() !== "real") {
+    throw new Error("Scan import is available in Real mode because it calls the backend scanner integration.");
+  }
+  return runRealScanImport();
 }
 
 export function getInitialPolicySettings() {

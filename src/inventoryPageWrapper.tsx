@@ -3,7 +3,7 @@ import React from "react";
 import DefaultLayout from "../layout/defaultLayout";
 import { InventoryPage } from "./dashboardInventory";
 import { getExecutableFindings } from "./helpers";
-import { navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
+import { navigateToPortalPath, portalRoutePaths, runRuntimeScanImport, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
 import { styles } from "./styles";
 import type { Device } from "./types";
 
@@ -11,6 +11,8 @@ type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
 
 export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const [bulkInventorySelection, setBulkInventorySelection] = React.useState<Device[]>([]);
+  const [scanImportRunning, setScanImportRunning] = React.useState(false);
+  const [scanImportMessage, setScanImportMessage] = React.useState("");
   const { devices } = usePortalDevices(props.devices);
   const { items: templates } = usePortalTemplates(props.templates);
   const { items: policySettings } = usePortalPolicySettings(props.policySettings);
@@ -21,6 +23,20 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
     navigateToPortalPath(portalRoutePaths.createTicket, device ? { deviceId: device.id } : {});
   };
 
+  const runScanImport = async () => {
+    setScanImportRunning(true);
+    setScanImportMessage("");
+    try {
+      await runRuntimeScanImport();
+      setScanImportMessage("Latest scan imported. Refreshing devices...");
+      window.location.reload();
+    } catch (error) {
+      setScanImportMessage(error instanceof Error ? error.message : "Unable to run scan import.");
+    } finally {
+      setScanImportRunning(false);
+    }
+  };
+
   return (
     <DefaultLayout>
       <style>{styles}</style>
@@ -29,6 +45,8 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
           devices={devices}
           templates={templates}
           policySettings={policySettings}
+          scanImportRunning={scanImportRunning}
+          scanImportMessage={scanImportMessage}
           bulkInventorySelection={selectedBulkDevices}
           setBulkInventorySelection={props.setBulkInventorySelection ?? setBulkInventorySelection}
           onBulkCreate={props.onBulkCreate ?? (() => {
@@ -42,6 +60,7 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
             setRouteValue("netcomply:selectedFindingKeys", getExecutableFindings(device, templates, policySettings).map((finding) => `${device.id}:${finding.id}`).join(","));
             navigateToPortalPath(portalRoutePaths.deviceDetail, { deviceId: device.id });
           })}
+          onRunScanImport={props.onRunScanImport ?? runScanImport}
         />
       </div>
     </DefaultLayout>
