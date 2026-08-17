@@ -70,6 +70,18 @@ function findingReferences(finding: Finding) {
   return [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value)).filter(Boolean);
 }
 
+export function findPolicySettingForFinding(finding: Finding, policySettings: PolicySetting[] = []) {
+  const findingRefs = new Set(findingReferences(finding));
+  return policySettings.find((setting) => {
+    const settingRefs = [setting.id, setting.settingNumber].map((value) => normalizePolicyReference(value)).filter(Boolean);
+    return settingRefs.some((ref) => findingRefs.has(ref));
+  });
+}
+
+export function isSupportedPolicyFinding(finding: Finding, policySettings: PolicySetting[] = []) {
+  return Boolean(findPolicySettingForFinding(finding, policySettings));
+}
+
 export function isFindingNoLongerDetected(finding: Finding) {
   return finding.latestScanStatus === "No Longer Detected" || finding.latestScanStatus === "Device Not In Latest Scan";
 }

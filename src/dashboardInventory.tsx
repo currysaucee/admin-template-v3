@@ -9,7 +9,7 @@ import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
-import { getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, hasConfigSnapshot, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
@@ -149,8 +149,8 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
         <div className="finding-detail-list">
           {device.findings.map((finding) => {
             const template = resolveTemplateForDevice(device, finding, templates, policySettings);
-            const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined;
-            return <RemediationFindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} implementationOnly />;
+            const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : findPolicySettingForFinding(finding, policySettings);
+            return <RemediationFindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} policySupported={Boolean(policySetting)} implementationOnly />;
           })}
         </div>
       )}
@@ -159,7 +159,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
 }
 
 function FindingFixCount({ device, templates, policySettings }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[] }) {
-  const findingAvailability = device.findings.map((finding) => ({ finding, availability: getFixAvailability(device, finding, templates, policySettings) }));
+  const findingAvailability = device.findings.map((finding) => ({ finding, availability: getFixAvailability(device, finding, templates, policySettings), supported: isSupportedPolicyFinding(finding, policySettings) }));
   const availableFixCount = findingAvailability.filter((item) => item.availability.executable).length;
   const summarySeverity = availableFixCount === device.findings.length && device.findings.length > 0 ? "success" : availableFixCount > 0 ? "warning" : "secondary";
   return (
@@ -169,11 +169,11 @@ function FindingFixCount({ device, templates, policySettings }: { device: Device
         {findingAvailability.length === 0 ? (
           <small className="template-availability-note">No open findings.</small>
         ) : (
-          findingAvailability.map(({ finding, availability }) => (
+          findingAvailability.map(({ finding, availability, supported }) => (
             <div key={finding.id} className="finding-coverage-row">
-              <span className="policy-code">{finding.id}</span>
+              <span className={`policy-code ${supported ? "" : "unsupported"}`}>{finding.id}</span>
               <span>{finding.title}</span>
-              <strong className={availability.executable ? "ready" : "blocked"}>{availability.executable ? "Fix ready" : availability.template ? "Needs snapshot" : "No template"}</strong>
+              <strong className={availability.executable ? "ready" : "blocked"}>{supported ? (availability.executable ? "Fix ready" : availability.template ? "Needs snapshot" : "No template") : "Unsupported"}</strong>
             </div>
           ))
         )}

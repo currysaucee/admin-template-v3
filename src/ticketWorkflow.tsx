@@ -7,7 +7,7 @@ import { Card } from "primereact/card";
 import { Dialog } from "primereact/dialog";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findFindingKey, getFixAvailability, resolveTemplateForDevice } from "./helpers";
+import { findFindingKey, getFixAvailability, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
 import { PageHeader } from "./sharedUi";
 
 export function CreateTicketPage(props: {
@@ -119,6 +119,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                     const checked = selectedFindingKeys.includes(key);
                     const availability = getFixAvailability(device, finding, templates, policySettings);
                     const hasTemplateFix = availability.executable;
+                    const supported = isSupportedPolicyFinding(finding, policySettings);
                     const implementationCommands = availability.template?.implementationCommands ?? [];
                     return (
                       <div key={key} className={`finding-list-row ${hasTemplateFix ? "" : "finding-list-row-disabled"}`}>
@@ -141,7 +142,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                         />
                         <div className="finding-rule-cell">
                           <span className="mobile-field-label">Finding Rule</span>
-                          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
+                          <div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<strong>{finding.title}</strong></div>
                           {!hasTemplateFix && <small className="template-availability-note">{availability.note}</small>}
                         </div>
                         <div className="finding-standard-cell">

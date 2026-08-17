@@ -126,6 +126,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-coverage-list { display: grid; gap: 6px; min-width: min(360px, 100%); }
 .finding-coverage-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; color: #334155; font-size: 12px; line-height: 1.35; }
 .finding-coverage-row .policy-code { border: 1px solid #e5e7eb; background: #ffffff; color: #334155; border-radius: 999px; padding: 3px 7px; font-weight: 900; }
+.finding-coverage-row .policy-code.unsupported, .policy-id-tag.unsupported-policy-tag, .p-tag.policy-id-tag.unsupported-policy-tag { background: #f1f5f9 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
 .finding-coverage-row strong { white-space: nowrap; font-size: 11px; }
 .finding-coverage-row strong.ready { color: #15803d; }
 .finding-coverage-row strong.blocked { color: #b45309; }
