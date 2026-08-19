@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 HOST = "127.0.0.1"
-PORT = 3000
+PORT = 6000
 PAYLOAD = "hello from local test api"
 
 
