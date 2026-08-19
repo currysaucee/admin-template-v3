@@ -350,6 +350,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .developer-policy-table { margin-bottom: 18px; }
 .developer-policy-detail .p-card-body, .developer-intake-card .p-card-body { padding: 22px; }
 .developer-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.developer-table-header { padding: 14px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.developer-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.developer-modal-heading p { margin: 8px 0 0; color: #64748b; font-weight: 700; }
+.developer-policy-modal { display: grid; gap: 16px; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }
   .main-panel { margin-left: 220px; }
@@ -361,7 +365,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }
   .numbered-line-panel + .numbered-line-panel { border-left: 0; border-top: 1px solid #eef2f7; }
-  .template-directory-toolbar { flex-direction: column; align-items: stretch; }
+  .template-directory-toolbar, .developer-table-header, .developer-modal-heading { flex-direction: column; align-items: stretch; }
   .template-list-meta { justify-content: flex-start; }
   .filter-card { flex-direction: column; align-items: stretch; }
   .device-collapse-header, .command-header { flex-direction: column; align-items: stretch; }

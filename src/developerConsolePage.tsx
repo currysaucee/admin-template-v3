@@ -46,8 +46,17 @@ function derivePolicyType(title = "", expectedConfig = "") {
   return "General Policy";
 }
 
+function policyUpdatedAt(setting: PolicySetting) {
+  return setting.updatedAt || setting.createdAt || "Not recorded";
+}
+
+function policyUpdatedBy(setting: PolicySetting) {
+  return setting.updatedBy || "Developer";
+}
+
 function toPolicySetting(row: DraftPolicyRow): PolicySetting {
   const settingNumber = normalizePolicyNumber(row.settingNumber);
+  const now = formatDate(new Date());
   return {
     id: settingNumber,
     settingNumber,
@@ -55,7 +64,9 @@ function toPolicySetting(row: DraftPolicyRow): PolicySetting {
     settingPayload: row.expectedConfig.trim(),
     standard: derivePolicyType(row.title, row.expectedConfig),
     description: "",
-    createdAt: formatDate(new Date()),
+    createdAt: now,
+    updatedAt: now,
+    updatedBy: "Developer",
   };
 }
 
@@ -98,7 +109,9 @@ export function DeveloperConsolePage({
 }) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
-  const [selectedPolicy, setSelectedPolicy] = React.useState<PolicySetting | null>(policySettings[0] ?? null);
+  const [detailPolicy, setDetailPolicy] = React.useState<PolicySetting | null>(null);
+  const [editingPolicy, setEditingPolicy] = React.useState(false);
+  const [showIntake, setShowIntake] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [deletingId, setDeletingId] = React.useState("");
   const [documentDialogOpen, setDocumentDialogOpen] = React.useState(false);
@@ -107,15 +120,9 @@ export function DeveloperConsolePage({
   const [documentError, setDocumentError] = React.useState("");
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim());
   const filteredPolicies = policySettings.filter((setting) => {
-    const haystack = [setting.id, setting.settingNumber, setting.title, setting.standard, setting.settingPayload].join(" ").toLowerCase();
+    const haystack = [setting.id, setting.settingNumber, setting.title, setting.standard, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
   });
-
-  React.useEffect(() => {
-    if (!selectedPolicy || !policySettings.some((setting) => setting.id === selectedPolicy.id)) {
-      setSelectedPolicy(policySettings[0] ?? null);
-    }
-  }, [policySettings, selectedPolicy]);
 
   const updateDraftRow = (rowId: string, patch: Partial<DraftPolicyRow>) => {
     setDraftRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
@@ -136,9 +143,17 @@ export function DeveloperConsolePage({
         setPolicySettings((current) => mergePolicySettings(current, nextPolicies));
       }
       setDraftRows([createDraftRow()]);
+      setShowIntake(false);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const startEditPolicy = (policy: PolicySetting) => {
+    setDraftRows([toDraftRow(policy)]);
+    setDetailPolicy(null);
+    setEditingPolicy(true);
+    setShowIntake(true);
   };
 
   const deletePolicy = async (policy: PolicySetting) => {
@@ -152,6 +167,7 @@ export function DeveloperConsolePage({
       } else {
         setPolicySettings((current) => current.filter((setting) => setting.id !== policyId));
       }
+      setDetailPolicy(null);
     } finally {
       setDeletingId("");
     }
@@ -165,13 +181,14 @@ export function DeveloperConsolePage({
       const extractedPolicies = await onExtractDocument(documentFile);
       const extractedRows = extractedPolicies.map(toDraftRow);
       if (extractedRows.length === 0) {
-        setDocumentError("No policy rows were detected. Check that the document contains policy numbers such as AS003 or HWS-001.");
+        setDocumentError("No policy rows were detected. Check that the document contains policy numbers such as AS003 or HWS001.");
         return;
       }
       setDraftRows((rows) => {
         const filledRows = rows.filter((row) => normalizePolicyNumber(row.settingNumber) || row.title.trim() || row.expectedConfig.trim());
         return [...filledRows, ...extractedRows];
       });
+      setShowIntake(true);
       setDocumentDialogOpen(false);
       setDocumentFile(null);
     } catch (error) {
@@ -181,20 +198,56 @@ export function DeveloperConsolePage({
     }
   };
 
+  const openNewPolicy = () => {
+    setDraftRows([createDraftRow()]);
+    setEditingPolicy(false);
+    setShowIntake(true);
+  };
+
   return (
     <section className="page-content developer-console-page">
-      <PageHeader title="Developer Console" subtitle="Onboard policy settings, inspect policy mappings, and prepare policy IDs before fixes are exposed to engineers." />
+      <PageHeader title="Developer Console" subtitle="Manage supported policy IDs before fixes are exposed to engineers." />
 
-      <div className="developer-console-layout">
+      <Card className="table-card developer-policy-table">
+        <div className="developer-table-header">
+          <span className="p-input-icon-left grow-input">
+            <i className="pi pi-search" />
+            <InputText value={filter} placeholder="Filter by policy number, type, title, config text..." onChange={(event) => setFilter(event.target.value)} />
+          </span>
+          <div className="developer-heading-actions">
+            <Tag value={`${filteredPolicies.length} policies`} severity="info" rounded />
+            <Button label="Onboard New Policy" icon="pi pi-plus" onClick={openNewPolicy} />
+          </div>
+        </div>
+        <DataTable
+          value={filteredPolicies}
+          dataKey="id"
+          paginator
+          rows={8}
+          emptyMessage="No policy settings onboarded yet."
+          rowClassName={() => "policy-list-row"}
+          onRowClick={(event) => {
+            setDetailPolicy(event.data as PolicySetting);
+            setEditingPolicy(false);
+          }}
+        >
+          <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
+          <Column header="Policy Type" field="standard" body={(row: PolicySetting) => <Tag value={row.standard || derivePolicyType(row.title, row.settingPayload)} severity="secondary" rounded />} />
+          <Column header="Updated" body={(row: PolicySetting) => policyUpdatedAt(row)} sortable sortField="updatedAt" />
+          <Column header="By" body={(row: PolicySetting) => policyUpdatedBy(row)} sortable sortField="updatedBy" />
+        </DataTable>
+      </Card>
+
+      {showIntake && (
         <Card className="editor-card developer-intake-card">
           <div className="developer-card-heading">
             <div>
-              <h2>Policy Intake</h2>
-              <p>Add policy settings in batches. Existing policy numbers are overwritten so developers can correct a policy row without editing code.</p>
+              <h2>{editingPolicy ? "Edit Policy" : "Onboard New Policy"}</h2>
+              <p>Add one or more policy settings. Existing policy numbers are overwritten so developers can correct mappings without editing code.</p>
             </div>
             <div className="developer-heading-actions">
-              <Button label="Process Document" icon="pi pi-file-word" outlined onClick={() => setDocumentDialogOpen(true)} />
               <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
+              <Button label="Close" icon="pi pi-times" outlined severity="secondary" onClick={() => setShowIntake(false)} />
             </div>
           </div>
 
@@ -208,7 +261,7 @@ export function DeveloperConsolePage({
                 <div className="developer-policy-grid">
                   <label className="field-block">
                     <span>Policy Number</span>
-                    <InputText value={row.settingNumber} placeholder="AS003, HWS-001" onChange={(event) => updateDraftRow(row.rowId, { settingNumber: event.target.value })} />
+                    <InputText value={row.settingNumber} placeholder="AS003, HWS001" onChange={(event) => updateDraftRow(row.rowId, { settingNumber: event.target.value })} />
                   </label>
                   <label className="field-block">
                     <span>Policy Title</span>
@@ -225,43 +278,36 @@ export function DeveloperConsolePage({
 
           <div className="developer-submit-row">
             <span>{validRows.length} ready to onboard</span>
-            <Button label="Onboard Policy Settings" icon="pi pi-check" disabled={validRows.length === 0} loading={submitting} onClick={onboardPolicies} />
-          </div>
-        </Card>
-
-      </div>
-
-      <Card className="table-card developer-policy-table">
-        <div className="template-directory-toolbar">
-          <span className="p-input-icon-left grow-input">
-            <i className="pi pi-search" />
-            <InputText value={filter} placeholder="Filter by policy number, type, title, config text..." onChange={(event) => setFilter(event.target.value)} />
-          </span>
-          <Tag value={`${filteredPolicies.length} policies`} severity="info" rounded />
-        </div>
-        <DataTable value={filteredPolicies} selectionMode="single" selection={selectedPolicy} onSelectionChange={(event) => setSelectedPolicy(event.value as PolicySetting)} dataKey="id" paginator rows={8} emptyMessage="No policy settings onboarded yet.">
-          <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
-          <Column header="Policy Type" field="standard" body={(row: PolicySetting) => <Tag value={row.standard || derivePolicyType(row.title, row.settingPayload)} severity="secondary" rounded />} />
-          <Column header="Updated" field="createdAt" />
-          <Column header="Actions" body={(row: PolicySetting) => <Button icon="pi pi-trash" rounded text severity="danger" aria-label={`Delete ${row.settingNumber || row.id}`} loading={deletingId === (row.id || row.settingNumber)} onClick={() => deletePolicy(row)} />} />
-        </DataTable>
-      </Card>
-
-      {selectedPolicy && (
-        <Card className="device-detail-card developer-policy-detail">
-          <div className="developer-card-heading">
-            <div>
-              <h2><PolicyChip setting={selectedPolicy} /></h2>
-              <p>{selectedPolicy.standard || derivePolicyType(selectedPolicy.title, selectedPolicy.settingPayload)}</p>
-            </div>
-            <Tag value={selectedPolicy.standard || derivePolicyType(selectedPolicy.title, selectedPolicy.settingPayload)} severity="info" rounded />
-          </div>
-          <div className="agreed-setting-box">
-            <strong>Expected Config</strong>
-            <pre>{selectedPolicy.settingPayload || "No expected configuration captured."}</pre>
+            <Button label={editingPolicy ? "Save Policy" : "Submit Policy Settings"} icon="pi pi-check" disabled={validRows.length === 0} loading={submitting} onClick={onboardPolicies} />
           </div>
         </Card>
       )}
+
+      <Dialog header="Policy Details" visible={Boolean(detailPolicy)} modal style={{ width: "min(760px, calc(100vw - 32px))" }} onHide={() => setDetailPolicy(null)}>
+        {detailPolicy && (
+          <div className="developer-policy-modal">
+            <div className="developer-modal-heading">
+              <div>
+                <PolicyChip setting={detailPolicy} />
+                <p>{detailPolicy.standard || derivePolicyType(detailPolicy.title, detailPolicy.settingPayload)}</p>
+              </div>
+              <div className="developer-heading-actions">
+                <Button label="Edit" icon="pi pi-pencil" outlined onClick={() => startEditPolicy(detailPolicy)} />
+                <Button label="Delete" icon="pi pi-trash" severity="danger" loading={deletingId === (detailPolicy.id || detailPolicy.settingNumber)} onClick={() => deletePolicy(detailPolicy)} />
+              </div>
+            </div>
+            <div className="developer-detail-grid">
+              <div className="meta-tile"><span>Policy Type</span><strong>{detailPolicy.standard || derivePolicyType(detailPolicy.title, detailPolicy.settingPayload)}</strong></div>
+              <div className="meta-tile"><span>Updated</span><strong>{policyUpdatedAt(detailPolicy)}</strong></div>
+              <div className="meta-tile"><span>By</span><strong>{policyUpdatedBy(detailPolicy)}</strong></div>
+            </div>
+            <div className="agreed-setting-box">
+              <strong>Expected Config</strong>
+              <pre>{detailPolicy.settingPayload || "No expected configuration captured."}</pre>
+            </div>
+          </div>
+        )}
+      </Dialog>
 
       <Dialog header="Process Policy Document" visible={documentDialogOpen} modal style={{ width: "min(620px, calc(100vw - 32px))" }} onHide={() => !documentProcessing && setDocumentDialogOpen(false)}>
         <div className="document-process-dialog">

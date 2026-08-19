@@ -52,6 +52,8 @@ export type PolicySetting = {
   standard: string;
   description: string;
   createdAt: string;
+  updatedAt?: string;
+  updatedBy?: string;
 };
 
 export type TemplateRequest = {
