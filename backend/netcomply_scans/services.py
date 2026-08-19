@@ -534,11 +534,20 @@ def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]:
+    device_count = len(item.execution_plan.get("devices", [])) if isinstance(item.execution_plan, dict) else 0
+    policy_count = sum(
+        len(device.get("findings", []))
+        for device in item.execution_plan.get("devices", [])
+        if isinstance(device, dict)
+    ) if isinstance(item.execution_plan, dict) else 0
     return {
         "queueId": item.queue_id,
         "ticketId": item.ticket_id,
         "status": item.status,
         "priority": item.priority,
+        "queuedBy": item.ticket_payload.get("queuedBy", ""),
+        "deviceCount": device_count,
+        "policyCount": policy_count,
         "queuedAt": item.queued_at.isoformat(),
         "availableAt": item.available_at.isoformat(),
         "lockedAt": item.locked_at.isoformat() if item.locked_at else "",
@@ -548,15 +557,18 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
         "attemptCount": item.attempt_count,
         "lastError": item.last_error,
         "ticket": item.ticket_payload,
+        "executionPlan": item.execution_plan,
         "result": item.result_payload,
     }
 
 
 def list_deployment_queue_for_frontend() -> list[dict[str, Any]]:
-    return [
+    status_order = {"Queued": 0, "Processing": 1, "Failed": 2, "Skipped": 2, "Complete": 2}
+    items = [
         serialize_deployment_queue_item(item)
-        for item in DeploymentQueueItem.objects.using(scan_db_alias()).order_by("-queued_at", "-id")[:200]
+        for item in DeploymentQueueItem.objects.using(scan_db_alias()).order_by("priority", "queued_at", "id")[:200]
     ]
+    return sorted(items, key=lambda item: (status_order.get(str(item.get("status")), 3), item.get("priority", 100), item.get("queuedAt", "")))
 
 
 def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -> dict[str, Any]:
@@ -572,12 +584,14 @@ def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -
     now = timezone.now()
     queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
     ticket_payload = {**ticket.payload, "status": "Released", "queuedBy": actor}
+    execution_plan = build_deployment_execution_plan(ticket_payload)
     ticket.payload = ticket_payload
     ticket.save(using=db_alias)
     item = DeploymentQueueItem.objects.using(db_alias).create(
         queue_id=queue_id,
         ticket_id=ticket_id,
         ticket_payload=ticket_payload,
+        execution_plan=execution_plan,
         status="Queued",
         queued_at=now,
         available_at=now,
@@ -676,7 +690,21 @@ def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
     if not executor_url:
         return {"mode": "dry-run", "detail": "No executor URL configured.", "plan": plan}
 
-    body = json.dumps(plan).encode("utf-8")
+    execution_plan = {
+        **plan,
+        "devices": [
+            {
+                **device,
+                "findings": [
+                    finding
+                    for finding in device.get("findings", [])
+                    if finding.get("status") == "Pending Execution"
+                ],
+            }
+            for device in plan.get("devices", [])
+        ],
+    }
+    body = json.dumps(execution_plan).encode("utf-8")
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     headers.update(getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_HEADERS", {}))
     request = Request(executor_url, data=body, headers=headers, method="POST")
@@ -711,7 +739,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         return {"claimed": False, "detail": "No queued deployment item is available."}
 
     try:
-        plan = build_deployment_execution_plan(item.ticket_payload)
+        plan = item.execution_plan or build_deployment_execution_plan(item.ticket_payload)
         result = call_deployment_executor(plan)
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
         executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")

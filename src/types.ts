@@ -1,4 +1,4 @@
-export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" | "createTicket" | "templates" | "templateRequests" | "developerConsole";
+export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" | "createTicket" | "deploymentQueue" | "templates" | "templateRequests" | "developerConsole";
 export type UserRole = "Network Engineer" | "Approver" | "Change Manager";
 export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Scan Pending";
 export type TicketStatus = "Pending Approval" | "Approved" | "Released" | "In Progress" | "Complete" | "Partially Complete" | "Rejected" | "Cancelled";
@@ -119,6 +119,9 @@ export type DeploymentQueueItem = {
   ticketId: string;
   status: "Queued" | "Processing" | "Complete" | "Skipped" | "Failed" | string;
   priority: number;
+  queuedBy?: string;
+  deviceCount?: number;
+  policyCount?: number;
   queuedAt: string;
   availableAt: string;
   lockedAt?: string;
@@ -128,13 +131,30 @@ export type DeploymentQueueItem = {
   attemptCount: number;
   lastError?: string;
   ticket?: Ticket;
+  executionPlan?: DeploymentExecutionPlan;
   result?: unknown;
+};
+
+export type DeploymentExecutionPlan = {
+  ticketId?: string;
+  devices: Array<{
+    hostname?: string;
+    managementIp?: string;
+    hardwareType?: string;
+    findings: Array<{
+      policyId: string;
+      title?: string;
+      status: "Pending Execution" | "Skipped" | string;
+      reason?: string;
+      implementationCommands?: string[];
+    }>;
+  }>;
 };
 
 
 export const roleOptions: UserRole[] = ["Network Engineer", "Approver", "Change Manager"];
 export const ticketStatusOptions: TicketStatus[] = ["Pending Approval", "Approved", "Released", "In Progress", "Complete", "Partially Complete", "Rejected", "Cancelled"];
-export const pageValues: Page[] = ["dashboard", "inventory", "deviceDetail", "ticketDetail", "createTicket", "templates", "templateRequests", "developerConsole"];
+export const pageValues: Page[] = ["dashboard", "inventory", "deviceDetail", "ticketDetail", "createTicket", "deploymentQueue", "templates", "templateRequests", "developerConsole"];
 
 
 

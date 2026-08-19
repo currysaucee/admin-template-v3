@@ -5,6 +5,7 @@ import {
   deleteRealPolicySettings,
   enqueueRealDeployment,
   extractRealPolicySettingsFromDocument,
+  loadRealDeploymentQueue,
   loadRealDevices,
   loadRealPolicySettings,
   loadRealTemplateRequests,
@@ -310,6 +311,10 @@ export function getRuntimeDeploymentQueue() {
   return readRuntimeArray<DeploymentQueueItem>(runtimeDeploymentQueueKey, []);
 }
 
+export function usePortalDeploymentQueue(overrideQueue?: DeploymentQueueItem[]) {
+  return usePortalCollection<DeploymentQueueItem>(getRuntimeDeploymentQueue(), loadRealDeploymentQueue, overrideQueue);
+}
+
 export async function enqueueRuntimeDeployment(ticket: Ticket) {
   if (getStoredDataMode() === "real") {
     return enqueueRealDeployment(ticket.id);
@@ -324,6 +329,24 @@ export async function enqueueRuntimeDeployment(ticket: Ticket) {
     availableAt: now,
     attemptCount: 0,
     ticket,
+    queuedBy: "Current User",
+    deviceCount: ticket.devices.length,
+    policyCount: ticket.devices.reduce((total, device) => total + device.findings.length, 0),
+    executionPlan: {
+      ticketId: ticket.id,
+      devices: ticket.devices.map((device) => ({
+        hostname: device.hostname,
+        managementIp: device.managementIp,
+        hardwareType: device.hardwareType,
+        findings: device.findings.map((finding) => ({
+          policyId: finding.id,
+          title: finding.title,
+          status: "Pending Execution",
+          reason: "Queued locally for UI preview.",
+          implementationCommands: [],
+        })),
+      })),
+    },
     result: { mode: "mock", detail: "Queued locally for UI preview." },
   };
   writeRuntimeArray(runtimeDeploymentQueueKey, [queueItem, ...getRuntimeDeploymentQueue()]);

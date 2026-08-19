@@ -14,6 +14,7 @@ export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Pag
     { page: "dashboard", label: "Dashboard", icon: "pi pi-table" },
     { page: "inventory", label: "Exceptions", icon: "pi pi-server" },
     { page: "createTicket", label: "Create Ticket", icon: "pi pi-plus-circle", onClick: onCreate },
+    { page: "deploymentQueue", label: "Queue", icon: "pi pi-list-check" },
   ];
   const smeItems: Array<{ page: Page; label: string; icon: string; onClick?: () => void }> = [
     { page: "templateRequests", label: "Template Requests", icon: "pi pi-inbox" },

@@ -140,6 +140,7 @@ class DeploymentQueueItem(models.Model):
     queue_id = models.CharField(max_length=100, unique=True)
     ticket_id = models.CharField(max_length=80, db_index=True)
     ticket_payload = models.JSONField(default=dict)
+    execution_plan = models.JSONField(default=dict)
     status = models.CharField(max_length=40, default="Queued", db_index=True)
     priority = models.PositiveIntegerField(default=100)
     available_at = models.DateTimeField()

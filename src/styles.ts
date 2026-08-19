@@ -357,6 +357,26 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .netcomply-toast { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid #bbf7d0; border-radius: 12px; background: #f0fdf4; color: #166534; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16); font-weight: 800; }
 .netcomply-toast i { color: #16a34a; }
 .netcomply-toast button { border: 0; background: transparent; color: #166534; cursor: pointer; font: inherit; font-size: 18px; line-height: 1; padding: 0 2px; }
+.queue-board-card .p-card-body { padding: 0; }
+.queue-board { display: grid; }
+.queue-item { border-bottom: 1px solid #e5e7eb; background: #fff; }
+.queue-item:last-child { border-bottom: 0; }
+.queue-item.expanded { background: #fbfdff; }
+.queue-item-header { width: 100%; border: 0; background: transparent; color: inherit; font: inherit; display: grid; grid-template-columns: 42px minmax(150px, 1fr) minmax(220px, 1.1fr) minmax(120px, 0.6fr) minmax(150px, 0.75fr) auto 20px; gap: 14px; align-items: center; padding: 16px 18px; text-align: left; cursor: pointer; }
+.queue-item-header:hover { background: #f8fafc; }
+.queue-rank { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 999px; background: #eaf2ff; color: #0b63f6; font-weight: 900; }
+.queue-ticket-main, .queue-meta-block { display: grid; gap: 3px; min-width: 0; }
+.queue-ticket-main strong { font-size: 15px; }
+.queue-ticket-main span, .queue-meta-block span, .queue-device-identity span, .queue-policy-row span { color: #64748b; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.queue-chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.queue-meta-block strong { color: #0f172a; font-size: 13px; overflow-wrap: anywhere; }
+.queue-device-list { display: grid; gap: 0; padding: 0 18px 18px 74px; }
+.queue-device-row { display: grid; grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr); gap: 18px; padding: 14px 0; border-top: 1px solid #e5e7eb; }
+.queue-device-identity { display: grid; gap: 4px; align-content: start; }
+.queue-policy-list { display: grid; gap: 8px; }
+.queue-policy-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
+.queue-policy-row div { display: grid; gap: 3px; min-width: 0; }
+.queue-policy-row strong { overflow-wrap: anywhere; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }
   .main-panel { margin-left: 220px; }
@@ -369,6 +389,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }
   .numbered-line-panel + .numbered-line-panel { border-left: 0; border-top: 1px solid #eef2f7; }
   .template-directory-toolbar, .developer-table-header, .developer-modal-heading { flex-direction: column; align-items: stretch; }
+  .queue-item-header { grid-template-columns: 42px minmax(0, 1fr) auto; }
+  .queue-chip-row, .queue-meta-block, .queue-item-header > .p-tag { grid-column: 2 / -1; }
+  .queue-device-list { padding-left: 18px; }
+  .queue-device-row { grid-template-columns: 1fr; }
   .template-list-meta { justify-content: flex-start; }
   .filter-card { flex-direction: column; align-items: stretch; }
   .device-collapse-header, .command-header { flex-direction: column; align-items: stretch; }
@@ -438,6 +462,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .template-list-row { gap: 12px; }
   .template-list-row > i { display: none; }
   .command-edit-row { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; }
+  .queue-policy-row { grid-template-columns: 1fr; }
+  .queue-policy-row .p-tag { justify-self: start; }
 }
 @media (max-width: 480px) {
   .table-card .action-row { grid-template-columns: 1fr; }

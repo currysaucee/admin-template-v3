@@ -9,6 +9,7 @@ import { SideMenu, TopBar } from "./sharedUi";
 import CreateTicketPageWrapper from "./createTicketPageWrapper";
 import DashboardPageWrapper from "./dashboardPageWrapper";
 import DeveloperConsolePageWrapper from "./developerConsolePageWrapper";
+import DeploymentQueuePageWrapper from "./deploymentQueuePageWrapper";
 import DeviceDetailPageWrapper from "./deviceDetailPageWrapper";
 import InventoryPageWrapper from "./inventoryPageWrapper";
 import TemplatePageWrapper from "./templatePageWrapper";
@@ -176,6 +177,7 @@ function NetComplyPrototype() {
       <main className="main-panel">
         <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} dataMode={dataMode} onDataModeChange={setDataMode} />
         {page === "dashboard" && <DashboardPageWrapper tickets={reconciledTickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onStatusChange={updateTicketStatus} />}
+        {page === "deploymentQueue" && <DeploymentQueuePageWrapper />}
         {page === "inventory" && (
           <InventoryPageWrapper
             devices={devices}
