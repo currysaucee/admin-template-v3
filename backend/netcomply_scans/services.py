@@ -103,6 +103,10 @@ def normalize_policy_id(value: Any) -> str:
     return str(value).strip().upper()
 
 
+def looks_like_policy_id(value: Any) -> bool:
+    return bool(re.match(r"^[A-Za-z]{1,5}[-_\s]?\d{1,4}$", str(value).strip()))
+
+
 def is_non_compliant(device: dict[str, Any]) -> bool:
     value = pick(device, "complyStatus", "complianceStatus", "isCompliant", "compliant", "status", default=None)
     if isinstance(value, bool):
@@ -143,10 +147,16 @@ def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
 
     rows: list[dict[str, Any]] = []
     for item in iterable:
-        if isinstance(item, dict) and len(item) == 1:
-            policy_id, payload = next(iter(item.items()))
-            rows.append({"policy_id": normalize_policy_id(policy_id), "payload": payload_text(payload), "raw": item})
-        elif isinstance(item, dict):
+        if isinstance(item, dict):
+            keyed_policy_rows = [
+                {"policy_id": normalize_policy_id(policy_id), "payload": payload_text(payload), "raw": {policy_id: payload}}
+                for policy_id, payload in item.items()
+                if looks_like_policy_id(policy_id)
+            ]
+            if keyed_policy_rows:
+                rows.extend(keyed_policy_rows)
+                continue
+
             policy_id = normalize_policy_id(pick(item, "id", "policyId", "policyNumber", "settingNumber", "identifier"))
             payload = pick(item, "payload", "expectedValue", "agreedSetting", "settingPayload", "expected", "rule", "description", "actualConfig", "config", default="")
             if policy_id:
