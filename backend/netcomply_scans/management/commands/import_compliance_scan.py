@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from backend.netcomply_scans.services import import_scan_payload, write_latest_payload
+from backend.netcomply_scans.services import coerce_scan_payload, import_scan_payload, write_latest_payload
 
 
 class Command(BaseCommand):
@@ -19,9 +19,10 @@ class Command(BaseCommand):
         if not input_path.exists():
             raise CommandError(f"{input_path} does not exist")
 
-        payload = json.loads(input_path.read_text(encoding="utf-8-sig"))
-        if not isinstance(payload, list):
-            raise CommandError("Expected top-level JSON array of device scan objects")
+        try:
+            payload = coerce_scan_payload(json.loads(input_path.read_text(encoding="utf-8-sig")))
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
 
         latest_path = write_latest_payload(payload, options["tmp_dir"])
         batch = import_scan_payload(payload, latest_path, options["source"])

@@ -17,6 +17,7 @@ from .services import (
     replace_tickets,
     resolve_snapshot_file,
     run_daily_scan_import,
+    run_mock_scan_import,
     upsert_policy_settings,
     upsert_ticket,
 )
@@ -40,6 +41,17 @@ def run_scan_import(request):
         return JsonResponse({"scan": run_daily_scan_import()})
     except Exception as exc:
         return JsonResponse({"detail": f"Unable to run scan import: {exc}"}, status=500)
+
+
+@csrf_exempt
+def run_mock_scan_import_view(request):
+    if request.method not in {"GET", "POST"}:
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    try:
+        payload_path = request.GET.get("path") or None
+        return JsonResponse({"scan": run_mock_scan_import(payload_path)})
+    except Exception as exc:
+        return JsonResponse({"detail": f"Unable to run mock scan import: {exc}"}, status=500)
 
 
 def config_snapshot_download(request, filename):

@@ -118,6 +118,21 @@ def is_non_compliant(device: dict[str, Any]) -> bool:
     return False
 
 
+def payload_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        string_values = [item.strip() for item in value if isinstance(item, str) and item.strip()]
+        if string_values:
+            return "\n".join(string_values)
+        return "\n".join(str(item) for item in value if item not in (None, ""))
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
 def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
     if isinstance(raw_value, dict):
         iterable = [{key: value} for key, value in raw_value.items()]
@@ -130,12 +145,12 @@ def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
     for item in iterable:
         if isinstance(item, dict) and len(item) == 1:
             policy_id, payload = next(iter(item.items()))
-            rows.append({"policy_id": normalize_policy_id(policy_id), "payload": "" if payload is None else str(payload), "raw": item})
+            rows.append({"policy_id": normalize_policy_id(policy_id), "payload": payload_text(payload), "raw": item})
         elif isinstance(item, dict):
             policy_id = normalize_policy_id(pick(item, "id", "policyId", "policyNumber", "settingNumber", "identifier"))
             payload = pick(item, "payload", "expectedValue", "agreedSetting", "settingPayload", "expected", "rule", "description", "actualConfig", "config", default="")
             if policy_id:
-                rows.append({"policy_id": policy_id, "payload": "" if payload is None else str(payload), "raw": item})
+                rows.append({"policy_id": policy_id, "payload": payload_text(payload), "raw": item})
     return rows
 
 
@@ -220,8 +235,29 @@ def run_daily_scan_import() -> dict[str, Any]:
     }
 
 
-def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | str, source: str = "external-api") -> ComplianceScanBatch:
+def run_mock_scan_import(payload_path: Path | str | None = None) -> dict[str, Any]:
+    source_path = Path(payload_path) if payload_path else Path(getattr(settings, "NETCOMPLY_MOCK_SCAN_PAYLOAD_PATH", scan_tmp_dir() / "mock_scan_payload.json"))
+    if not source_path.exists():
+        raise FileNotFoundError(f"{source_path} does not exist")
+
+    payload = coerce_scan_payload(json.loads(source_path.read_text(encoding="utf-8-sig")))
     consumed_at = timezone.now()
+    latest_path = write_latest_payload(payload, scan_tmp_dir(), consumed_at=consumed_at)
+    batch = import_scan_payload(payload, latest_path, source="mock-file", consumed_at=consumed_at)
+    return {
+        "batchId": batch.id,
+        "source": batch.source,
+        "sourcePath": str(source_path),
+        "payloadPath": str(latest_path),
+        "deviceCount": batch.device_count,
+        "nonCompliantDeviceCount": batch.non_compliant_device_count,
+        "consumedAt": batch.consumed_at.isoformat(),
+        "databaseAlias": scan_db_alias(),
+    }
+
+
+def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | str, source: str = "external-api", consumed_at: datetime | None = None) -> ComplianceScanBatch:
+    consumed_at = consumed_at or timezone.now()
     db_alias = scan_db_alias()
     batch = ComplianceScanBatch.objects.using(db_alias).create(
         source=source,
@@ -274,13 +310,18 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
 
 def latest_devices_for_frontend() -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
-    batch = ComplianceScanBatch.objects.using(db_alias).order_by("-consumed_at").first()
-    if not batch:
+    if not ComplianceScanBatch.objects.using(db_alias).exists():
         return []
 
     devices: list[dict[str, Any]] = []
-    device_rows = ComplianceScanDevice.objects.using(db_alias).filter(batch=batch).prefetch_related("findings", "actual_configs")
+    seen_hostnames: set[str] = set()
+    device_rows = ComplianceScanDevice.objects.using(db_alias).select_related("batch").prefetch_related("findings", "actual_configs").order_by("-batch__consumed_at", "-id")
     for device in device_rows:
+        hostname_key = device.hostname.strip().lower()
+        if hostname_key in seen_hostnames:
+            continue
+        seen_hostnames.add(hostname_key)
+
         config_by_policy = {config.policy_id: config.config_payload for config in device.actual_configs.all()}
         snapshot = find_device_snapshot(device.hostname)
         config_snapshot_path, config_snapshot_filename = snapshot if snapshot else ("", "")
@@ -291,7 +332,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             "hardwareType": device.hardware_type,
             "managementIp": device.management_ip,
             "site": device.site,
-            "lastScanned": batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
+            "lastScanned": device.batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
             "complianceStatus": "Non-Compliant",
             "configSnapshotPath": config_snapshot_path,
             "configSnapshotFilename": config_snapshot_filename,
@@ -304,7 +345,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
                     "reason": "",
                     "currentValue": config_by_policy.get(finding.policy_id, ""),
                     "expectedValue": finding.finding_payload,
-                    "detectedAt": batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
+                    "detectedAt": device.batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
                 }
                 for finding in device.findings.all()
             ],
