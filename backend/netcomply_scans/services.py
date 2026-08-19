@@ -235,15 +235,19 @@ def run_daily_scan_import() -> dict[str, Any]:
     }
 
 
-def run_mock_scan_import(payload_path: Path | str | None = None) -> dict[str, Any]:
-    source_path = Path(payload_path) if payload_path else Path(getattr(settings, "NETCOMPLY_MOCK_SCAN_PAYLOAD_PATH", scan_tmp_dir() / "mock_scan_payload.json"))
+def default_mock_scan_payload_path() -> Path:
+    return Path(getattr(settings, "NETCOMPLY_MOCK_SCAN_PAYLOAD_PATH", scan_tmp_dir() / "mock_scan_payload.json"))
+
+
+def import_scan_file(payload_path: Path | str, source: str = "file-import", consumed_at: datetime | None = None) -> dict[str, Any]:
+    source_path = Path(payload_path)
     if not source_path.exists():
         raise FileNotFoundError(f"{source_path} does not exist")
 
     payload = coerce_scan_payload(json.loads(source_path.read_text(encoding="utf-8-sig")))
-    consumed_at = timezone.now()
+    consumed_at = consumed_at or timezone.now()
     latest_path = write_latest_payload(payload, scan_tmp_dir(), consumed_at=consumed_at)
-    batch = import_scan_payload(payload, latest_path, source="mock-file", consumed_at=consumed_at)
+    batch = import_scan_payload(payload, latest_path, source=source, consumed_at=consumed_at)
     return {
         "batchId": batch.id,
         "source": batch.source,
@@ -254,6 +258,10 @@ def run_mock_scan_import(payload_path: Path | str | None = None) -> dict[str, An
         "consumedAt": batch.consumed_at.isoformat(),
         "databaseAlias": scan_db_alias(),
     }
+
+
+def run_mock_scan_import(payload_path: Path | str | None = None) -> dict[str, Any]:
+    return import_scan_file(payload_path or default_mock_scan_payload_path(), source="mock-file")
 
 
 def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | str, source: str = "external-api", consumed_at: datetime | None = None) -> ComplianceScanBatch:

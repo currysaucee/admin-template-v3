@@ -1,9 +1,8 @@
-import json
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from backend.netcomply_scans.services import coerce_scan_payload, import_scan_payload, write_latest_payload
+from backend.netcomply_scans.services import import_scan_file
 
 
 class Command(BaseCommand):
@@ -20,10 +19,8 @@ class Command(BaseCommand):
             raise CommandError(f"{input_path} does not exist")
 
         try:
-            payload = coerce_scan_payload(json.loads(input_path.read_text(encoding="utf-8-sig")))
-        except ValueError as exc:
+            result = import_scan_file(input_path, source=options["source"])
+        except (FileNotFoundError, ValueError) as exc:
             raise CommandError(str(exc)) from exc
 
-        latest_path = write_latest_payload(payload, options["tmp_dir"])
-        batch = import_scan_payload(payload, latest_path, options["source"])
-        self.stdout.write(self.style.SUCCESS(f"Imported scan batch {batch.id} from {latest_path}"))
+        self.stdout.write(self.style.SUCCESS(f"Imported scan batch {result['batchId']} from {result['payloadPath']}"))

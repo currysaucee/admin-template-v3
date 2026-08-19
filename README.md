@@ -29,8 +29,11 @@ The backend exposes one shared scan import flow:
 - Ad-hoc API trigger: `POST /api/hcc/scan/import/`
 - Compatibility API trigger: `POST /api/HCCFix/scan/import/`
 - Local mock scan trigger: `GET /api/hcc/scan/import-mock/`
-- Management command: `python manage.py run_daily_scan_import`
+- File import service function: `backend.netcomply_scans.services.import_scan_file`
+- Thin management command wrapper: `python manage.py import_compliance_scan tmp/netcomply-scans/mock_scan_payload.json`
+- Scanner API management command: `python manage.py run_daily_scan_import`
 - Celery task name: `netcomply.run_daily_scan_import`
+- File import Celery task name: `netcomply.import_scan_file`
 
 For local testing without a scanner API, put the scan response JSON here:
 
@@ -45,6 +48,13 @@ GET /api/hcc/scan/import-mock/
 ```
 
 That reads the local JSON file, saves a timestamped copy as the latest consumed scan, and imports it into the scan tables using the current timestamp. The `tmp/` folder is gitignored, so local scan payloads do not get pushed.
+
+For the split schedule model:
+
+- 6 a.m. job: call the scanner API and save the response file.
+- 8 a.m. job/manual trigger: call `import_scan_file(path_to_json)` to parse that file into scan/device/finding/config tables.
+
+The import parsing logic lives in `services.py`; endpoints, management commands, and Celery tasks are only callers.
 
 Add the scanner connection and Celery beat schedule to your Django settings:
 
