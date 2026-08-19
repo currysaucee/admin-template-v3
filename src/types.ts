@@ -114,6 +114,23 @@ export type Ticket = {
   deploymentRun?: DeploymentRunResult;
 };
 
+export type DeploymentQueueItem = {
+  queueId: string;
+  ticketId: string;
+  status: "Queued" | "Processing" | "Complete" | "Skipped" | "Failed" | string;
+  priority: number;
+  queuedAt: string;
+  availableAt: string;
+  lockedAt?: string;
+  lockedBy?: string;
+  startedAt?: string;
+  completedAt?: string;
+  attemptCount: number;
+  lastError?: string;
+  ticket?: Ticket;
+  result?: unknown;
+};
+
 
 export const roleOptions: UserRole[] = ["Network Engineer", "Approver", "Change Manager"];
 export const ticketStatusOptions: TicketStatus[] = ["Pending Approval", "Approved", "Released", "In Progress", "Complete", "Partially Complete", "Rejected", "Cancelled"];

@@ -169,8 +169,12 @@ export function isExecutableTemplate(template?: RemediationTemplate) {
   return template.approvalStatus === "Approved" && template.implementationCommands.length > 0 && template.implementationCommands.every((command) => command.trim().length > 0 && !/unknown|not configured|<[^>]+>/i.test(command));
 }
 
-export function hasConfigSnapshot(device: { configSnapshotPath?: string; configSnapshotFilename?: string }) {
-  return Boolean(device.configSnapshotPath?.trim() || device.configSnapshotFilename?.trim());
+export function hasConfigSnapshot(device: { configSnapshotPath?: string; configSnapshotFilename?: string; findings?: Array<{ currentValue?: string }> }) {
+  return Boolean(
+    device.configSnapshotPath?.trim()
+    || device.configSnapshotFilename?.trim()
+    || device.findings?.some((finding) => finding.currentValue?.trim())
+  );
 }
 
 export function getTemplateAvailability(device: { hardwareType: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
@@ -192,7 +196,7 @@ export function getTemplateAvailability(device: { hardwareType: string }, findin
   return { template: undefined, executable: false, label: "0 fixes available", severity: "secondary" as const, note: "No approved template is linked to this policy ID." };
 }
 
-export function getFixAvailability(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
+export function getFixAvailability(device: { hardwareType: string; configSnapshotPath?: string; configSnapshotFilename?: string; findings?: Array<{ currentValue?: string }> }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
   const availability = getTemplateAvailability(device, finding, templates, policySettings);
 
   if (availability.executable && !hasConfigSnapshot(device)) {
@@ -202,7 +206,7 @@ export function getFixAvailability(device: { hardwareType: string; configSnapsho
   return availability;
 }
 
-export function hasExecutableFix(device: { hardwareType: string; configSnapshotPath?: string }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
+export function hasExecutableFix(device: { hardwareType: string; configSnapshotPath?: string; configSnapshotFilename?: string; findings?: Array<{ currentValue?: string }> }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
   return getFixAvailability(device, finding, templates, policySettings).executable;
 }
 

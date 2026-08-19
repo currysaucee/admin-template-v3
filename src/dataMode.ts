@@ -1,4 +1,4 @@
-import type { Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket } from "./types";
+import type { DeploymentQueueItem, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket } from "./types";
 
 export type NetComplyDataMode = "mock" | "real";
 
@@ -151,4 +151,19 @@ export async function saveRealTicket(ticket: Ticket): Promise<Ticket> {
     body: JSON.stringify(ticket),
   });
   return payload.ticket ?? ticket;
+}
+
+export async function loadRealDeploymentQueue(): Promise<DeploymentQueueItem[]> {
+  const payload = await requestJson<DeploymentQueueItem[] | { queue?: DeploymentQueueItem[] }>(endpoint("deployment-queue/"));
+  if (Array.isArray(payload)) return payload;
+  return payload.queue ?? [];
+}
+
+export async function enqueueRealDeployment(ticketId: string): Promise<DeploymentQueueItem> {
+  const payload = await requestJson<{ queueItem?: DeploymentQueueItem }>(endpoint("deployment-queue/"), {
+    method: "POST",
+    body: JSON.stringify({ ticketId, actor: "Current User" }),
+  });
+  if (!payload.queueItem) throw new Error("Backend did not return a queued deployment item.");
+  return payload.queueItem;
 }

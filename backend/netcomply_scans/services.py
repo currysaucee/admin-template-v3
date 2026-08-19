@@ -12,6 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -20,6 +21,7 @@ from .models import (
     ComplianceScanBatch,
     ComplianceScanDevice,
     ComplianceScanFinding,
+    DeploymentQueueItem,
     PolicySettingRecord,
     RemediationTemplateRecord,
     RemediationTicketRecord,
@@ -128,7 +130,7 @@ def payload_text(value: Any) -> str:
     if isinstance(value, str):
         return value
     if isinstance(value, list):
-        string_values = [item.strip() for item in value if isinstance(item, str) and item.strip()]
+        string_values = collect_payload_strings(value)
         if string_values:
             return "\n".join(string_values)
         return "\n".join(str(item) for item in value if item not in (None, ""))
@@ -137,16 +139,30 @@ def payload_text(value: Any) -> str:
     return str(value)
 
 
-def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
-    if isinstance(raw_value, dict):
-        iterable = [{key: value} for key, value in raw_value.items()]
-    elif isinstance(raw_value, list):
-        iterable = raw_value
-    else:
-        iterable = []
+def collect_payload_strings(value: Any) -> list[str]:
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, list):
+        strings: list[str] = []
+        for item in value:
+            strings.extend(collect_payload_strings(item))
+        return strings
+    return []
 
+
+def iter_payload_dicts(value: Any):
+    if isinstance(value, dict):
+        yield value
+        return
+    if isinstance(value, list):
+        for item in value:
+            yield from iter_payload_dicts(item)
+
+
+def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for item in iterable:
+    for item in iter_payload_dicts(raw_value):
         if isinstance(item, dict):
             keyed_policy_rows = [
                 {"policy_id": normalize_policy_id(policy_id), "payload": payload_text(payload), "raw": {policy_id: payload}}
@@ -515,3 +531,199 @@ def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Ticket payload requires id")
     RemediationTicketRecord.objects.using(scan_db_alias()).update_or_create(ticket_id=ticket_id, defaults={"payload": payload})
     return payload
+
+
+def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]:
+    return {
+        "queueId": item.queue_id,
+        "ticketId": item.ticket_id,
+        "status": item.status,
+        "priority": item.priority,
+        "queuedAt": item.queued_at.isoformat(),
+        "availableAt": item.available_at.isoformat(),
+        "lockedAt": item.locked_at.isoformat() if item.locked_at else "",
+        "lockedBy": item.locked_by,
+        "startedAt": item.started_at.isoformat() if item.started_at else "",
+        "completedAt": item.completed_at.isoformat() if item.completed_at else "",
+        "attemptCount": item.attempt_count,
+        "lastError": item.last_error,
+        "ticket": item.ticket_payload,
+        "result": item.result_payload,
+    }
+
+
+def list_deployment_queue_for_frontend() -> list[dict[str, Any]]:
+    return [
+        serialize_deployment_queue_item(item)
+        for item in DeploymentQueueItem.objects.using(scan_db_alias()).order_by("-queued_at", "-id")[:200]
+    ]
+
+
+def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    ticket = RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=ticket_id).first()
+    if not ticket:
+        raise ValueError(f"Ticket {ticket_id} was not found")
+
+    existing = DeploymentQueueItem.objects.using(db_alias).filter(ticket_id=ticket_id, status__in=["Queued", "Processing"]).order_by("-queued_at").first()
+    if existing:
+        return serialize_deployment_queue_item(existing)
+
+    now = timezone.now()
+    queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
+    ticket_payload = {**ticket.payload, "status": "Released", "queuedBy": actor}
+    ticket.payload = ticket_payload
+    ticket.save(using=db_alias)
+    item = DeploymentQueueItem.objects.using(db_alias).create(
+        queue_id=queue_id,
+        ticket_id=ticket_id,
+        ticket_payload=ticket_payload,
+        status="Queued",
+        queued_at=now,
+        available_at=now,
+    )
+    return serialize_deployment_queue_item(item)
+
+
+def find_latest_device_for_ticket(ticket_device: dict[str, Any], latest_devices: list[dict[str, Any]]) -> dict[str, Any] | None:
+    device_id = str(ticket_device.get("deviceId") or "").strip()
+    hostname = str(ticket_device.get("hostname") or "").strip().lower()
+    return next(
+        (
+            device for device in latest_devices
+            if str(device.get("id") or "") == device_id or str(device.get("hostname") or "").strip().lower() == hostname
+        ),
+        None,
+    )
+
+
+def list_approved_templates() -> list[dict[str, Any]]:
+    return [
+        record.payload
+        for record in RemediationTemplateRecord.objects.using(scan_db_alias()).all()
+        if record.payload.get("approvalStatus") == "Approved"
+    ]
+
+
+def template_matches_queue_finding(template: dict[str, Any], ticket_device: dict[str, Any], finding: dict[str, Any]) -> bool:
+    hardware_type = str(ticket_device.get("hardwareType") or "")
+    if hardware_type not in template.get("hardwareTypes", []):
+        return False
+    finding_refs = {
+        normalize_policy_id(finding.get("id")),
+        normalize_policy_id(finding.get("templateKey")),
+    }
+    template_refs = {
+        normalize_policy_id(template.get("key")),
+        normalize_policy_id(template.get("policySettingId")),
+    }
+    return bool(finding_refs.intersection(template_refs))
+
+
+def resolve_queue_template(ticket_device: dict[str, Any], finding: dict[str, Any], templates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    return next((template for template in templates if template_matches_queue_finding(template, ticket_device, finding)), None)
+
+
+def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str, Any]:
+    latest_devices = latest_devices_for_frontend()
+    templates = list_approved_templates()
+    planned_devices: list[dict[str, Any]] = []
+
+    for ticket_device in ticket_payload.get("devices", []):
+        latest_device = find_latest_device_for_ticket(ticket_device, latest_devices)
+        latest_finding_refs = {
+            normalize_policy_id(ref)
+            for finding in (latest_device.get("findings", []) if latest_device else [])
+            for ref in (finding.get("id"), finding.get("templateKey"))
+            if ref
+        }
+        planned_findings: list[dict[str, Any]] = []
+        for finding in ticket_device.get("findings", []):
+            finding_ref = normalize_policy_id(finding.get("id") or finding.get("templateKey"))
+            template = resolve_queue_template(ticket_device, finding, templates)
+            commands = template.get("implementationCommands", []) if template else []
+            if not latest_device:
+                status = "Skipped"
+                reason = "Device is not present in the latest non-compliance scan."
+            elif finding_ref not in latest_finding_refs:
+                status = "Skipped"
+                reason = "Policy is no longer detected as non-compliant in the latest scan."
+            elif not commands:
+                status = "Skipped"
+                reason = "No approved executable template is available for this policy and hardware type."
+            else:
+                status = "Pending Execution"
+                reason = "Policy is still non-compliant and commands are ready for the executor."
+            planned_findings.append({
+                "policyId": finding_ref,
+                "title": finding.get("title") or finding_ref,
+                "status": status,
+                "reason": reason,
+                "implementationCommands": commands,
+            })
+        planned_devices.append({
+            "hostname": ticket_device.get("hostname"),
+            "managementIp": ticket_device.get("managementIp"),
+            "hardwareType": ticket_device.get("hardwareType"),
+            "findings": planned_findings,
+        })
+
+    return {"ticketId": ticket_payload.get("id"), "devices": planned_devices}
+
+
+def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
+    executor_url = getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_URL", "")
+    if not executor_url:
+        return {"mode": "dry-run", "detail": "No executor URL configured.", "plan": plan}
+
+    body = json.dumps(plan).encode("utf-8")
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    headers.update(getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_HEADERS", {}))
+    request = Request(executor_url, data=body, headers=headers, method="POST")
+    with urlopen(request, timeout=getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
+        response_body = response.read().decode("utf-8")
+    return json.loads(response_body) if response_body else {"detail": "Executor returned an empty response."}
+
+
+def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | None:
+    db_alias = scan_db_alias()
+    with transaction.atomic(using=db_alias):
+        queryset = DeploymentQueueItem.objects.using(db_alias).select_for_update(skip_locked=True).filter(
+            status="Queued",
+            available_at__lte=timezone.now(),
+        ).order_by("priority", "queued_at", "id")
+        item = queryset.first()
+        if not item:
+            return None
+        item.status = "Processing"
+        item.locked_by = worker_id
+        item.locked_at = timezone.now()
+        item.started_at = timezone.now()
+        item.attempt_count += 1
+        item.save(using=db_alias)
+        return item
+
+
+def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    item = claim_next_deployment_queue_item(worker_id)
+    if not item:
+        return {"claimed": False, "detail": "No queued deployment item is available."}
+
+    try:
+        plan = build_deployment_execution_plan(item.ticket_payload)
+        result = call_deployment_executor(plan)
+        all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
+        executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")
+        item.status = "Skipped" if all_findings and executable_count == 0 else "Complete"
+        item.result_payload = result
+        item.completed_at = timezone.now()
+        item.last_error = ""
+        item.save(using=db_alias)
+        return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
+    except Exception as exc:
+        item.status = "Failed"
+        item.last_error = str(exc)
+        item.completed_at = timezone.now()
+        item.save(using=db_alias)
+        return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}

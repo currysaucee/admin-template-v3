@@ -5,12 +5,15 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .services import (
     delete_policy_settings,
+    enqueue_ticket_for_deployment,
     extract_policy_settings_from_docx,
     latest_devices_for_frontend,
+    list_deployment_queue_for_frontend,
     list_policy_settings_for_frontend,
     list_template_requests_for_frontend,
     list_templates_for_frontend,
     list_tickets_for_frontend,
+    process_next_deployment_queue_item,
     replace_policy_settings,
     replace_template_requests,
     replace_templates,
@@ -135,3 +138,29 @@ def tickets(request):
         values = payload if isinstance(payload, list) else payload.get("tickets", [])
         return JsonResponse({"tickets": replace_tickets(values)})
     return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def deployment_queue(request):
+    if request.method == "GET":
+        return JsonResponse({"queue": list_deployment_queue_for_frontend()})
+    if request.method == "POST":
+        payload = read_json_body(request) or {}
+        ticket_id = str(payload.get("ticketId") or "").strip()
+        actor = str(payload.get("actor") or "Current User")
+        if not ticket_id:
+            return JsonResponse({"detail": "ticketId is required"}, status=400)
+        try:
+            return JsonResponse({"queueItem": enqueue_ticket_for_deployment(ticket_id, actor=actor)})
+        except Exception as exc:
+            return JsonResponse({"detail": f"Unable to queue deployment: {exc}"}, status=400)
+    return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def deployment_queue_process_next(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    payload = read_json_body(request) or {}
+    worker_id = str(payload.get("workerId") or "manual-worker")
+    return JsonResponse(process_next_deployment_queue_item(worker_id=worker_id))

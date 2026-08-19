@@ -3,6 +3,7 @@ import React from "react";
 import {
   getStoredDataMode,
   deleteRealPolicySettings,
+  enqueueRealDeployment,
   extractRealPolicySettingsFromDocument,
   loadRealDevices,
   loadRealPolicySettings,
@@ -19,7 +20,7 @@ import {
 } from "./dataMode";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
-import type { Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
+import type { DeploymentQueueItem, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
 
 export const portalRoutePaths = {
   dashboard: "/dashboard",
@@ -189,6 +190,7 @@ const latestRuntimeTicketIdKey = "netcomply:latestRuntimeTicketId";
 const runtimePolicySettingsKey = "netcomply:runtimePolicySettings";
 const runtimeTemplatesKey = "netcomply:runtimeTemplates";
 const runtimeTemplateRequestsKey = "netcomply:runtimeTemplateRequests";
+const runtimeDeploymentQueueKey = "netcomply:runtimeDeploymentQueue";
 
 function readRuntimeArray<T>(storageKey: string, fallback: T[]) {
   const stored = window.sessionStorage.getItem(storageKey);
@@ -302,6 +304,30 @@ export function updateRuntimeTicketStatus(id: string, status: TicketStatus) {
   const nextTickets = updateTicketStatus(getRuntimeTickets(), id, status);
   saveRuntimeTickets(nextTickets);
   return nextTickets;
+}
+
+export function getRuntimeDeploymentQueue() {
+  return readRuntimeArray<DeploymentQueueItem>(runtimeDeploymentQueueKey, []);
+}
+
+export async function enqueueRuntimeDeployment(ticket: Ticket) {
+  if (getStoredDataMode() === "real") {
+    return enqueueRealDeployment(ticket.id);
+  }
+  const now = new Date().toISOString();
+  const queueItem: DeploymentQueueItem = {
+    queueId: `DQ-${Date.now()}-${ticket.id}`,
+    ticketId: ticket.id,
+    status: "Queued",
+    priority: 100,
+    queuedAt: now,
+    availableAt: now,
+    attemptCount: 0,
+    ticket,
+    result: { mode: "mock", detail: "Queued locally for UI preview." },
+  };
+  writeRuntimeArray(runtimeDeploymentQueueKey, [queueItem, ...getRuntimeDeploymentQueue()]);
+  return queueItem;
 }
 
 export type CreateTicketState = {

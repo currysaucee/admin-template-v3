@@ -134,3 +134,34 @@ class RemediationTicketRecord(models.Model):
 
     def __str__(self) -> str:
         return self.ticket_id
+
+
+class DeploymentQueueItem(models.Model):
+    queue_id = models.CharField(max_length=100, unique=True)
+    ticket_id = models.CharField(max_length=80, db_index=True)
+    ticket_payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=40, default="Queued", db_index=True)
+    priority = models.PositiveIntegerField(default=100)
+    available_at = models.DateTimeField()
+    queued_at = models.DateTimeField()
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.CharField(max_length=120, blank=True, default="")
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default="")
+    result_payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "netcomply_scans"
+        db_table = "netcomply_deployment_queue"
+        indexes = [
+            models.Index(fields=["status", "available_at"]),
+            models.Index(fields=["ticket_id"]),
+            models.Index(fields=["locked_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.queue_id

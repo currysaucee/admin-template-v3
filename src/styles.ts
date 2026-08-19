@@ -354,6 +354,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .developer-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .developer-modal-heading p { margin: 8px 0 0; color: #64748b; font-weight: 700; }
 .developer-policy-modal { display: grid; gap: 16px; }
+.netcomply-toast { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid #bbf7d0; border-radius: 12px; background: #f0fdf4; color: #166534; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16); font-weight: 800; }
+.netcomply-toast i { color: #16a34a; }
+.netcomply-toast button { border: 0; background: transparent; color: #166534; cursor: pointer; font: inherit; font-size: 18px; line-height: 1; padding: 0 2px; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }
   .main-panel { margin-left: 220px; }
