@@ -135,6 +135,15 @@ export type DeploymentQueueItem = {
   result?: unknown;
 };
 
+export type DeploymentWorkerHealth = {
+  workerId: string;
+  status: string;
+  lastSeenAt: string;
+  detail?: string;
+  processedCount?: number;
+  lastQueueId?: string;
+};
+
 export type DeploymentExecutionPlan = {
   ticketId?: string;
   devices: Array<{

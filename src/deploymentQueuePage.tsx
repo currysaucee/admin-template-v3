@@ -1,11 +1,10 @@
 import React from "react";
-import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 
 import { getStatusSeverity } from "./helpers";
 import { PageHeader } from "./sharedUi";
-import type { DeploymentQueueItem } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth } from "./types";
 
 function formatQueueTime(value?: string) {
   if (!value) return "Not set";
@@ -29,7 +28,49 @@ function skippedPolicyCount(item: DeploymentQueueItem) {
   return item.executionPlan?.devices.reduce((total, device) => total + device.findings.filter((finding) => finding.status === "Skipped").length, 0) ?? 0;
 }
 
-export function DeploymentQueuePage({ queue }: { queue: DeploymentQueueItem[] }) {
+function heartbeatAgeLabel(value?: string) {
+  if (!value) return "No heartbeat";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const ageSeconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (ageSeconds < 60) return `${ageSeconds}s ago`;
+  const ageMinutes = Math.round(ageSeconds / 60);
+  if (ageMinutes < 60) return `${ageMinutes}m ago`;
+  return `${Math.round(ageMinutes / 60)}h ago`;
+}
+
+function WorkerHealthStrip({ workers }: { workers: DeploymentWorkerHealth[] }) {
+  return (
+    <Card className="worker-health-card">
+      <div className="worker-health-header">
+        <div>
+          <h2>Worker Health</h2>
+          <p>{workers.length} worker{workers.length === 1 ? "" : "s"} reporting heartbeat files.</p>
+        </div>
+        <Tag value={workers.length > 0 ? "Heartbeat detected" : "No workers"} severity={workers.length > 0 ? "success" : "warning"} rounded />
+      </div>
+      {workers.length === 0 ? (
+        <div className="worker-empty">No worker heartbeat has been written yet.</div>
+      ) : (
+        <div className="worker-health-grid">
+          {workers.map((worker) => (
+            <div key={worker.workerId} className="worker-health-item">
+              <div>
+                <strong>{worker.workerId}</strong>
+                <span>{worker.detail || "Worker is reachable."}</span>
+              </div>
+              <Tag value={worker.status} severity={worker.status === "Alive" || worker.status === "Processing" ? "success" : worker.status === "Idle" ? "info" : "warning"} rounded />
+              <small>Last alive {heartbeatAgeLabel(worker.lastSeenAt)}</small>
+              <small>{worker.processedCount ?? 0} processed{worker.lastQueueId ? ` - ${worker.lastQueueId}` : ""}</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[] }) {
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
   const toggleExpanded = (queueId: string) => {
     setExpandedIds((previous) => {
@@ -43,6 +84,7 @@ export function DeploymentQueuePage({ queue }: { queue: DeploymentQueueItem[] })
   return (
     <section className="page-content">
       <PageHeader title="Deployment Queue" subtitle="Review released tickets in execution order before workers consume them." />
+      <WorkerHealthStrip workers={workerHealth} />
       <Card className="queue-board-card">
         {queue.length === 0 ? (
           <div className="empty-row">No released tickets are currently queued.</div>

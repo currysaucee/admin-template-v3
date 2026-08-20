@@ -358,6 +358,18 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .netcomply-toast i { color: #16a34a; }
 .netcomply-toast button { border: 0; background: transparent; color: #166534; cursor: pointer; font: inherit; font-size: 18px; line-height: 1; padding: 0 2px; }
 .queue-board-card .p-card-body { padding: 0; }
+.worker-health-card { margin-bottom: 18px; }
+.worker-health-card .p-card-body { padding: 18px; }
+.worker-health-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.worker-health-header h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
+.worker-health-header p { margin: 5px 0 0; color: #64748b; font-weight: 700; }
+.worker-health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.worker-health-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
+.worker-health-item div { display: grid; gap: 3px; min-width: 0; }
+.worker-health-item strong { overflow-wrap: anywhere; }
+.worker-health-item span, .worker-health-item small, .worker-empty { color: #64748b; font-weight: 700; }
+.worker-health-item small { font-size: 12px; }
+.worker-empty { padding: 12px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; }
 .queue-board { display: grid; }
 .queue-item { border-bottom: 1px solid #e5e7eb; background: #fff; }
 .queue-item:last-child { border-bottom: 0; }
@@ -388,7 +400,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }
   .numbered-line-panel + .numbered-line-panel { border-left: 0; border-top: 1px solid #eef2f7; }
-  .template-directory-toolbar, .developer-table-header, .developer-modal-heading { flex-direction: column; align-items: stretch; }
+  .template-directory-toolbar, .developer-table-header, .developer-modal-heading, .worker-health-header { flex-direction: column; align-items: stretch; }
   .queue-item-header { grid-template-columns: 42px minmax(0, 1fr) auto; }
   .queue-chip-row, .queue-meta-block, .queue-item-header > .p-tag { grid-column: 2 / -1; }
   .queue-device-list { padding-left: 18px; }

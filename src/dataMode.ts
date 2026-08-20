@@ -1,4 +1,4 @@
-import type { DeploymentQueueItem, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket } from "./types";
 
 export type NetComplyDataMode = "mock" | "real";
 
@@ -157,6 +157,12 @@ export async function loadRealDeploymentQueue(): Promise<DeploymentQueueItem[]> 
   const payload = await requestJson<DeploymentQueueItem[] | { queue?: DeploymentQueueItem[] }>(endpoint("deployment-queue/"));
   if (Array.isArray(payload)) return payload;
   return payload.queue ?? [];
+}
+
+export async function loadRealDeploymentQueueState(): Promise<{ queue: DeploymentQueueItem[]; workerHealth: DeploymentWorkerHealth[] }> {
+  const payload = await requestJson<DeploymentQueueItem[] | { queue?: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[] }>(endpoint("deployment-queue/"));
+  if (Array.isArray(payload)) return { queue: payload, workerHealth: [] };
+  return { queue: payload.queue ?? [], workerHealth: payload.workerHealth ?? [] };
 }
 
 export async function enqueueRealDeployment(ticketId: string): Promise<DeploymentQueueItem> {

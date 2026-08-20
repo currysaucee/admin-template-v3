@@ -51,6 +51,13 @@ def snapshot_dir() -> Path:
     return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-config-snapshots"
 
 
+def deployment_worker_heartbeat_dir() -> Path:
+    configured_dir = getattr(settings, "NETCOMPLY_DEPLOYMENT_WORKER_HEARTBEAT_DIR", None)
+    if configured_dir:
+        return Path(configured_dir)
+    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-deployment-workers"
+
+
 def safe_snapshot_filename(hostname: str) -> str:
     normalized = re.sub(r"[^A-Za-z0-9_.-]+", "-", hostname.strip()).strip("-").lower()
     return f"{normalized or 'device'}.txt"
@@ -569,6 +576,28 @@ def list_deployment_queue_for_frontend() -> list[dict[str, Any]]:
         for item in DeploymentQueueItem.objects.using(scan_db_alias()).order_by("priority", "queued_at", "id")[:200]
     ]
     return sorted(items, key=lambda item: (status_order.get(str(item.get("status")), 3), item.get("priority", 100), item.get("queuedAt", "")))
+
+
+def list_deployment_worker_heartbeats() -> list[dict[str, Any]]:
+    directory = deployment_worker_heartbeat_dir()
+    if not directory.exists():
+        return []
+
+    workers: list[dict[str, Any]] = []
+    for heartbeat_file in directory.glob("*.json"):
+        try:
+            payload = json.loads(heartbeat_file.read_text(encoding="utf-8"))
+        except Exception:
+            payload = {"workerId": heartbeat_file.stem, "status": "Unreadable", "lastSeenAt": ""}
+        workers.append({
+            "workerId": str(payload.get("workerId") or heartbeat_file.stem),
+            "status": str(payload.get("status") or "Unknown"),
+            "lastSeenAt": str(payload.get("lastSeenAt") or ""),
+            "detail": str(payload.get("detail") or ""),
+            "processedCount": int(payload.get("processedCount") or 0),
+            "lastQueueId": str(payload.get("lastQueueId") or ""),
+        })
+    return sorted(workers, key=lambda worker: worker.get("workerId", ""))
 
 
 def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -> dict[str, Any]:

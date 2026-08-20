@@ -9,6 +9,7 @@ from .services import (
     extract_policy_settings_from_docx,
     latest_devices_for_frontend,
     list_deployment_queue_for_frontend,
+    list_deployment_worker_heartbeats,
     list_policy_settings_for_frontend,
     list_template_requests_for_frontend,
     list_templates_for_frontend,
@@ -143,7 +144,7 @@ def tickets(request):
 @csrf_exempt
 def deployment_queue(request):
     if request.method == "GET":
-        return JsonResponse({"queue": list_deployment_queue_for_frontend()})
+        return JsonResponse({"queue": list_deployment_queue_for_frontend(), "workerHealth": list_deployment_worker_heartbeats()})
     if request.method == "POST":
         payload = read_json_body(request) or {}
         ticket_id = str(payload.get("ticketId") or "").strip()

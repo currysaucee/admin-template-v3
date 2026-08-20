@@ -5,6 +5,7 @@ import {
   deleteRealPolicySettings,
   enqueueRealDeployment,
   extractRealPolicySettingsFromDocument,
+  loadRealDeploymentQueueState,
   loadRealDeploymentQueue,
   loadRealDevices,
   loadRealPolicySettings,
@@ -21,7 +22,7 @@ import {
 } from "./dataMode";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
-import type { DeploymentQueueItem, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
 
 export const portalRoutePaths = {
   dashboard: "/dashboard",
@@ -313,6 +314,58 @@ export function getRuntimeDeploymentQueue() {
 
 export function usePortalDeploymentQueue(overrideQueue?: DeploymentQueueItem[]) {
   return usePortalCollection<DeploymentQueueItem>(getRuntimeDeploymentQueue(), loadRealDeploymentQueue, overrideQueue);
+}
+
+export function usePortalDeploymentQueueState(overrideQueue?: DeploymentQueueItem[]) {
+  const [queue, setQueue] = React.useState<DeploymentQueueItem[]>(overrideQueue ?? getRuntimeDeploymentQueue());
+  const [workerHealth, setWorkerHealth] = React.useState<DeploymentWorkerHealth[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (overrideQueue) {
+      setQueue(overrideQueue);
+      setWorkerHealth([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    if (getStoredDataMode() !== "real") {
+      setQueue(getRuntimeDeploymentQueue());
+      setWorkerHealth([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    loadRealDeploymentQueueState()
+      .then((state) => {
+        if (!cancelled) {
+          setQueue(state.queue);
+          setWorkerHealth(state.workerHealth);
+        }
+      })
+      .catch((nextError: unknown) => {
+        if (!cancelled) {
+          setQueue([]);
+          setWorkerHealth([]);
+          setError(nextError instanceof Error ? nextError.message : "Unable to load deployment queue state.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [overrideQueue]);
+
+  return { queue, workerHealth, loading, error };
 }
 
 export async function enqueueRuntimeDeployment(ticket: Ticket) {
