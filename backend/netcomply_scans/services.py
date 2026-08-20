@@ -752,6 +752,36 @@ def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
     return json.loads(response_body) if response_body else {"detail": "Executor returned an empty response."}
 
 
+def expected_execution_command_count(plan: dict[str, Any]) -> int:
+    return sum(
+        len(finding.get("implementationCommands", []))
+        for device in plan.get("devices", [])
+        for finding in device.get("findings", [])
+        if finding.get("status") == "Pending Execution"
+    )
+
+
+def validate_executor_result(result: dict[str, Any], expected_command_count: int) -> None:
+    mode = str(result.get("mode") or "").lower()
+    if expected_command_count > 0 and mode in {"dry-run", "simulate"}:
+        raise RuntimeError("Deployment executor did not run commands. Configure the executor URL and enable local execution for this test.")
+
+    results = result.get("results")
+    if expected_command_count > 0 and not isinstance(results, list):
+        raise RuntimeError("Deployment executor did not return per-command results.")
+
+    if isinstance(results, list) and len(results) < expected_command_count:
+        raise RuntimeError(f"Deployment executor returned {len(results)} command result(s), expected {expected_command_count}.")
+
+    failed_results = [
+        row for row in (results or [])
+        if str(row.get("status") or "").lower() != "executed" or int(row.get("returnCode") or 0) != 0
+    ]
+    if failed_results:
+        first_failure = failed_results[0]
+        raise RuntimeError(str(first_failure.get("stderr") or first_failure.get("stdout") or first_failure.get("command") or "A command failed."))
+
+
 def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | None:
     db_alias = scan_db_alias()
     with transaction.atomic(using=db_alias):
@@ -780,9 +810,10 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
 
     try:
         plan = item.execution_plan or build_deployment_execution_plan(item.ticket_payload)
-        result = call_deployment_executor(plan)
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
         executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")
+        result = call_deployment_executor(plan)
+        validate_executor_result(result, expected_execution_command_count(plan))
         item.status = "Skipped" if all_findings and executable_count == 0 else "Complete"
         item.result_payload = result
         item.completed_at = timezone.now()
