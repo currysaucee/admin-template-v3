@@ -13,10 +13,13 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
     case "Pending Approval":
     case "Scan Pending":
       return "warning";
-    case "Released":
+    case "Queued":
     case "In Progress":
       return "info";
+    case "Failed":
+      return "danger";
     case "Cancelled":
+    case "Skipped":
       return "secondary";
     default:
       return "info";

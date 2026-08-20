@@ -21,7 +21,7 @@ import { getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateReq
 import { getStoredDataMode, loadRealDevices, saveStoredDataMode, type NetComplyDataMode } from "./dataMode";
 import { styles } from "./styles";
 import { pageValues } from "./types";
-import type { Device, PolicySetting, Page, RemediationTemplate, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
+import type { Device, PolicySetting, Page, RemediationTemplate, Ticket, TicketDevice, UserRole } from "./types";
 
 export default function App() {
   return (
@@ -165,18 +165,13 @@ function NetComplyPrototype() {
     setStep(0);
   };
 
-  const updateTicketStatus = (id: string, status: TicketStatus) => {
-    setTickets((prev) => prev.map((ticket) => (ticket.id === id ? { ...ticket, status } : ticket)));
-    setSelectedTicketDetail((prev) => prev?.id === id ? { ...prev, status } : prev);
-  };
-
   return (
     <div className="app-shell">
       <style>{styles}</style>
       <SideMenu activePage={page} onNavigate={setPage} onCreate={() => startCreateTicket()} />
       <main className="main-panel">
         <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} dataMode={dataMode} onDataModeChange={setDataMode} />
-        {page === "dashboard" && <DashboardPageWrapper tickets={reconciledTickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} onStatusChange={updateTicketStatus} />}
+        {page === "dashboard" && <DashboardPageWrapper tickets={reconciledTickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} />}
         {page === "deploymentQueue" && <DeploymentQueuePageWrapper />}
         {page === "inventory" && (
           <InventoryPageWrapper
@@ -201,7 +196,7 @@ function NetComplyPrototype() {
           />
         )}
         {page === "deviceDetail" && selectedDeviceDetail && <DeviceDetailPageWrapper device={selectedDeviceDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("inventory")} onCreateTicket={(device) => startCreateTicket(device, true)} />}
-        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={reconcileTicketWithLatestScan(selectedTicketDetail, devices)} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} onStatusChange={updateTicketStatus} />}
+        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={reconcileTicketWithLatestScan(selectedTicketDetail, devices)} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} />}
         {page === "createTicket" && (
           <CreateTicketPageWrapper
             devices={selectableTicketDevices}

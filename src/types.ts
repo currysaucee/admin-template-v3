@@ -1,7 +1,7 @@
 export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" | "createTicket" | "deploymentQueue" | "templates" | "templateRequests" | "developerConsole";
 export type UserRole = "Network Engineer" | "Approver" | "Change Manager";
 export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Scan Pending";
-export type TicketStatus = "Pending Approval" | "Approved" | "Released" | "In Progress" | "Complete" | "Partially Complete" | "Rejected" | "Cancelled";
+export type TicketStatus = "Pending Approval" | "Approved" | "Queued" | "In Progress" | "Complete" | "Partially Complete" | "Skipped" | "Failed" | "Rejected" | "Cancelled";
 export type TemplateApprovalStatus = "Pending Approval" | "Approved" | "Rejected";
 
 export type Finding = {
@@ -162,7 +162,7 @@ export type DeploymentExecutionPlan = {
 
 
 export const roleOptions: UserRole[] = ["Network Engineer", "Approver", "Change Manager"];
-export const ticketStatusOptions: TicketStatus[] = ["Pending Approval", "Approved", "Released", "In Progress", "Complete", "Partially Complete", "Rejected", "Cancelled"];
+export const ticketStatusOptions: TicketStatus[] = ["Pending Approval", "Approved", "Queued", "In Progress", "Complete", "Partially Complete", "Skipped", "Failed", "Rejected", "Cancelled"];
 export const pageValues: Page[] = ["dashboard", "inventory", "deviceDetail", "ticketDetail", "createTicket", "deploymentQueue", "templates", "templateRequests", "developerConsole"];
 
 

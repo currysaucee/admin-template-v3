@@ -1,4 +1,4 @@
-import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
 export type NetComplyDataMode = "mock" | "real";
 
@@ -151,6 +151,15 @@ export async function saveRealTicket(ticket: Ticket): Promise<Ticket> {
     body: JSON.stringify(ticket),
   });
   return payload.ticket ?? ticket;
+}
+
+export async function updateRealTicketStatus(ticketId: string, status: TicketStatus): Promise<Ticket> {
+  const payload = await requestJson<{ ticket?: Ticket }>(endpoint("tickets/"), {
+    method: "PATCH",
+    body: JSON.stringify({ ticketId, status }),
+  });
+  if (!payload.ticket) throw new Error("Backend did not return an updated ticket.");
+  return payload.ticket;
 }
 
 export async function loadRealDeploymentQueue(): Promise<DeploymentQueueItem[]> {

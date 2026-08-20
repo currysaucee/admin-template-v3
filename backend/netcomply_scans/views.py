@@ -22,6 +22,7 @@ from .services import (
     resolve_snapshot_file,
     run_daily_scan_import,
     run_mock_scan_import,
+    set_ticket_status,
     upsert_policy_settings,
     upsert_ticket,
 )
@@ -134,6 +135,16 @@ def tickets(request):
     if request.method == "POST":
         payload = read_json_body(request) or {}
         return JsonResponse({"ticket": upsert_ticket(payload)})
+    if request.method == "PATCH":
+        payload = read_json_body(request) or {}
+        ticket_id = str(payload.get("ticketId") or payload.get("id") or "").strip()
+        status = str(payload.get("status") or "").strip()
+        if not ticket_id or not status:
+            return JsonResponse({"detail": "ticketId and status are required"}, status=400)
+        try:
+            return JsonResponse({"ticket": set_ticket_status(ticket_id, status)})
+        except Exception as exc:
+            return JsonResponse({"detail": f"Unable to update ticket status: {exc}"}, status=400)
     if request.method == "PUT":
         payload = read_json_body(request) or {}
         values = payload if isinstance(payload, list) else payload.get("tickets", [])

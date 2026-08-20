@@ -19,6 +19,7 @@ import {
   saveRealTemplates,
   saveRealTicket,
   saveRealTickets,
+  updateRealTicketStatus,
 } from "./dataMode";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
@@ -302,10 +303,16 @@ export function getLatestRuntimeTicketId() {
   return window.sessionStorage.getItem(latestRuntimeTicketIdKey) || "";
 }
 
-export function updateRuntimeTicketStatus(id: string, status: TicketStatus) {
-  const nextTickets = updateTicketStatus(getRuntimeTickets(), id, status);
-  saveRuntimeTickets(nextTickets);
-  return nextTickets;
+export async function updateRuntimeTicketStatus(id: string, status: TicketStatus) {
+  if (getStoredDataMode() === "real") {
+    return updateRealTicketStatus(id, status);
+  }
+  const current = getRuntimeTickets();
+  const nextTickets = updateTicketStatus(current, id, status);
+  writeRuntimeArray(runtimeTicketsKey, nextTickets);
+  const ticket = nextTickets.find((item) => item.id === id);
+  if (!ticket) throw new Error(`Ticket ${id} was not found.`);
+  return ticket;
 }
 
 export function getRuntimeDeploymentQueue() {
@@ -381,7 +388,7 @@ export async function enqueueRuntimeDeployment(ticket: Ticket) {
     queuedAt: now,
     availableAt: now,
     attemptCount: 0,
-    ticket,
+    ticket: { ...ticket, status: "Queued" },
     queuedBy: "Current User",
     deviceCount: ticket.devices.length,
     policyCount: ticket.devices.reduce((total, device) => total + device.findings.length, 0),
@@ -403,6 +410,8 @@ export async function enqueueRuntimeDeployment(ticket: Ticket) {
     result: { mode: "mock", detail: "Queued locally for UI preview." },
   };
   writeRuntimeArray(runtimeDeploymentQueueKey, [queueItem, ...getRuntimeDeploymentQueue()]);
+  const nextTickets = updateTicketStatus(getRuntimeTickets(), ticket.id, "Queued");
+  writeRuntimeArray(runtimeTicketsKey, nextTickets);
   return queueItem;
 }
 

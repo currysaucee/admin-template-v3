@@ -140,13 +140,13 @@ export function ImplementationDateCell({ date }: { date: string }) {
 export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void; showView?: boolean }) {
   const canDecide = ticket.status === "Pending Approval";
   const canRelease = ticket.status === "Approved";
-  const canCancel = ["Pending Approval", "Approved", "Released", "In Progress"].includes(ticket.status);
+  const canCancel = ["Pending Approval", "Approved", "Queued", "In Progress"].includes(ticket.status);
   return (
     <div className="action-row">
       {showView && onView && <Button label="View" icon="pi pi-eye" size="small" onClick={() => onView(ticket)} />}
       {canDecide && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}
       {canDecide && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}
-      {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => onStatusChange(ticket.id, "Released")} />}
+      {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => onStatusChange(ticket.id, "Queued")} />}
       {canCancel && <Button label="Cancel" icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
     </div>
   );

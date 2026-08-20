@@ -540,6 +540,16 @@ def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    ticket = RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=ticket_id).first()
+    if not ticket:
+        raise ValueError(f"Ticket {ticket_id} was not found")
+    ticket.payload = {**ticket.payload, "status": status}
+    ticket.save(using=db_alias)
+    return ticket.payload
+
+
 def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]:
     device_count = len(item.execution_plan.get("devices", [])) if isinstance(item.execution_plan, dict) else 0
     policy_count = sum(
@@ -612,7 +622,7 @@ def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -
 
     now = timezone.now()
     queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
-    ticket_payload = {**ticket.payload, "status": "Released", "queuedBy": actor}
+    ticket_payload = {**ticket.payload, "status": "Queued", "queuedBy": actor}
     execution_plan = build_deployment_execution_plan(ticket_payload)
     ticket.payload = ticket_payload
     ticket.save(using=db_alias)
@@ -758,6 +768,7 @@ def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | No
         item.started_at = timezone.now()
         item.attempt_count += 1
         item.save(using=db_alias)
+        RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=item.ticket_id).update(payload={**item.ticket_payload, "status": "In Progress"})
         return item
 
 
@@ -777,10 +788,13 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         item.completed_at = timezone.now()
         item.last_error = ""
         item.save(using=db_alias)
+        final_status = "Complete" if item.status == "Complete" else "Skipped"
+        RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=item.ticket_id).update(payload={**item.ticket_payload, "status": final_status})
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
         item.status = "Failed"
         item.last_error = str(exc)
         item.completed_at = timezone.now()
         item.save(using=db_alias)
+        RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=item.ticket_id).update(payload={**item.ticket_payload, "status": "Failed"})
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
