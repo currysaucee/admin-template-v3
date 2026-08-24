@@ -19,6 +19,8 @@ EXECUTION_WINDOW_START = day_time(0, 0)
 EXECUTION_WINDOW_END = day_time(6, 0)
 PROCESS_OUTSIDE_WINDOW = False
 HEARTBEAT_DIR = PROJECT_ROOT / "tmp" / "netcomply-deployment-workers"
+DEPLOYMENT_EXECUTOR_URL = "http://127.0.0.1:9100/execute"
+DEPLOYMENT_EXECUTOR_TIMEOUT_SECONDS = 60
 
 
 def configure_django() -> None:
@@ -29,6 +31,11 @@ def configure_django() -> None:
     import django
 
     django.setup()
+
+    from django.conf import settings
+
+    settings.NETCOMPLY_DEPLOYMENT_EXECUTOR_URL = DEPLOYMENT_EXECUTOR_URL
+    settings.NETCOMPLY_DEPLOYMENT_EXECUTOR_TIMEOUT = DEPLOYMENT_EXECUTOR_TIMEOUT_SECONDS
 
 
 def now_iso() -> str:
@@ -78,6 +85,7 @@ def main() -> None:
     last_queue_id = ""
     print(f"Deployment queue consumer started as {WORKER_ID}")
     print(f"Execution window: {EXECUTION_WINDOW_START.strftime('%H:%M')} to {EXECUTION_WINDOW_END.strftime('%H:%M')}")
+    print(f"Executor URL: {DEPLOYMENT_EXECUTOR_URL}")
     print(f"Heartbeat file: {HEARTBEAT_DIR / f'{WORKER_ID}.json'}")
 
     while True:
@@ -91,8 +99,10 @@ def main() -> None:
                 if result.get("claimed"):
                     processed_count += 1
                     last_queue_id = str(queue_item.get("queueId") or "")
-                    status = "Processing"
-                    detail = f"Processed {last_queue_id or 'one queue item'}."
+                    status = str(queue_item.get("status") or "Processed")
+                    detail = f"{status} {last_queue_id or 'one queue item'}."
+                    if queue_item.get("lastError"):
+                        detail = f"{detail} Error: {queue_item.get('lastError')}"
                 else:
                     status = "Alive"
                     detail = "No queued deployment item is available."
