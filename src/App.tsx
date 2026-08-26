@@ -15,7 +15,7 @@ import InventoryPageWrapper from "./inventoryPageWrapper";
 import TemplatePageWrapper from "./templatePageWrapper";
 import TemplateRequestsPageWrapper from "./templateRequestsPageWrapper";
 import TicketDetailPageWrapper from "./ticketDetailPageWrapper";
-import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, reconcileTicketWithLatestScan, resolveTemplateForDevice } from "./helpers";
+import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, normalizePolicyReference, reconcileTicketWithLatestScan, resolveTemplateForDevice } from "./helpers";
 import { initialDevices, initialPolicySettings, initialTickets } from "./mockData";
 import { getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
 import { getStoredDataMode, loadRealDevices, saveStoredDataMode, type NetComplyDataMode } from "./dataMode";
@@ -180,9 +180,14 @@ function NetComplyPrototype() {
             policySettings={policySettings}
             bulkInventorySelection={bulkInventorySelection}
             setBulkInventorySelection={setBulkInventorySelection}
-            onBulkCreate={() => {
+            onBulkCreate={(policyFilters = []) => {
               const ids = bulkInventorySelection.map((device) => device.id);
-              const findingKeys = bulkInventorySelection.flatMap((device) => getExecutableFindings(device, templates, policySettings).map((finding) => findFindingKey(device.id, finding.id)));
+              const filterSet = new Set(policyFilters.map((value) => normalizePolicyReference(value)));
+              const findingKeys = bulkInventorySelection.flatMap((device) =>
+                getExecutableFindings(device, templates, policySettings)
+                  .filter((finding) => filterSet.size === 0 || [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value)).some((value) => filterSet.has(value)))
+                  .map((finding) => findFindingKey(device.id, finding.id))
+              );
               setSelectedDeviceIds(ids);
               setSelectedFindingKeys(findingKeys);
               setPage("createTicket");

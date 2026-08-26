@@ -2,7 +2,7 @@ import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { InventoryPage } from "./dashboardInventory";
-import { getExecutableFindings } from "./helpers";
+import { findFindingKey, getExecutableFindings, normalizePolicyReference } from "./helpers";
 import { navigateToPortalPath, portalRoutePaths, runRuntimeScanImport, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
 import { styles } from "./styles";
 import type { Device } from "./types";
@@ -49,9 +49,16 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
           scanImportMessage={scanImportMessage}
           bulkInventorySelection={selectedBulkDevices}
           setBulkInventorySelection={props.setBulkInventorySelection ?? setBulkInventorySelection}
-          onBulkCreate={props.onBulkCreate ?? (() => {
+          onBulkCreate={props.onBulkCreate ?? ((policyFilters = []) => {
             const selectedIds = selectedBulkDevices.map((device) => device.id).join(",");
+            const filterSet = new Set(policyFilters.map((value) => normalizePolicyReference(value)));
+            const selectedFindingKeys = selectedBulkDevices.flatMap((device) =>
+              getExecutableFindings(device, templates, policySettings)
+                .filter((finding) => filterSet.size === 0 || [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value)).some((value) => filterSet.has(value)))
+                .map((finding) => findFindingKey(device.id, finding.id))
+            );
             setRouteValue("netcomply:selectedDeviceIds", selectedIds);
+            setRouteValue("netcomply:selectedFindingKeys", selectedFindingKeys.join(","));
             navigateToPortalPath(portalRoutePaths.createTicket, { deviceIds: selectedIds });
           })}
           onCreateTicket={props.onCreateTicket ?? startCreateTicket}

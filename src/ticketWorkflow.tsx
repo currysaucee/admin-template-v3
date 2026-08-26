@@ -7,7 +7,7 @@ import { Card } from "primereact/card";
 import { Dialog } from "primereact/dialog";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findFindingKey, getFixAvailability, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
+import { findFindingKey, getFindingDisplayTitle, getFixAvailability, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
 import { PageHeader } from "./sharedUi";
 
 export function CreateTicketPage(props: {
@@ -94,11 +94,35 @@ export function CreateTicketPage(props: {
 
 function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setSelectedDeviceIds, selectedFindingKeys, setSelectedFindingKeys, selectedDevices }: Parameters<typeof CreateTicketPage>[0]) {
   const visibleDevices = selectedDeviceIds.length > 0 ? selectedDevices : devices;
+  const executableFindingKeys = visibleDevices.flatMap((device) =>
+    device.findings
+      .filter((finding) => getFixAvailability(device, finding, templates, policySettings).executable)
+      .map((finding) => findFindingKey(device.id, finding.id))
+  );
+  const uniqueExecutableFindingKeys = Array.from(new Set(executableFindingKeys));
+  const allVisibleFindingsSelected = uniqueExecutableFindingKeys.length > 0 && uniqueExecutableFindingKeys.every((key) => selectedFindingKeys.includes(key));
+  const toggleAllVisibleFindings = (checked: boolean) => {
+    if (checked) {
+      setSelectedFindingKeys((prev) => Array.from(new Set([...prev, ...uniqueExecutableFindingKeys])));
+      setSelectedDeviceIds((prev) => Array.from(new Set([...prev, ...visibleDevices.filter((device) => device.findings.some((finding) => uniqueExecutableFindingKeys.includes(findFindingKey(device.id, finding.id)))).map((device) => device.id)])));
+      return;
+    }
+    setSelectedFindingKeys((prev) => prev.filter((key) => !uniqueExecutableFindingKeys.includes(key)));
+    setSelectedDeviceIds((prev) => prev.filter((deviceId) => selectedFindingKeys.some((key) => key.startsWith(`${deviceId}:`) && !uniqueExecutableFindingKeys.includes(key))));
+  };
   return (
     <div className="scope-grid">
       <div className="summary-card full-span">
-        <h3>Findings</h3>
-        <p className="section-subtitle">Select one or more approved finding fixes. Use the Exceptions page filters to narrow this list before creating a ticket.</p>
+        <div className="scope-heading-row">
+          <div>
+            <h3>Findings</h3>
+            <p className="section-subtitle">Select one or more approved finding fixes. Use the Exceptions page filters to narrow this list before creating a ticket.</p>
+          </div>
+          <label className={`select-all-findings ${uniqueExecutableFindingKeys.length === 0 ? "disabled" : ""}`}>
+            <Checkbox checked={allVisibleFindingsSelected} disabled={uniqueExecutableFindingKeys.length === 0} onChange={(event) => toggleAllVisibleFindings(Boolean(event.checked))} />
+            <span>Select all fixable findings</span>
+          </label>
+        </div>
         {visibleDevices.length === 0 ? (
           <p className="empty-text">No eligible findings are available.</p>
         ) : (
@@ -142,7 +166,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                         />
                         <div className="finding-rule-cell">
                           <span className="mobile-field-label">Finding Rule</span>
-                          <div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<strong>{finding.title}</strong></div>
+                          <div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
                           {!hasTemplateFix && <small className="template-availability-note">{availability.note}</small>}
                         </div>
                         <div className="finding-standard-cell">
@@ -192,7 +216,7 @@ function ReviewStep({ selectedTicketDevices, templates, policySettings }: Parame
                     const template = resolveTemplateForDevice(device, finding, templates, policySettings);
                     return (
                       <div key={finding.id} className="review-finding-row">
-                        <div className="finding-title-row"><Tag className="policy-id-tag review-policy-id-tag" value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
+                        <div className="finding-title-row"><Tag className="policy-id-tag review-policy-id-tag" value={finding.id} severity="info" rounded /><strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
                         <div className="command-list compact-command-list implementation-command-preview">
                           {(template?.implementationCommands.length ? template.implementationCommands : ["No implementation command configured."]).map((command, index) => (
                             <div key={`${device.deviceId}-${finding.id}-${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>

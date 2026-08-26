@@ -5,11 +5,12 @@ import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
+import { MultiSelect } from "primereact/multiselect";
 import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
-import { findPolicySettingForFinding, getAvailableFixCount, getExecutableFindings, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, getAvailableFixCount, getExecutableFindings, getFindingDisplayTitle, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
@@ -61,16 +62,24 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
   return <StatusPill value={status} severity={getStatusSeverity(status)} />;
 }
 
-export function InventoryPage({ devices, templates, policySettings, scanImportRunning = false, scanImportMessage = "", bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice, onRunScanImport }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; scanImportRunning?: boolean; scanImportMessage?: string; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: () => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void; onRunScanImport?: () => void }) {
+export function InventoryPage({ devices, templates, policySettings, scanImportRunning = false, scanImportMessage = "", bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice, onRunScanImport }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; scanImportRunning?: boolean; scanImportMessage?: string; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void; onRunScanImport?: () => void }) {
   const [search, setSearch] = useState("");
-  const [findingSearch, setFindingSearch] = useState("");
+  const [selectedPolicyFilters, setSelectedPolicyFilters] = useState<string[]>([]);
   const [status, setStatus] = useState<ComplianceStatus | "All">("All");
+  const policyOptions = policySettings.map((setting) => ({
+    label: `${setting.settingNumber || setting.id} - ${setting.title}`,
+    value: normalizePolicyReference(setting.settingNumber || setting.id),
+  }));
   const filteredDevices = devices.filter((device) => {
     const deviceMatch = `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase());
-    const findingMatch = !findingSearch.trim() || device.findings.some((finding) => `${finding.id} ${finding.title} ${finding.standard} ${finding.expectedValue} ${finding.currentValue} ${finding.reason}`.toLowerCase().includes(findingSearch.toLowerCase()));
+    const findingMatch = selectedPolicyFilters.length === 0 || device.findings.some((finding) => {
+      const refs = [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value));
+      return selectedPolicyFilters.some((selected) => refs.includes(selected));
+    });
     return deviceMatch && findingMatch && (status === "All" || device.complianceStatus === status);
   });
   const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && getAvailableFixCount(device, templates, policySettings) > 0;
+  const filteredReadyDevices = filteredDevices.filter(canBulkSelectDevice);
 
   return (
     <section className="page-content">
@@ -80,10 +89,16 @@ export function InventoryPage({ devices, templates, policySettings, scanImportRu
           <i className="pi pi-search" />
           <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search devices..." />
         </span>
-        <span className="p-input-icon-left grow-input">
-          <i className="pi pi-filter" />
-          <InputText value={findingSearch} onChange={(e) => setFindingSearch(e.target.value)} placeholder="Filter finding or policy ID..." />
-        </span>
+        <MultiSelect
+          className="policy-filter-dropdown"
+          value={selectedPolicyFilters}
+          options={policyOptions}
+          onChange={(event) => setSelectedPolicyFilters(event.value as string[])}
+          placeholder="Filter by onboarded policy"
+          display="chip"
+          filter
+          maxSelectedLabels={2}
+        />
         <Dropdown value={status} options={["All", "Non-Compliant"]} onChange={(e) => setStatus(e.value as ComplianceStatus | "All")} placeholder="Compliance Status" />
         {onRunScanImport ? <Button label="Run Scan Import" icon="pi pi-refresh" loading={scanImportRunning} outlined onClick={onRunScanImport} /> : null}
       </div>
@@ -106,7 +121,8 @@ export function InventoryPage({ devices, templates, policySettings, scanImportRu
         </DataTable>
         <div className="bulk-ticket-footer">
           <div className="bulk-selection-info">{bulkInventorySelection.length} selected</div>
-          <Button label="Create Bulk Ticket" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={onBulkCreate} />
+          <Button label="Select Filtered Ready" icon="pi pi-check-square" outlined disabled={filteredReadyDevices.length === 0} onClick={() => setBulkInventorySelection(filteredReadyDevices)} />
+          <Button label="Create Bulk Ticket" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={() => onBulkCreate(selectedPolicyFilters)} />
         </div>
       </Card>
     </section>
@@ -172,7 +188,7 @@ function FindingFixCount({ device, templates, policySettings }: { device: Device
           findingAvailability.map(({ finding, availability, supported }) => (
             <div key={finding.id} className="finding-coverage-row">
               <span className={`policy-code ${supported ? "" : "unsupported"}`}>{finding.id}</span>
-              <span>{finding.title}</span>
+              <span>{getFindingDisplayTitle(finding, policySettings)}</span>
               <strong className={availability.executable ? "ready" : "blocked"}>{supported ? (availability.executable ? "Fix ready" : availability.template ? "Needs snapshot" : "No template") : "Unsupported"}</strong>
             </div>
           ))

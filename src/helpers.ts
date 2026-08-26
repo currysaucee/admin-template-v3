@@ -64,7 +64,7 @@ export function hashAgreedSetting(value: string) {
 
 export function normalizePolicyReference(value?: string) {
   const text = (value ?? "").trim();
-  const match = text.match(/^([A-Za-z]{1,4})[-_\s]?0*(\d{1,4})$/);
+  const match = text.match(/^([A-Za-z]{1,8})[-_\s]?0*(\d{1,4})$/);
   if (match) return `${match[1].toUpperCase()}${Number(match[2]).toString().padStart(3, "0")}`;
   return text.toUpperCase();
 }
@@ -79,6 +79,15 @@ export function findPolicySettingForFinding(finding: Finding, policySettings: Po
     const settingRefs = [setting.id, setting.settingNumber].map((value) => normalizePolicyReference(value)).filter(Boolean);
     return settingRefs.some((ref) => findingRefs.has(ref));
   });
+}
+
+export function getFindingDisplayTitle(finding: Finding, policySettings: PolicySetting[] = []) {
+  const policySetting = findPolicySettingForFinding(finding, policySettings);
+  const normalizedTitle = normalizePolicyReference(finding.title);
+  const normalizedId = normalizePolicyReference(finding.id);
+  if (policySetting?.title) return policySetting.title;
+  if (finding.title && normalizedTitle !== normalizedId) return finding.title;
+  return finding.description || finding.expectedValue || finding.id;
 }
 
 export function isSupportedPolicyFinding(finding: Finding, policySettings: PolicySetting[] = []) {

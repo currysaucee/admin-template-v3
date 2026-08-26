@@ -9,6 +9,7 @@ export type Finding = {
   templateKey: string;
   title: string;
   standard: string;
+  description?: string;
   reason: string;
   currentValue: string;
   expectedValue: string;

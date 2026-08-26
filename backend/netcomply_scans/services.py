@@ -105,7 +105,7 @@ def pick(obj: dict[str, Any], *keys: str, default: Any = "") -> Any:
 def normalize_policy_id(value: Any) -> str:
     if isinstance(value, str):
         text = value.strip()
-        match = re.search(r"([A-Za-z]{1,4})[-_\s]?(\d{1,4})", text)
+        match = re.search(r"([A-Za-z]{1,8})[-_\s]?(\d{1,4})", text)
         if match:
             return f"{match.group(1).upper()}{int(match.group(2)):03d}"
         return text.upper()
@@ -113,7 +113,7 @@ def normalize_policy_id(value: Any) -> str:
 
 
 def looks_like_policy_id(value: Any) -> bool:
-    return bool(re.match(r"^[A-Za-z]{1,5}[-_\s]?\d{1,4}$", str(value).strip()))
+    return bool(re.match(r"^[A-Za-z]{1,8}[-_\s]?\d{1,4}$", str(value).strip()))
 
 
 def is_non_compliant(device: dict[str, Any]) -> bool:
@@ -356,6 +356,14 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
 
     devices: list[dict[str, Any]] = []
     seen_hostnames: set[str] = set()
+    policy_settings: dict[str, dict[str, Any]] = {}
+    for record in PolicySettingRecord.objects.using(db_alias).order_by("id"):
+        payload = record.payload or {}
+        for value in (payload.get("id"), payload.get("settingNumber")):
+            normalized = normalize_policy_id(value)
+            if normalized:
+                policy_settings[normalized] = payload
+
     device_rows = ComplianceScanDevice.objects.using(db_alias).select_related("batch").prefetch_related("findings", "actual_configs").order_by("-batch__consumed_at", "-id")
     for device in device_rows:
         hostname_key = device.hostname.strip().lower()
@@ -363,9 +371,28 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             continue
         seen_hostnames.add(hostname_key)
 
-        config_by_policy = {config.policy_id: config.config_payload for config in device.actual_configs.all()}
+        config_by_policy = {normalize_policy_id(config.policy_id): config.config_payload for config in device.actual_configs.all()}
         snapshot = find_device_snapshot(device.hostname)
         config_snapshot_path, config_snapshot_filename = snapshot if snapshot else ("", "")
+        findings = []
+        for finding in device.findings.all():
+            policy_id = normalize_policy_id(finding.policy_id)
+            policy_setting = policy_settings.get(policy_id, {})
+            title = policy_setting.get("title") or finding.policy_id
+            description = policy_setting.get("description") or policy_setting.get("standard") or ""
+            expected_value = policy_setting.get("settingPayload") or finding.finding_payload
+            findings.append({
+                "id": policy_id,
+                "templateKey": policy_id,
+                "title": title,
+                "standard": policy_setting.get("standard") or "Imported compliance scan",
+                "description": description,
+                "reason": "",
+                "currentValue": config_by_policy.get(policy_id, ""),
+                "expectedValue": expected_value,
+                "detectedAt": device.batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
+            })
+
         devices.append({
             "id": f"{device.hostname.lower().replace(' ', '-')}-{device.id}",
             "hostname": device.hostname,
@@ -377,19 +404,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             "complianceStatus": "Non-Compliant",
             "configSnapshotPath": config_snapshot_path,
             "configSnapshotFilename": config_snapshot_filename,
-            "findings": [
-                {
-                    "id": finding.policy_id,
-                    "templateKey": finding.policy_id,
-                    "title": finding.policy_id,
-                    "standard": "Imported compliance scan",
-                    "reason": "",
-                    "currentValue": config_by_policy.get(finding.policy_id, ""),
-                    "expectedValue": finding.finding_payload,
-                    "detectedAt": device.batch.consumed_at.strftime("%b %d, %Y %I:%M %p"),
-                }
-                for finding in device.findings.all()
-            ],
+            "findings": findings,
         })
     return devices
 

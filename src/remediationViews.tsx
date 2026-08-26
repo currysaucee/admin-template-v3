@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, getFindingDisplayTitle, getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
 import { normalizeConfigSnapshotPath, resolveRealApiUrl } from "./dataMode";
 
 export function ConfigSnapshotDownload({ path, filename }: { path?: string; filename?: string }) {
@@ -33,14 +33,18 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
   const executionStatus = executionResult ? displayExecutionStatus(executionResult.status) : "";
   const executionFailed = executionStatus === "Validation Failed";
   const isSkippedByLatestScan = Boolean(skipRemediationReason);
+  const displayTitle = getFindingDisplayTitle(finding, policySetting ? [policySetting] : []);
+  const policyDescription = policySetting?.description || finding.description;
+  const agreedSetting = policySetting?.settingPayload || finding.expectedValue || template?.agreedSetting || "";
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
-        <div><div className="finding-title-row"><Tag className={`policy-id-tag ${policySupported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={policySupported ? "info" : "secondary"} rounded />{!policySupported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{finding.title}</h3></div><p>{finding.detectedAt}</p></div>
+        <div><div className="finding-title-row"><Tag className={`policy-id-tag ${policySupported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={policySupported ? "info" : "secondary"} rounded />{!policySupported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{displayTitle}</h3></div><p>{policyDescription || finding.detectedAt}</p></div>
         <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
       {isSkippedByLatestScan && <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>Execution will skip this finding</strong><p>{skipRemediationReason}</p></div></div>}
+      {agreedSetting && <div className="agreed-setting-box compact-agreed-setting"><strong>Agreed Setting</strong><pre>{agreedSetting}</pre></div>}
       <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
@@ -78,7 +82,8 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
           </div>}
           {device.findings.map((finding, index) => {
             const template = resolveTemplateForDevice(device, finding, templates, policySettings);
-            return <FindingFixAccordion key={finding.id} finding={finding} template={template} policySetting={template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : undefined} defaultExpanded={index === 0} showFailureBehaviour={showFailureBehaviour} showPolicyModel={showPolicyModel} implementationOnly={implementationOnly} />;
+            const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : findPolicySettingForFinding(finding, policySettings);
+            return <FindingFixAccordion key={finding.id} finding={finding} template={template} policySetting={policySetting} defaultExpanded={index === 0} showFailureBehaviour={showFailureBehaviour} showPolicyModel={showPolicyModel} implementationOnly={implementationOnly} />;
           })}
         </div>
       )}
@@ -88,18 +93,23 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
 
 function FindingFixAccordion({ finding, template, policySetting, defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false }: { finding: Finding; template?: RemediationTemplate; policySetting?: PolicySetting; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const displayTitle = getFindingDisplayTitle(finding, policySetting ? [policySetting] : []);
+  const agreedSetting = policySetting?.settingPayload || finding.expectedValue || template?.agreedSetting || "";
   return (
     <div className="command-block">
       <button className="collapsible-header command-header" type="button" onClick={() => setExpanded((prev) => !prev)} aria-expanded={expanded}>
         <div>
-          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{finding.title}</strong></div>
+          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{displayTitle}</strong></div>
           <span>{template ? `${getTemplateDisplayName(template)} - updated ${template.updatedAt}` : "No template configured yet"}</span>
         </div>
         <div className="collapse-meta">
           <i className={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} />
         </div>
       </button>
-      {expanded && <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} />}
+      {expanded && <>
+        {agreedSetting && <div className="agreed-setting-box compact-agreed-setting"><strong>Agreed Setting</strong><pre>{agreedSetting}</pre></div>}
+        <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} />
+      </>}
     </div>
   );
 }
