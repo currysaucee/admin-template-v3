@@ -24,7 +24,7 @@ TABLE_CLEANUP = {
     "netcomply_compliance_scan_batch": True,
 
     # Runtime workflow data. Keep False unless you want to reset the workflow.
-    "netcomply_remediation_ticket": False,
+    "netcomply_hcc_request": False,
     "netcomply_deployment_queue": False,
 
     # Admin/reference data. Usually keep these.
@@ -39,7 +39,7 @@ DELETE_ORDER = [
     "netcomply_compliance_scan_device",
     "netcomply_compliance_scan_batch",
     "netcomply_deployment_queue",
-    "netcomply_remediation_ticket",
+    "netcomply_hcc_request",
     "netcomply_template_request",
     "netcomply_remediation_template",
     "netcomply_policy_setting",

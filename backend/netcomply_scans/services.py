@@ -22,9 +22,9 @@ from .models import (
     ComplianceScanDevice,
     ComplianceScanFinding,
     DeploymentQueueItem,
+    HCCRequestRecord,
     PolicySettingRecord,
     RemediationTemplateRecord,
-    RemediationTicketRecord,
     TemplateRequestRecord,
 )
 
@@ -332,6 +332,12 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
         device_count=len(payload),
         non_compliant_device_count=sum(1 for item in payload if isinstance(item, dict) and is_non_compliant(item)),
     )
+    policy_settings = {
+        normalize_policy_id(value): policy_setting_payload(record)
+        for record in PolicySettingRecord.objects.using(db_alias).all()
+        for value in (record.setting_number, (record.payload or {}).get("id"), (record.payload or {}).get("settingNumber"))
+        if value
+    }
 
     for raw_device in payload:
         if not isinstance(raw_device, dict) or not is_non_compliant(raw_device):
@@ -356,9 +362,14 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
         )
 
         for finding in dedupe_policy_rows(normalize_keyed_payload(pick(raw_device, "findings", "policies", "violations", "exceptions", default=[]))):
+            policy_setting = policy_settings.get(normalize_policy_id(finding["policy_id"]), {})
             ComplianceScanFinding.objects.using(db_alias).create(
                 device=device,
                 policy_id=finding["policy_id"],
+                policy_title=str(policy_setting.get("title") or ""),
+                policy_type=str(policy_setting.get("standard") or ""),
+                policy_description=str(policy_setting.get("description") or ""),
+                expected_config=str(policy_setting.get("settingPayload") or finding["payload"]),
                 finding_payload=finding["payload"],
                 raw_payload=finding["raw"],
             )
@@ -367,6 +378,7 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
             ComplianceScanActualConfig.objects.using(db_alias).create(
                 device=device,
                 policy_id=config["policy_id"],
+                current_config=config["payload"],
                 config_payload=config["payload"],
                 raw_payload=config["raw"],
             )
@@ -412,7 +424,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
     seen_hostnames: set[str] = set()
     policy_settings: dict[str, dict[str, Any]] = {}
     for record in PolicySettingRecord.objects.using(db_alias).order_by("id"):
-        payload = record.payload or {}
+        payload = policy_setting_payload(record)
         for value in (payload.get("id"), payload.get("settingNumber")):
             normalized = normalize_policy_id(value)
             if normalized:
@@ -432,14 +444,14 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
         for finding in device.findings.all():
             policy_id = normalize_policy_id(finding.policy_id)
             policy_setting = policy_settings.get(policy_id, {})
-            title = policy_setting.get("title") or finding.policy_id
-            description = policy_setting.get("description") or policy_setting.get("standard") or ""
-            expected_value = policy_setting.get("settingPayload") or finding.finding_payload
+            title = policy_setting.get("title") or finding.policy_title or finding.policy_id
+            description = policy_setting.get("description") or finding.policy_description or policy_setting.get("standard") or ""
+            expected_value = policy_setting.get("settingPayload") or finding.expected_config or finding.finding_payload
             findings.append({
                 "id": policy_id,
                 "templateKey": policy_id,
                 "title": title,
-                "standard": policy_setting.get("standard") or "Imported compliance scan",
+                "standard": policy_setting.get("standard") or finding.policy_type or "Imported compliance scan",
                 "description": description,
                 "reason": "",
                 "currentValue": config_by_policy.get(policy_id, ""),
@@ -463,14 +475,43 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
     return devices
 
 
+def policy_setting_payload(record: PolicySettingRecord) -> dict[str, Any]:
+    payload = record.payload or {}
+    return {
+        **payload,
+        "id": payload.get("id") or record.setting_number,
+        "settingNumber": payload.get("settingNumber") or record.setting_number,
+        "title": payload.get("title") or record.title,
+        "settingPayload": payload.get("settingPayload") or record.setting_payload,
+        "standard": payload.get("standard") or record.standard,
+        "description": payload.get("description") or record.description,
+        "updatedBy": payload.get("updatedBy") or record.updated_by,
+        "createdAt": payload.get("createdAt") or record.created_at.strftime("%b %d, %Y %I:%M %p"),
+        "updatedAt": payload.get("updatedAt") or record.updated_at.strftime("%b %d, %Y %I:%M %p"),
+    }
+
+
+def policy_setting_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    setting_number = str(payload.get("settingNumber") or payload.get("id") or "").strip()
+    return {
+        "setting_number": setting_number,
+        "title": str(payload.get("title") or setting_number),
+        "setting_payload": str(payload.get("settingPayload") or ""),
+        "standard": str(payload.get("standard") or ""),
+        "description": str(payload.get("description") or ""),
+        "updated_by": str(payload.get("updatedBy") or ""),
+        "payload": {**payload, "id": str(payload.get("id") or setting_number), "settingNumber": setting_number},
+    }
+
+
 def list_policy_settings_for_frontend() -> list[dict[str, Any]]:
-    return [record.payload for record in PolicySettingRecord.objects.using(scan_db_alias()).order_by("id")]
+    return [policy_setting_payload(record) for record in PolicySettingRecord.objects.using(scan_db_alias()).order_by("setting_number", "id")]
 
 
 def replace_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
     PolicySettingRecord.objects.using(db_alias).all().delete()
-    PolicySettingRecord.objects.using(db_alias).bulk_create([PolicySettingRecord(payload=payload) for payload in payloads])
+    PolicySettingRecord.objects.using(db_alias).bulk_create([PolicySettingRecord(**policy_setting_fields(payload)) for payload in payloads if str(payload.get("id") or payload.get("settingNumber") or "").strip()])
     return list_policy_settings_for_frontend()
 
 
@@ -480,20 +521,21 @@ def upsert_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any
         setting_id = str(payload.get("id") or payload.get("settingNumber") or "").strip()
         if not setting_id:
             continue
-        payload = {**payload, "id": setting_id, "settingNumber": str(payload.get("settingNumber") or setting_id)}
-        record = PolicySettingRecord.objects.using(db_alias).filter(Q(payload__id=setting_id) | Q(payload__settingNumber=setting_id)).first()
+        fields = policy_setting_fields({**payload, "id": setting_id, "settingNumber": str(payload.get("settingNumber") or setting_id)})
+        record = PolicySettingRecord.objects.using(db_alias).filter(Q(setting_number=fields["setting_number"]) | Q(payload__id=setting_id) | Q(payload__settingNumber=setting_id)).first()
         if record:
-            record.payload = payload
+            for key, value in fields.items():
+                setattr(record, key, value)
             record.save(using=db_alias)
         else:
-            PolicySettingRecord.objects.using(db_alias).create(payload=payload)
+            PolicySettingRecord.objects.using(db_alias).create(**fields)
     return list_policy_settings_for_frontend()
 
 
 def delete_policy_settings(setting_ids: list[str]) -> list[dict[str, Any]]:
     normalized_ids = [str(setting_id).strip() for setting_id in setting_ids if str(setting_id).strip()]
     if normalized_ids:
-        PolicySettingRecord.objects.using(scan_db_alias()).filter(Q(payload__id__in=normalized_ids) | Q(payload__settingNumber__in=normalized_ids)).delete()
+        PolicySettingRecord.objects.using(scan_db_alias()).filter(Q(setting_number__in=normalized_ids) | Q(payload__id__in=normalized_ids) | Q(payload__settingNumber__in=normalized_ids)).delete()
     return list_policy_settings_for_frontend()
 
 
@@ -559,64 +601,177 @@ def extract_policy_settings_from_docx(file_obj: Any) -> list[dict[str, Any]]:
     return list(deduped.values())
 
 
+def template_payload(record: RemediationTemplateRecord) -> dict[str, Any]:
+    payload = record.payload or {}
+    return {
+        **payload,
+        "key": payload.get("key") or record.template_key,
+        "policySettingId": payload.get("policySettingId") or record.policy_setting_id,
+        "findingName": payload.get("findingName") or record.finding_name,
+        "agreedSetting": payload.get("agreedSetting") or record.agreed_setting,
+        "standard": payload.get("standard") or record.standard,
+        "hardwareTypes": payload.get("hardwareTypes") or record.hardware_types,
+        "implementationCommands": payload.get("implementationCommands") or record.implementation_commands,
+        "failureBehaviour": payload.get("failureBehaviour") or record.failure_behaviour,
+        "approvalStatus": payload.get("approvalStatus") or record.approval_status,
+        "updatedAt": payload.get("updatedAt") or record.updated_at.strftime("%b %d, %Y %I:%M %p"),
+    }
+
+
+def template_fields(payload: dict[str, Any], fallback_key: str) -> dict[str, Any]:
+    template_key = str(payload.get("key") or fallback_key)
+    return {
+        "template_key": template_key,
+        "policy_setting_id": str(payload.get("policySettingId") or ""),
+        "finding_name": str(payload.get("findingName") or ""),
+        "agreed_setting": str(payload.get("agreedSetting") or ""),
+        "standard": str(payload.get("standard") or ""),
+        "hardware_types": payload.get("hardwareTypes") if isinstance(payload.get("hardwareTypes"), list) else [],
+        "implementation_commands": payload.get("implementationCommands") if isinstance(payload.get("implementationCommands"), list) else [],
+        "failure_behaviour": str(payload.get("failureBehaviour") or ""),
+        "approval_status": str(payload.get("approvalStatus") or "Pending Approval"),
+        "payload": {**payload, "key": template_key},
+    }
+
+
 def list_templates_for_frontend() -> list[dict[str, Any]]:
-    return [record.payload for record in RemediationTemplateRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+    return [template_payload(record) for record in RemediationTemplateRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
 
 
 def replace_templates(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
     RemediationTemplateRecord.objects.using(db_alias).all().delete()
     RemediationTemplateRecord.objects.using(db_alias).bulk_create([
-        RemediationTemplateRecord(template_key=str(payload.get("key") or f"template-{index}"), payload=payload)
+        RemediationTemplateRecord(**template_fields(payload, f"template-{index}"))
         for index, payload in enumerate(payloads, start=1)
     ])
     return list_templates_for_frontend()
 
 
+def template_request_payload(record: TemplateRequestRecord) -> dict[str, Any]:
+    payload = record.payload or {}
+    return {
+        **payload,
+        "id": payload.get("id") or record.request_id,
+        "templateKey": payload.get("templateKey") or record.template_key,
+        "findingName": payload.get("findingName") or record.finding_name,
+        "hardwareType": payload.get("hardwareType") or record.hardware_type,
+        "policySettingTitle": payload.get("policySettingTitle") or record.policy_setting_title,
+        "requestor": payload.get("requestor") or record.requestor,
+        "submitterComment": payload.get("submitterComment") or record.submitter_comment,
+        "status": payload.get("status") or record.status,
+        "reviewer": payload.get("reviewer") or record.reviewer,
+        "reviewNote": payload.get("reviewNote") or record.review_note,
+        "submittedAt": payload.get("submittedAt") or record.created_at.strftime("%b %d, %Y %I:%M %p"),
+    }
+
+
+def template_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, Any]:
+    request_id = str(payload.get("id") or fallback_id)
+    return {
+        "request_id": request_id,
+        "template_key": str(payload.get("templateKey") or ""),
+        "finding_name": str(payload.get("findingName") or ""),
+        "hardware_type": str(payload.get("hardwareType") or ""),
+        "policy_setting_title": str(payload.get("policySettingTitle") or ""),
+        "requestor": str(payload.get("requestor") or ""),
+        "submitter_comment": str(payload.get("submitterComment") or ""),
+        "status": str(payload.get("status") or "Pending Approval"),
+        "reviewer": str(payload.get("reviewer") or ""),
+        "review_note": str(payload.get("reviewNote") or ""),
+        "payload": {**payload, "id": request_id},
+    }
+
+
 def list_template_requests_for_frontend() -> list[dict[str, Any]]:
-    return [record.payload for record in TemplateRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+    return [template_request_payload(record) for record in TemplateRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
 
 
 def replace_template_requests(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
     TemplateRequestRecord.objects.using(db_alias).all().delete()
     TemplateRequestRecord.objects.using(db_alias).bulk_create([
-        TemplateRequestRecord(request_id=str(payload.get("id") or f"request-{index}"), payload=payload)
+        TemplateRequestRecord(**template_request_fields(payload, f"request-{index}"))
         for index, payload in enumerate(payloads, start=1)
     ])
     return list_template_requests_for_frontend()
 
 
+def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
+    payload = record.payload or {}
+    return {
+        **payload,
+        "id": payload.get("id") or record.request_id,
+        "crNumber": payload.get("crNumber") or record.external_change_id,
+        "requestor": payload.get("requestor") or record.requestor,
+        "requestorRole": payload.get("requestorRole") or record.requestor_role,
+        "plannedStart": payload.get("plannedStart") or record.implementation_date,
+        "plannedEnd": payload.get("plannedEnd") or "",
+        "status": payload.get("status") or record.status,
+        "implementationPlan": payload.get("implementationPlan") or record.implementation_plan,
+        "backoutPlan": payload.get("backoutPlan") or record.backout_plan,
+        "createdAt": payload.get("createdAt") or record.created_at.strftime("%b %d, %Y %I:%M %p"),
+    }
+
+
+def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, Any]:
+    request_id = str(payload.get("id") or fallback_id)
+    devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
+    finding_count = sum(len(device.get("findings", [])) for device in devices if isinstance(device, dict))
+    return {
+        "request_id": request_id,
+        "external_change_id": str(payload.get("crNumber") or ""),
+        "requestor": str(payload.get("requestor") or ""),
+        "requestor_role": str(payload.get("requestorRole") or ""),
+        "implementation_date": str(payload.get("plannedStart") or ""),
+        "status": str(payload.get("status") or "Pending Approval"),
+        "device_count": len(devices),
+        "finding_count": finding_count,
+        "implementation_plan": str(payload.get("implementationPlan") or ""),
+        "backout_plan": str(payload.get("backoutPlan") or ""),
+        "payload": {**payload, "id": request_id},
+    }
+
+
 def list_tickets_for_frontend() -> list[dict[str, Any]]:
-    return [record.payload for record in RemediationTicketRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+    return [hcc_request_payload(record) for record in HCCRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
 
 
 def replace_tickets(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
-    RemediationTicketRecord.objects.using(db_alias).all().delete()
-    RemediationTicketRecord.objects.using(db_alias).bulk_create([
-        RemediationTicketRecord(ticket_id=str(payload.get("id") or f"ticket-{index}"), payload=payload)
+    HCCRequestRecord.objects.using(db_alias).all().delete()
+    HCCRequestRecord.objects.using(db_alias).bulk_create([
+        HCCRequestRecord(**hcc_request_fields(payload, f"request-{index}"))
         for index, payload in enumerate(payloads, start=1)
     ])
     return list_tickets_for_frontend()
 
 
 def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
-    ticket_id = str(payload.get("id") or "")
-    if not ticket_id:
-        raise ValueError("Ticket payload requires id")
-    RemediationTicketRecord.objects.using(scan_db_alias()).update_or_create(ticket_id=ticket_id, defaults={"payload": payload})
-    return payload
+    request_id = str(payload.get("id") or "")
+    if not request_id:
+        raise ValueError("Request payload requires id")
+    fields = hcc_request_fields(payload, request_id)
+    HCCRequestRecord.objects.using(scan_db_alias()).update_or_create(request_id=request_id, defaults=fields)
+    return hcc_request_payload(HCCRequestRecord.objects.using(scan_db_alias()).get(request_id=request_id))
 
 
 def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
     db_alias = scan_db_alias()
-    ticket = RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=ticket_id).first()
-    if not ticket:
-        raise ValueError(f"Ticket {ticket_id} was not found")
-    ticket.payload = {**ticket.payload, "status": status}
-    ticket.save(using=db_alias)
-    return ticket.payload
+    hcc_request = HCCRequestRecord.objects.using(db_alias).filter(request_id=ticket_id).first()
+    if not hcc_request:
+        raise ValueError(f"Request {ticket_id} was not found")
+    hcc_request.status = status
+    hcc_request.payload = {**hcc_request.payload, "status": status}
+    hcc_request.save(using=db_alias)
+    return hcc_request_payload(hcc_request)
+
+
+def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str) -> None:
+    HCCRequestRecord.objects.using(scan_db_alias()).filter(request_id=request_id).update(
+        status=status,
+        payload={**payload, "status": status},
+    )
 
 
 def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]:
@@ -681,9 +836,9 @@ def list_deployment_worker_heartbeats() -> list[dict[str, Any]]:
 
 def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -> dict[str, Any]:
     db_alias = scan_db_alias()
-    ticket = RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=ticket_id).first()
-    if not ticket:
-        raise ValueError(f"Ticket {ticket_id} was not found")
+    hcc_request = HCCRequestRecord.objects.using(db_alias).filter(request_id=ticket_id).first()
+    if not hcc_request:
+        raise ValueError(f"Request {ticket_id} was not found")
 
     existing = DeploymentQueueItem.objects.using(db_alias).filter(ticket_id=ticket_id, status__in=["Queued", "Processing"]).order_by("-queued_at").first()
     if existing:
@@ -691,10 +846,11 @@ def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -
 
     now = timezone.now()
     queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
-    ticket_payload = {**ticket.payload, "status": "Queued", "queuedBy": actor}
+    ticket_payload = {**hcc_request_payload(hcc_request), "status": "Queued", "queuedBy": actor}
     execution_plan = build_deployment_execution_plan(ticket_payload)
-    ticket.payload = ticket_payload
-    ticket.save(using=db_alias)
+    hcc_request.status = "Queued"
+    hcc_request.payload = ticket_payload
+    hcc_request.save(using=db_alias)
     item = DeploymentQueueItem.objects.using(db_alias).create(
         queue_id=queue_id,
         ticket_id=ticket_id,
@@ -867,7 +1023,7 @@ def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | No
         item.started_at = timezone.now()
         item.attempt_count += 1
         item.save(using=db_alias)
-        RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=item.ticket_id).update(payload={**item.ticket_payload, "status": "In Progress"})
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "In Progress")
         return item
 
 
@@ -889,12 +1045,12 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         item.last_error = ""
         item.save(using=db_alias)
         final_status = "Complete" if item.status == "Complete" else "Skipped"
-        RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=item.ticket_id).update(payload={**item.ticket_payload, "status": final_status})
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
         item.status = "Failed"
         item.last_error = str(exc)
         item.completed_at = timezone.now()
         item.save(using=db_alias)
-        RemediationTicketRecord.objects.using(db_alias).filter(ticket_id=item.ticket_id).update(payload={**item.ticket_payload, "status": "Failed"})
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed")
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}

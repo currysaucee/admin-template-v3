@@ -53,7 +53,7 @@ export function CreateTicketPage(props: {
 
   return (
     <section className="page-content">
-      <PageHeader title="Create Ticket" subtitle="Select approved findings and review the exact implementation commands before submitting." />
+      <PageHeader title="Create HCC Request" subtitle="Select approved findings and review the exact implementation commands before submitting." />
       <Card className="wizard-card">
         <div className="ticket-stepper" aria-label="Create ticket steps">
           {steps.map((item, index) => (
@@ -72,7 +72,7 @@ export function CreateTicketPage(props: {
           {currentStep < 1 ? (
             <Button label="Next: Review" icon="pi pi-arrow-right" iconPos="right" disabled={!canGoNext} onClick={() => props.setStep(props.step + 1)} />
           ) : (
-            <Button label="Submit Ticket" icon="pi pi-check" disabled={!canGoNext} onClick={() => setShowDateDialog(true)} />
+            <Button label="Submit Request" icon="pi pi-check" disabled={!canGoNext} onClick={() => setShowDateDialog(true)} />
           )}
         </div>
       </Card>
@@ -84,7 +84,7 @@ export function CreateTicketPage(props: {
           </div>
           <div className="wizard-footer compact-footer">
             <Button label="Cancel" outlined onClick={() => setShowDateDialog(false)} />
-            <Button label="Submit Ticket" icon="pi pi-check" disabled={!props.plannedStart} onClick={() => { setShowDateDialog(false); props.onSubmit(); }} />
+            <Button label="Submit Request" icon="pi pi-check" disabled={!props.plannedStart} onClick={() => { setShowDateDialog(false); props.onSubmit(); }} />
           </div>
         </div>
       </Dialog>
@@ -115,7 +115,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
         <div className="scope-heading-row">
           <div>
             <h3>Findings</h3>
-            <p className="section-subtitle">Select one or more approved finding fixes. Use the Exceptions page filters to narrow this list before creating a ticket.</p>
+            <p className="section-subtitle">Select one or more approved finding fixes. Use the Exceptions page filters to narrow this list before creating a request.</p>
           </div>
           <label className={`select-all-findings ${uniqueExecutableFindingKeys.length === 0 ? "disabled" : ""}`}>
             <Checkbox checked={allVisibleFindingsSelected} disabled={uniqueExecutableFindingKeys.length === 0} onChange={(event) => toggleAllVisibleFindings(Boolean(event.checked))} />

@@ -119,34 +119,35 @@ export async function saveRealTemplateRequests(templateRequests: TemplateRequest
 }
 
 export async function loadRealTickets(): Promise<Ticket[]> {
-  const payload = await requestJson<Ticket[] | { tickets?: Ticket[] }>(endpoint("tickets/"));
+  const payload = await requestJson<Ticket[] | { tickets?: Ticket[]; requests?: Ticket[] }>(endpoint("requests/"));
   if (Array.isArray(payload)) return payload;
-  return payload.tickets ?? [];
+  return payload.requests ?? payload.tickets ?? [];
 }
 
 export async function saveRealTickets(tickets: Ticket[]): Promise<Ticket[]> {
-  const payload = await requestJson<{ tickets?: Ticket[] }>(endpoint("tickets/"), {
+  const payload = await requestJson<{ tickets?: Ticket[]; requests?: Ticket[] }>(endpoint("requests/"), {
     method: "PUT",
     body: JSON.stringify({ tickets }),
   });
-  return payload.tickets ?? tickets;
+  return payload.requests ?? payload.tickets ?? tickets;
 }
 
 export async function saveRealTicket(ticket: Ticket): Promise<Ticket> {
-  const payload = await requestJson<{ ticket?: Ticket }>(endpoint("tickets/"), {
+  const payload = await requestJson<{ ticket?: Ticket; request?: Ticket }>(endpoint("requests/"), {
     method: "POST",
     body: JSON.stringify(ticket),
   });
-  return payload.ticket ?? ticket;
+  return payload.request ?? payload.ticket ?? ticket;
 }
 
 export async function updateRealTicketStatus(ticketId: string, status: TicketStatus): Promise<Ticket> {
-  const payload = await requestJson<{ ticket?: Ticket }>(endpoint("tickets/"), {
+  const payload = await requestJson<{ ticket?: Ticket; request?: Ticket }>(endpoint("requests/"), {
     method: "PATCH",
     body: JSON.stringify({ ticketId, status }),
   });
-  if (!payload.ticket) throw new Error("Backend did not return an updated ticket.");
-  return payload.ticket;
+  const request = payload.request ?? payload.ticket;
+  if (!request) throw new Error("Backend did not return an updated request.");
+  return request;
 }
 
 export async function loadRealDeploymentQueue(): Promise<DeploymentQueueItem[]> {

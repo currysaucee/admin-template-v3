@@ -22,17 +22,17 @@ export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ti
 
   return (
     <section className="page-content">
-      <PageHeader title="Dashboard" subtitle="View, approve, reject, cancel, or release remediation tickets." />
+      <PageHeader title="Dashboard" subtitle="View, approve, reject, cancel, or release HCC requests." />
       <div className="filter-card">
         <span className="p-input-icon-left grow-input">
           <i className="pi pi-search" />
-          <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tickets..." />
+          <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search requests..." />
         </span>
         <Dropdown value={status} options={statusOptions} onChange={(e) => setStatus(e.value as TicketStatus | "All")} placeholder="Status" />
       </div>
       <Card className="table-card">
         <DataTable value={filteredTickets} paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
-          <Column field="id" header="Ticket ID" sortable body={(row: Ticket) => <button className="link-button" onClick={() => onView(row)}>{row.id}</button>} />
+          <Column field="id" header="Request ID" sortable body={(row: Ticket) => <button className="link-button" onClick={() => onView(row)}>{row.id}</button>} />
           <Column header="Requestor" body={(row: Ticket) => <UserCell name={row.requestor} role={row.requestorRole} />} />
           <Column header="Device" body={(row: Ticket) => <TicketDeviceCell ticket={row} />} />
           <Column header="Implementation Date" sortable body={(row: Ticket) => <ImplementationDateCell date={row.plannedStart} />} />
@@ -83,7 +83,7 @@ export function InventoryPage({ devices, templates, policySettings, scanImportRu
 
   return (
     <section className="page-content">
-      <PageHeader title="Exceptions" subtitle="Review non-compliant devices from the latest compliance scan and create remediation tickets." />
+      <PageHeader title="Exceptions" subtitle="Review non-compliant devices from the latest compliance scan and create HCC requests." />
       <div className="filter-card">
         <span className="p-input-icon-left grow-input">
           <i className="pi pi-search" />
@@ -115,14 +115,14 @@ export function InventoryPage({ devices, templates, policySettings, scanImportRu
           <Column header="Actions" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />
-              <Button label="Create Ticket" icon="pi pi-plus-circle" size="small" disabled={bulkInventorySelection.length > 0 || row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
+              <Button label="Create Request" icon="pi pi-plus-circle" size="small" disabled={bulkInventorySelection.length > 0 || row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
             </div>
           )} />
         </DataTable>
         <div className="bulk-ticket-footer">
           <div className="bulk-selection-info">{bulkInventorySelection.length} selected</div>
           <Button label="Select Filtered Ready" icon="pi pi-check-square" outlined disabled={filteredReadyDevices.length === 0} onClick={() => setBulkInventorySelection(filteredReadyDevices)} />
-          <Button label="Create Bulk Ticket" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={() => onBulkCreate(selectedPolicyFilters)} />
+          <Button label="Create Bulk Request" icon="pi pi-plus-circle" disabled={bulkInventorySelection.length === 0} onClick={() => onBulkCreate(selectedPolicyFilters)} />
         </div>
       </Card>
     </section>
@@ -136,7 +136,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
         <div className="plain-page-title"><h1>Device Findings</h1></div>
         <div className="detail-actions">
           <Button label="Back to Exceptions" icon="pi pi-arrow-left" outlined onClick={onBack} />
-          <Button label="Create Ticket" icon="pi pi-plus-circle" disabled={!hasConfigSnapshot(device) || getAvailableFixCount(device, templates, policySettings) === 0} onClick={() => onCreateTicket(device)} />
+          <Button label="Create Request" icon="pi pi-plus-circle" disabled={!hasConfigSnapshot(device) || getAvailableFixCount(device, templates, policySettings) === 0} onClick={() => onCreateTicket(device)} />
         </div>
       </div>
       <Card className="device-detail-card">

@@ -83,11 +83,11 @@ export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: Deplo
 
   return (
     <section className="page-content">
-      <PageHeader title="Deployment Queue" subtitle="Review released tickets in execution order before workers consume them." />
+      <PageHeader title="Deployment Queue" subtitle="Review released HCC requests in execution order before workers consume them." />
       <WorkerHealthStrip workers={workerHealth} />
       <Card className="queue-board-card">
         {queue.length === 0 ? (
-          <div className="empty-row">No released tickets are currently queued.</div>
+          <div className="empty-row">No released requests are currently queued.</div>
         ) : (
           <div className="queue-board">
             {queue.map((item, index) => {

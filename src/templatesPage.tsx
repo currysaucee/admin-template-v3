@@ -247,7 +247,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
 
   return (
     <section className="page-content">
-      <PageHeader title="Fix Templates" subtitle="Templates are tied to an onboarded Policy Setting and hardware type during ticket creation." />
+      <PageHeader title="Fix Templates" subtitle="Templates are tied to an onboarded Policy Setting and hardware type during request creation." />
       <Card className="table-card template-directory">
         <div className="template-directory-toolbar">
           <span className="p-input-icon-left grow-input">

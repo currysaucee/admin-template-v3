@@ -12,7 +12,7 @@ export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Pag
   const mainItems: Array<{ page: Page; label: string; icon: string; onClick?: () => void }> = [
     { page: "dashboard", label: "Dashboard", icon: "pi pi-table" },
     { page: "inventory", label: "Exceptions", icon: "pi pi-server" },
-    { page: "createTicket", label: "Create Ticket", icon: "pi pi-plus-circle", onClick: onCreate },
+    { page: "createTicket", label: "Create Request", icon: "pi pi-plus-circle", onClick: onCreate },
     { page: "deploymentQueue", label: "Queue", icon: "pi pi-list-check" },
   ];
   const smeItems: Array<{ page: Page; label: string; icon: string; onClick?: () => void }> = [
@@ -69,7 +69,7 @@ export function TopBar({ currentRole, setCurrentRole }: { currentRole: UserRole;
     <header className="top-bar">
       <span className="p-input-icon-left top-search">
         <i className="pi pi-search" />
-        <InputText placeholder="Search devices, tickets, CRs, findings..." />
+        <InputText placeholder="Search devices, requests, CRs, findings..." />
       </span>
       <div className="top-actions">
         <div className="scan-clock">

@@ -212,7 +212,7 @@ export function getFixAvailability(device: { hardwareType: string; configSnapsho
   const availability = getTemplateAvailability(device, finding, templates, policySettings);
 
   if (availability.executable && !hasConfigSnapshot(device)) {
-    return { ...availability, executable: false, severity: "warning" as const, note: "Fix template is available, but device config snapshot is required before a remediation ticket can be created." };
+    return { ...availability, executable: false, severity: "warning" as const, note: "Fix template is available, but device config snapshot is required before a remediation request can be created." };
   }
 
   return availability;

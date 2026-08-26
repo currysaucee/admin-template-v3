@@ -39,7 +39,7 @@ export function TemplateRequestsPage({ requests, setRequests, templates, setTemp
       ...request,
       status: nextStatus,
       reviewer: "Network SME",
-      reviewNote: nextStatus === "Approved" ? "Approved for use in ticket creation." : nextStatus === "Rejected" ? "Rejected by SME review." : request.reviewNote,
+      reviewNote: nextStatus === "Approved" ? "Approved for use in request creation." : nextStatus === "Rejected" ? "Rejected by SME review." : request.reviewNote,
     };
     setRequests((prev) => prev.map((item) => item.id === request.id ? nextRequest : item));
     setTemplates((prev) => prev.map((template) => template.key === request.templateKey ? { ...template, approvalStatus: nextStatus } : template));
@@ -94,7 +94,7 @@ export function TemplateRequestsPage({ requests, setRequests, templates, setTemp
 
   return (
     <section className="page-content">
-      <PageHeader title="Template Requests" subtitle="SMEs review proposed fix templates before they become available for ticket creation." />
+      <PageHeader title="Template Requests" subtitle="SMEs review proposed fix templates before they become available for request creation." />
       <div className="filter-card">
         <span className="p-input-icon-left grow-input">
           <i className="pi pi-search" />

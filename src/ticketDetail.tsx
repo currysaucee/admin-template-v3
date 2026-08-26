@@ -18,7 +18,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
   return (
     <section className="page-content">
       <div className="detail-header-row">
-        <PageHeader title="Ticket Details" subtitle="Review ticket scope, planned window, and finding-level remediation evidence." />
+        <PageHeader title="HCC Request Details" subtitle="Review request scope, planned window, and finding-level remediation evidence." />
         <div className="detail-actions">
           <Button label="Back to Dashboard" icon="pi pi-arrow-left" outlined onClick={onBack} />
           <TicketActions ticket={ticket} showView={false} onStatusChange={onStatusChange} />
@@ -42,7 +42,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
           <MetaTile label="Failed Devices" value={String(failedDevices)} />
           <MetaTile label="Not Completed" value={String(pendingDevices)} />
         </div>}
-        {reconciliation.hasChangedScope && <div className={`latest-scan-reconcile-box ${reconciliation.allResolved ? "all-resolved" : ""}`}><i className="pi pi-info-circle" /><div><strong>{reconciliation.allResolved ? "Ticket no longer has active findings in the latest scan" : "Ticket scope changed after the latest scan"}</strong><p>{reconciliation.allResolved ? "All findings in this ticket are no longer detected. The remediation should not push configuration unless a new scan reopens the findings." : `${reconciliation.skipped} of ${reconciliation.total} finding${reconciliation.total === 1 ? "" : "s"} will be skipped because the latest scan no longer detects them. Remaining active findings can still proceed.`}</p></div></div>}
+        {reconciliation.hasChangedScope && <div className={`latest-scan-reconcile-box ${reconciliation.allResolved ? "all-resolved" : ""}`}><i className="pi pi-info-circle" /><div><strong>{reconciliation.allResolved ? "Request no longer has active findings in the latest scan" : "Request scope changed after the latest scan"}</strong><p>{reconciliation.allResolved ? "All findings in this request are no longer detected. The remediation should not push configuration unless a new scan reopens the findings." : `${reconciliation.skipped} of ${reconciliation.total} finding${reconciliation.total === 1 ? "" : "s"} will be skipped because the latest scan no longer detects them. Remaining active findings can still proceed.`}</p></div></div>}
       </Card>
       <div className="finding-detail-list">
         {ticket.devices.map((device) => {

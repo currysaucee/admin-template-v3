@@ -49,7 +49,7 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
       <DefaultLayout>
         <style>{styles}</style>
         <div className="netcomply-page-wrapper netcomply-ticket-detail-wrapper">
-          <section className="page-content"><PageHeader title="Ticket Details" subtitle="No ticket is selected for this route." /><Card className="device-detail-card"><div className="empty-row">Open this page with a ticket ID or select a ticket from Dashboard.</div></Card></section>
+          <section className="page-content"><PageHeader title="HCC Request Details" subtitle="No request is selected for this route." /><Card className="device-detail-card"><div className="empty-row">Open this page with a request ID or select a request from Dashboard.</div></Card></section>
         </div>
       </DefaultLayout>
     );

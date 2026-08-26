@@ -118,6 +118,10 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           device_id BIGINT NOT NULL,
           policy_id VARCHAR(80) NOT NULL,
+          policy_title VARCHAR(255) NOT NULL DEFAULT '',
+          policy_type VARCHAR(120) NOT NULL DEFAULT '',
+          policy_description TEXT NOT NULL DEFAULT '',
+          expected_config TEXT NOT NULL DEFAULT '',
           finding_payload TEXT NOT NULL,
           current_value TEXT NOT NULL DEFAULT '',
           raw_payload JSON NOT NULL,
@@ -128,6 +132,7 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           device_id BIGINT NOT NULL,
           policy_id VARCHAR(80) NOT NULL,
+          current_config TEXT NOT NULL DEFAULT '',
           config_payload TEXT NOT NULL,
           raw_payload JSON NOT NULL,
           created_at DATETIME NOT NULL,
@@ -138,6 +143,12 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS netcomply_scan_actual_config_policy ON netcomply_compliance_scan_actual_config(policy_id);
         CREATE TABLE IF NOT EXISTS netcomply_policy_setting (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
+          setting_number VARCHAR(80) NOT NULL UNIQUE,
+          title VARCHAR(255) NOT NULL DEFAULT '',
+          setting_payload TEXT NOT NULL DEFAULT '',
+          standard VARCHAR(120) NOT NULL DEFAULT '',
+          description TEXT NOT NULL DEFAULT '',
+          updated_by VARCHAR(120) NOT NULL DEFAULT '',
           payload JSON NOT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -145,6 +156,14 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS netcomply_remediation_template (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           template_key VARCHAR(180) NOT NULL UNIQUE,
+          policy_setting_id VARCHAR(80) NOT NULL DEFAULT '',
+          finding_name VARCHAR(255) NOT NULL DEFAULT '',
+          agreed_setting TEXT NOT NULL DEFAULT '',
+          standard VARCHAR(120) NOT NULL DEFAULT '',
+          hardware_types JSON NOT NULL DEFAULT '[]',
+          implementation_commands JSON NOT NULL DEFAULT '[]',
+          failure_behaviour TEXT NOT NULL DEFAULT '',
+          approval_status VARCHAR(40) NOT NULL DEFAULT 'Pending Approval',
           payload JSON NOT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -152,13 +171,31 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS netcomply_template_request (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           request_id VARCHAR(80) NOT NULL UNIQUE,
+          template_key VARCHAR(180) NOT NULL DEFAULT '',
+          finding_name VARCHAR(255) NOT NULL DEFAULT '',
+          hardware_type VARCHAR(120) NOT NULL DEFAULT '',
+          policy_setting_title VARCHAR(255) NOT NULL DEFAULT '',
+          requestor VARCHAR(120) NOT NULL DEFAULT '',
+          submitter_comment TEXT NOT NULL DEFAULT '',
+          status VARCHAR(40) NOT NULL DEFAULT 'Pending Approval',
+          reviewer VARCHAR(120) NOT NULL DEFAULT '',
+          review_note TEXT NOT NULL DEFAULT '',
           payload JSON NOT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE TABLE IF NOT EXISTS netcomply_remediation_ticket (
+        CREATE TABLE IF NOT EXISTS netcomply_hcc_request (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          ticket_id VARCHAR(80) NOT NULL UNIQUE,
+          request_id VARCHAR(80) NOT NULL UNIQUE,
+          external_change_id VARCHAR(120) NOT NULL DEFAULT '',
+          requestor VARCHAR(120) NOT NULL DEFAULT '',
+          requestor_role VARCHAR(120) NOT NULL DEFAULT '',
+          implementation_date VARCHAR(120) NOT NULL DEFAULT '',
+          status VARCHAR(40) NOT NULL DEFAULT 'Pending Approval',
+          device_count INTEGER NOT NULL DEFAULT 0,
+          finding_count INTEGER NOT NULL DEFAULT 0,
+          implementation_plan TEXT NOT NULL DEFAULT '',
+          backout_plan TEXT NOT NULL DEFAULT '',
           payload JSON NOT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -206,20 +243,20 @@ def import_payload(connection: sqlite3.Connection, payload: list[dict[str, Any]]
             cursor.execute(
                 """
                 INSERT INTO netcomply_compliance_scan_finding
-                  (device_id, policy_id, finding_payload, current_value, raw_payload, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                  (device_id, policy_id, expected_config, finding_payload, current_value, raw_payload, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (device_id, finding["policy_id"], finding["payload"], actual_configs.get(finding["policy_id"], ""), json.dumps(finding["raw"], ensure_ascii=False), now),
+                (device_id, finding["policy_id"], finding["payload"], finding["payload"], actual_configs.get(finding["policy_id"], ""), json.dumps(finding["raw"], ensure_ascii=False), now),
             )
 
         for config in normalize_keyed_payload(pick(raw_device, "actualConfig", "actualConfigs", "configSnapshot", "runningConfig", "rawConfig", "configuration", default=[])):
             cursor.execute(
                 """
                 INSERT INTO netcomply_compliance_scan_actual_config
-                  (device_id, policy_id, config_payload, raw_payload, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                  (device_id, policy_id, current_config, config_payload, raw_payload, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (device_id, config["policy_id"], config["payload"], json.dumps(config["raw"], ensure_ascii=False), now),
+                (device_id, config["policy_id"], config["payload"], config["payload"], json.dumps(config["raw"], ensure_ascii=False), now),
             )
 
     connection.commit()
