@@ -131,12 +131,10 @@ def template_requests(request):
 @csrf_exempt
 def tickets(request):
     if request.method == "GET":
-        requests = list_tickets_for_frontend()
-        return JsonResponse({"tickets": requests, "requests": requests})
+        return JsonResponse({"tickets": list_tickets_for_frontend()})
     if request.method == "POST":
         payload = read_json_body(request) or {}
-        hcc_request = upsert_ticket(payload)
-        return JsonResponse({"ticket": hcc_request, "request": hcc_request})
+        return JsonResponse({"ticket": upsert_ticket(payload)})
     if request.method == "PATCH":
         payload = read_json_body(request) or {}
         ticket_id = str(payload.get("ticketId") or payload.get("id") or "").strip()
@@ -144,15 +142,13 @@ def tickets(request):
         if not ticket_id or not status:
             return JsonResponse({"detail": "ticketId and status are required"}, status=400)
         try:
-            hcc_request = set_ticket_status(ticket_id, status)
-            return JsonResponse({"ticket": hcc_request, "request": hcc_request})
+            return JsonResponse({"ticket": set_ticket_status(ticket_id, status)})
         except Exception as exc:
             return JsonResponse({"detail": f"Unable to update ticket status: {exc}"}, status=400)
     if request.method == "PUT":
         payload = read_json_body(request) or {}
         values = payload if isinstance(payload, list) else payload.get("tickets", [])
-        requests = replace_tickets(values)
-        return JsonResponse({"tickets": requests, "requests": requests})
+        return JsonResponse({"tickets": replace_tickets(values)})
     return JsonResponse({"detail": "Method not allowed"}, status=405)
 
 

@@ -1,7 +1,7 @@
 import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
-const realDevicesEndpoint = import.meta.env.VITE_NETCOMPLY_REAL_DEVICES_ENDPOINT || "https://127.0.0.1:8443/api/hcc/scan/devices/";
-const realApiBase = import.meta.env.VITE_NETCOMPLY_REAL_API_BASE || "https://127.0.0.1:8443/api/hcc";
+const realDevicesEndpoint = import.meta.env.VITE_NETCOMPLY_REAL_DEVICES_ENDPOINT || "https://127.0.0.1:8443/api/HCCFix/scan/devices/";
+const realApiBase = import.meta.env.VITE_NETCOMPLY_REAL_API_BASE || "https://127.0.0.1:8443/api/HCCFix";
 
 function endpoint(path: string) {
   return `${realApiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
@@ -119,35 +119,34 @@ export async function saveRealTemplateRequests(templateRequests: TemplateRequest
 }
 
 export async function loadRealTickets(): Promise<Ticket[]> {
-  const payload = await requestJson<Ticket[] | { tickets?: Ticket[]; requests?: Ticket[] }>(endpoint("requests/"));
+  const payload = await requestJson<Ticket[] | { tickets?: Ticket[] }>(endpoint("tickets/"));
   if (Array.isArray(payload)) return payload;
-  return payload.requests ?? payload.tickets ?? [];
+  return payload.tickets ?? [];
 }
 
 export async function saveRealTickets(tickets: Ticket[]): Promise<Ticket[]> {
-  const payload = await requestJson<{ tickets?: Ticket[]; requests?: Ticket[] }>(endpoint("requests/"), {
+  const payload = await requestJson<{ tickets?: Ticket[] }>(endpoint("tickets/"), {
     method: "PUT",
     body: JSON.stringify({ tickets }),
   });
-  return payload.requests ?? payload.tickets ?? tickets;
+  return payload.tickets ?? tickets;
 }
 
 export async function saveRealTicket(ticket: Ticket): Promise<Ticket> {
-  const payload = await requestJson<{ ticket?: Ticket; request?: Ticket }>(endpoint("requests/"), {
+  const payload = await requestJson<{ ticket?: Ticket }>(endpoint("tickets/"), {
     method: "POST",
     body: JSON.stringify(ticket),
   });
-  return payload.request ?? payload.ticket ?? ticket;
+  return payload.ticket ?? ticket;
 }
 
 export async function updateRealTicketStatus(ticketId: string, status: TicketStatus): Promise<Ticket> {
-  const payload = await requestJson<{ ticket?: Ticket; request?: Ticket }>(endpoint("requests/"), {
+  const payload = await requestJson<{ ticket?: Ticket }>(endpoint("tickets/"), {
     method: "PATCH",
     body: JSON.stringify({ ticketId, status }),
   });
-  const request = payload.request ?? payload.ticket;
-  if (!request) throw new Error("Backend did not return an updated request.");
-  return request;
+  if (!payload.ticket) throw new Error("Backend did not return an updated request.");
+  return payload.ticket;
 }
 
 export async function loadRealDeploymentQueue(): Promise<DeploymentQueueItem[]> {
