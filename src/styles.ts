@@ -23,9 +23,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .p-input-icon-left > i { position: absolute; left: 0.85rem; z-index: 1; color: #64748b; pointer-events: none; }
 .p-input-icon-left > .p-inputtext { padding-left: 2.35rem; }
 .top-actions { display: flex; align-items: center; gap: 18px; }
-.mode-toggle { display: inline-flex; align-items: center; padding: 3px; border: 1px solid #dbe4ef; background: #f8fafc; border-radius: 8px; }
-.mode-toggle button { border: 0; background: transparent; color: #64748b; padding: 7px 11px; border-radius: 6px; font-weight: 800; cursor: pointer; }
-.mode-toggle button.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
 .scan-clock { display: flex; align-items: center; gap: 10px; color: #334155; }
 .scan-clock i { color: #64748b; }
 .scan-clock strong { display: block; font-size: 13px; }

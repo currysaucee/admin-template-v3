@@ -1,7 +1,6 @@
 import React from "react";
 
 import {
-  getStoredDataMode,
   deleteRealPolicySettings,
   enqueueRealDeployment,
   extractRealPolicySettingsFromDocument,
@@ -22,7 +21,6 @@ import {
   updateRealTicketStatus,
 } from "./dataMode";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
-import { initialDevices, initialPolicySettings, initialTemplateRequests, initialTemplates, initialTickets } from "./mockData";
 import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
 
 export const portalRoutePaths = {
@@ -52,24 +50,17 @@ export function setRouteValue(storageKey: string, value: string) {
 }
 
 export function getInitialDevices() {
-  return initialDevices;
+  return [];
 }
 
 export function usePortalDevices(overrideDevices?: Device[]) {
-  const [devices, setDevices] = React.useState<Device[]>(overrideDevices ?? getInitialDevices());
+  const [devices, setDevices] = React.useState<Device[]>(overrideDevices ?? []);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (overrideDevices) {
       setDevices(overrideDevices);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (getStoredDataMode() !== "real") {
-      setDevices(getInitialDevices());
       setLoading(false);
       setError(null);
       return;
@@ -101,31 +92,21 @@ export function usePortalDevices(overrideDevices?: Device[]) {
 }
 
 export async function runRuntimeScanImport() {
-  if (getStoredDataMode() !== "real") {
-    throw new Error("Scan import is available in Real mode because it calls the backend scanner integration.");
-  }
   return runRealScanImport();
 }
 
 export function getInitialPolicySettings() {
-  return initialPolicySettings;
+  return [];
 }
 
 function usePortalCollection<T>(fallback: T[], loader: () => Promise<T[]>, override?: T[]) {
-  const [items, setItems] = React.useState<T[]>(override ?? fallback);
+  const [items, setItems] = React.useState<T[]>(override ?? []);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (override) {
       setItems(override);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (getStoredDataMode() !== "real") {
-      setItems(fallback);
       setLoading(false);
       setError(null);
       return;
@@ -162,7 +143,7 @@ export function usePortalPolicySettings(overridePolicySettings?: PolicySetting[]
 }
 
 export function getInitialTemplates() {
-  return initialTemplates;
+  return [];
 }
 
 export function usePortalTemplates(overrideTemplates?: RemediationTemplate[]) {
@@ -171,7 +152,7 @@ export function usePortalTemplates(overrideTemplates?: RemediationTemplate[]) {
 }
 
 export function getInitialTemplateRequests() {
-  return initialTemplateRequests;
+  return [];
 }
 
 export function usePortalTemplateRequests(overrideRequests?: TemplateRequest[]) {
@@ -180,7 +161,7 @@ export function usePortalTemplateRequests(overrideRequests?: TemplateRequest[]) 
 }
 
 export function getInitialTickets() {
-  return initialTickets;
+  return [];
 }
 
 export function usePortalTickets(overrideTickets?: Ticket[]) {
@@ -220,48 +201,23 @@ export function getRuntimePolicySettings() {
 }
 
 export function saveRuntimePolicySettings(policySettings: PolicySetting[]) {
-  if (getStoredDataMode() === "real") {
-    void saveRealPolicySettings(policySettings);
-    return;
-  }
-  writeRuntimeArray(runtimePolicySettingsKey, policySettings);
+  void saveRealPolicySettings(policySettings);
 }
 
 export async function onboardRuntimePolicySettings(policySettings: PolicySetting[]) {
-  if (getStoredDataMode() === "real") {
-    return onboardRealPolicySettings(policySettings);
-  }
-  const current = getRuntimePolicySettings();
-  const byId = new Map(current.map((setting) => [setting.id, setting]));
-  policySettings.forEach((setting) => byId.set(setting.id, setting));
-  const next = Array.from(byId.values()).sort((a, b) => (a.settingNumber || a.id).localeCompare(b.settingNumber || b.id));
-  writeRuntimeArray(runtimePolicySettingsKey, next);
-  return next;
+  return onboardRealPolicySettings(policySettings);
 }
 
 export async function deleteRuntimePolicySettings(policySettingIds: string[]) {
-  if (getStoredDataMode() === "real") {
-    return deleteRealPolicySettings(policySettingIds);
-  }
-  const removeIds = new Set(policySettingIds);
-  const next = getRuntimePolicySettings().filter((setting) => !removeIds.has(setting.id));
-  writeRuntimeArray(runtimePolicySettingsKey, next);
-  return next;
+  return deleteRealPolicySettings(policySettingIds);
 }
 
 export async function extractRuntimePolicySettingsFromDocument(document: File) {
-  if (getStoredDataMode() === "real") {
-    return extractRealPolicySettingsFromDocument(document);
-  }
-  throw new Error("Document extraction is available in Real mode because it runs through the backend parser.");
+  return extractRealPolicySettingsFromDocument(document);
 }
 
 export function saveRuntimeTemplates(templates: RemediationTemplate[]) {
-  if (getStoredDataMode() === "real") {
-    void saveRealTemplates(templates);
-    return;
-  }
-  writeRuntimeArray(runtimeTemplatesKey, templates);
+  void saveRealTemplates(templates);
 }
 
 export function getRuntimeTemplateRequests() {
@@ -269,11 +225,7 @@ export function getRuntimeTemplateRequests() {
 }
 
 export function saveRuntimeTemplateRequests(requests: TemplateRequest[]) {
-  if (getStoredDataMode() === "real") {
-    void saveRealTemplateRequests(requests);
-    return;
-  }
-  writeRuntimeArray(runtimeTemplateRequestsKey, requests);
+  void saveRealTemplateRequests(requests);
 }
 
 export function getRuntimeTickets() {
@@ -281,20 +233,12 @@ export function getRuntimeTickets() {
 }
 
 export function saveRuntimeTickets(tickets: Ticket[]) {
-  if (getStoredDataMode() === "real") {
-    void saveRealTickets(tickets);
-    return;
-  }
-  writeRuntimeArray(runtimeTicketsKey, tickets);
+  void saveRealTickets(tickets);
 }
 
 export function addRuntimeTicket(ticket: Ticket) {
   const nextTickets = [ticket, ...getRuntimeTickets().filter((item) => item.id !== ticket.id)];
-  if (getStoredDataMode() === "real") {
-    void saveRealTicket(ticket);
-  } else {
-    saveRuntimeTickets(nextTickets);
-  }
+  void saveRealTicket(ticket);
   setRouteValue(latestRuntimeTicketIdKey, ticket.id);
   return nextTickets;
 }
@@ -304,15 +248,7 @@ export function getLatestRuntimeTicketId() {
 }
 
 export async function updateRuntimeTicketStatus(id: string, status: TicketStatus) {
-  if (getStoredDataMode() === "real") {
-    return updateRealTicketStatus(id, status);
-  }
-  const current = getRuntimeTickets();
-  const nextTickets = updateTicketStatus(current, id, status);
-  writeRuntimeArray(runtimeTicketsKey, nextTickets);
-  const ticket = nextTickets.find((item) => item.id === id);
-  if (!ticket) throw new Error(`Ticket ${id} was not found.`);
-  return ticket;
+  return updateRealTicketStatus(id, status);
 }
 
 export function getRuntimeDeploymentQueue() {
@@ -332,14 +268,6 @@ export function usePortalDeploymentQueueState(overrideQueue?: DeploymentQueueIte
   React.useEffect(() => {
     if (overrideQueue) {
       setQueue(overrideQueue);
-      setWorkerHealth([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (getStoredDataMode() !== "real") {
-      setQueue(getRuntimeDeploymentQueue());
       setWorkerHealth([]);
       setLoading(false);
       setError(null);
@@ -376,43 +304,7 @@ export function usePortalDeploymentQueueState(overrideQueue?: DeploymentQueueIte
 }
 
 export async function enqueueRuntimeDeployment(ticket: Ticket) {
-  if (getStoredDataMode() === "real") {
-    return enqueueRealDeployment(ticket.id);
-  }
-  const now = new Date().toISOString();
-  const queueItem: DeploymentQueueItem = {
-    queueId: `DQ-${Date.now()}-${ticket.id}`,
-    ticketId: ticket.id,
-    status: "Queued",
-    priority: 100,
-    queuedAt: now,
-    availableAt: now,
-    attemptCount: 0,
-    ticket: { ...ticket, status: "Queued" },
-    queuedBy: "Current User",
-    deviceCount: ticket.devices.length,
-    policyCount: ticket.devices.reduce((total, device) => total + device.findings.length, 0),
-    executionPlan: {
-      ticketId: ticket.id,
-      devices: ticket.devices.map((device) => ({
-        hostname: device.hostname,
-        managementIp: device.managementIp,
-        hardwareType: device.hardwareType,
-        findings: device.findings.map((finding) => ({
-          policyId: finding.id,
-          title: finding.title,
-          status: "Pending Execution",
-          reason: "Queued locally for UI preview.",
-          implementationCommands: [],
-        })),
-      })),
-    },
-    result: { mode: "mock", detail: "Queued locally for UI preview." },
-  };
-  writeRuntimeArray(runtimeDeploymentQueueKey, [queueItem, ...getRuntimeDeploymentQueue()]);
-  const nextTickets = updateTicketStatus(getRuntimeTickets(), ticket.id, "Queued");
-  writeRuntimeArray(runtimeTicketsKey, nextTickets);
-  return queueItem;
+  return enqueueRealDeployment(ticket.id);
 }
 
 export type CreateTicketState = {

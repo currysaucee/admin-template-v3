@@ -1,9 +1,5 @@
 import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
-export type NetComplyDataMode = "mock" | "real";
-
-const dataModeKey = "netcomply:dataMode";
-const defaultMode = (import.meta.env.VITE_NETCOMPLY_DATA_MODE === "real" ? "real" : "mock") as NetComplyDataMode;
 const realDevicesEndpoint = import.meta.env.VITE_NETCOMPLY_REAL_DEVICES_ENDPOINT || "https://127.0.0.1:8443/api/hcc/scan/devices/";
 const realApiBase = import.meta.env.VITE_NETCOMPLY_REAL_API_BASE || "https://127.0.0.1:8443/api/hcc";
 
@@ -44,15 +40,6 @@ async function requestFormJson<T>(url: string, body: FormData): Promise<T> {
   });
   if (!response.ok) throw new Error(`Real API returned ${response.status} for ${url}`);
   return response.json() as Promise<T>;
-}
-
-export function getStoredDataMode(): NetComplyDataMode {
-  const stored = window.localStorage.getItem(dataModeKey);
-  return stored === "real" || stored === "mock" ? stored : defaultMode;
-}
-
-export function saveStoredDataMode(mode: NetComplyDataMode) {
-  window.localStorage.setItem(dataModeKey, mode);
 }
 
 export async function loadRealDevices(): Promise<Device[]> {

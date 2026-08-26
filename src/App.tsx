@@ -16,9 +16,8 @@ import TemplatePageWrapper from "./templatePageWrapper";
 import TemplateRequestsPageWrapper from "./templateRequestsPageWrapper";
 import TicketDetailPageWrapper from "./ticketDetailPageWrapper";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, normalizePolicyReference, reconcileTicketWithLatestScan, resolveTemplateForDevice } from "./helpers";
-import { initialDevices, initialPolicySettings, initialTickets } from "./mockData";
 import { getRuntimeTemplateRequests, getRuntimeTemplates, saveRuntimeTemplateRequests, saveRuntimeTemplates } from "./portalRouteState";
-import { getStoredDataMode, loadRealDevices, saveStoredDataMode, type NetComplyDataMode } from "./dataMode";
+import { loadRealDevices } from "./dataMode";
 import { styles } from "./styles";
 import { pageValues } from "./types";
 import type { Device, PolicySetting, Page, RemediationTemplate, Ticket, TicketDevice, UserRole } from "./types";
@@ -36,12 +35,11 @@ function NetComplyPrototype() {
   const pageHistoryReadyRef = useRef(false);
   const applyingPopStateRef = useRef(false);
   const [currentRole, setCurrentRole] = useState<UserRole>("Network Engineer");
-  const [dataMode, setDataModeState] = useState<NetComplyDataMode>(getStoredDataMode);
-  const [devices, setDevices] = useState<Device[]>(initialDevices);
-  const [policySettings, setPolicySettings] = useState<PolicySetting[]>(initialPolicySettings);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [policySettings, setPolicySettings] = useState<PolicySetting[]>([]);
   const [templateRequests, setTemplateRequests] = useState(getRuntimeTemplateRequests);
   const [templates, setTemplates] = useState<RemediationTemplate[]>(getRuntimeTemplates);
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [bulkInventorySelection, setBulkInventorySelection] = useState<Device[]>([]);
   const [selectedFindingKeys, setSelectedFindingKeys] = useState<string[]>([]);
@@ -55,20 +53,10 @@ function NetComplyPrototype() {
   const [selectedDeviceDetail, setSelectedDeviceDetail] = useState<Device | null>(null);
 
   useEffect(() => {
-    if (dataMode === "mock") {
-      setDevices(initialDevices);
-      return;
-    }
-
     loadRealDevices()
       .then(setDevices)
       .catch(() => setDevices([]));
-  }, [dataMode]);
-
-  const setDataMode = (mode: NetComplyDataMode) => {
-    saveStoredDataMode(mode);
-    setDataModeState(mode);
-  };
+  }, []);
 
   const selectedDevices = useMemo(() => devices.filter((device) => selectedDeviceIds.includes(device.id)), [devices, selectedDeviceIds]);
   const selectableTicketDevices = useMemo(() => devices.filter((device) => device.complianceStatus === "Non-Compliant" && device.findings.length > 0), [devices]);
@@ -170,7 +158,7 @@ function NetComplyPrototype() {
       <style>{styles}</style>
       <SideMenu activePage={page} onNavigate={setPage} onCreate={() => startCreateTicket()} />
       <main className="main-panel">
-        <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} dataMode={dataMode} onDataModeChange={setDataMode} />
+        <TopBar currentRole={currentRole} setCurrentRole={setCurrentRole} />
         {page === "dashboard" && <DashboardPageWrapper tickets={reconciledTickets} onView={(ticket) => { setSelectedTicketDetail(ticket); setPage("ticketDetail"); }} />}
         {page === "deploymentQueue" && <DeploymentQueuePageWrapper />}
         {page === "inventory" && (
