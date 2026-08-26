@@ -108,7 +108,6 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
       return;
     }
     setSelectedFindingKeys((prev) => prev.filter((key) => !uniqueExecutableFindingKeys.includes(key)));
-    setSelectedDeviceIds((prev) => prev.filter((deviceId) => selectedFindingKeys.some((key) => key.startsWith(`${deviceId}:`) && !uniqueExecutableFindingKeys.includes(key))));
   };
   return (
     <div className="scope-grid">
@@ -159,8 +158,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                             });
                             setSelectedDeviceIds((prev) => {
                               if (next) return Array.from(new Set([...prev, device.id]));
-                              const remainingFindingKeys = selectedFindingKeys.filter((item) => item !== key);
-                              return remainingFindingKeys.some((item) => item.startsWith(`${device.id}:`)) ? prev : prev.filter((id) => id !== device.id);
+                              return prev;
                             });
                           }}
                         />
