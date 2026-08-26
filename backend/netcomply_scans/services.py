@@ -187,6 +187,31 @@ def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def dedupe_policy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        policy_id = normalize_policy_id(row.get("policy_id"))
+        if not policy_id:
+            continue
+        payload = str(row.get("payload") or "").strip()
+        existing = grouped.setdefault(policy_id, {"policy_id": policy_id, "payloads": [], "raw_items": []})
+        if payload and payload not in existing["payloads"]:
+            existing["payloads"].append(payload)
+        raw = row.get("raw")
+        if raw not in existing["raw_items"]:
+            existing["raw_items"].append(raw)
+
+    deduped = []
+    for item in grouped.values():
+        raw_items = item["raw_items"]
+        deduped.append({
+            "policy_id": item["policy_id"],
+            "payload": "\n\n".join(item["payloads"]),
+            "raw": raw_items[0] if len(raw_items) == 1 else {"items": raw_items},
+        })
+    return deduped
+
+
 def write_latest_payload(payload: list[dict[str, Any]], tmp_dir: Path, consumed_at: datetime | None = None) -> Path:
     tmp_dir.mkdir(parents=True, exist_ok=True)
     for old_file in tmp_dir.glob("latest_compliance_scan_*.json"):
@@ -330,7 +355,7 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
             raw_payload=raw_device,
         )
 
-        for finding in normalize_keyed_payload(pick(raw_device, "findings", "policies", "violations", "exceptions", default=[])):
+        for finding in dedupe_policy_rows(normalize_keyed_payload(pick(raw_device, "findings", "policies", "violations", "exceptions", default=[]))):
             ComplianceScanFinding.objects.using(db_alias).create(
                 device=device,
                 policy_id=finding["policy_id"],
@@ -338,7 +363,7 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
                 raw_payload=finding["raw"],
             )
 
-        for config in normalize_keyed_payload(pick(raw_device, "actualConfig", "actualConfigs", "configSnapshot", "runningConfig", "rawConfig", "configuration", default=[])):
+        for config in dedupe_policy_rows(normalize_keyed_payload(pick(raw_device, "actualConfig", "actualConfigs", "configSnapshot", "runningConfig", "rawConfig", "configuration", default=[]))):
             ComplianceScanActualConfig.objects.using(db_alias).create(
                 device=device,
                 policy_id=config["policy_id"],
@@ -347,6 +372,35 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
             )
 
     return batch
+
+
+def cleanup_duplicate_scan_policy_rows(dry_run: bool = True) -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    summary: dict[str, Any] = {"databaseAlias": db_alias, "dryRun": dry_run, "findingRowsDeleted": 0, "actualConfigRowsDeleted": 0}
+
+    for model, deleted_key, payload_field in (
+        (ComplianceScanFinding, "findingRowsDeleted", "finding_payload"),
+        (ComplianceScanActualConfig, "actualConfigRowsDeleted", "config_payload"),
+    ):
+        seen: dict[tuple[Any, str, str], int] = {}
+        duplicate_ids: list[int] = []
+        rows = model.objects.using(db_alias).order_by("device_id", "policy_id", "id").values("id", "device_id", "policy_id", payload_field, "raw_payload")
+        for row in rows:
+            key = (
+                row["device_id"],
+                normalize_policy_id(row["policy_id"]),
+                str(row.get(payload_field) or "").strip(),
+            )
+            if key in seen:
+                duplicate_ids.append(row["id"])
+            else:
+                seen[key] = row["id"]
+
+        summary[deleted_key] = len(duplicate_ids)
+        if duplicate_ids and not dry_run:
+            model.objects.using(db_alias).filter(id__in=duplicate_ids).delete()
+
+    return summary
 
 
 def latest_devices_for_frontend() -> list[dict[str, Any]]:
