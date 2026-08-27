@@ -100,12 +100,20 @@ export function DeveloperConsolePage({
   onOnboardPolicySettings,
   onDeletePolicySetting,
   onExtractDocument,
+  onRunScanImport,
+  scanImportRunning = false,
+  scanImportMessage = "",
+  lastScanAt = "",
 }: {
   policySettings: PolicySetting[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
   onOnboardPolicySettings?: (policySettings: PolicySetting[]) => Promise<PolicySetting[]>;
   onDeletePolicySetting?: (policySettingId: string) => Promise<PolicySetting[]>;
   onExtractDocument?: (document: File) => Promise<PolicySetting[]>;
+  onRunScanImport?: () => void;
+  scanImportRunning?: boolean;
+  scanImportMessage?: string;
+  lastScanAt?: string;
 }) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
@@ -207,6 +215,20 @@ export function DeveloperConsolePage({
   return (
     <section className="page-content developer-console-page">
       <PageHeader title="Developer Console" subtitle="Manage supported policy IDs before fixes are exposed to engineers." />
+
+      <Card className="table-card developer-scan-card">
+        <div className="developer-table-header">
+          <div>
+            <h2>Manual Scan Import</h2>
+            <p className="section-subtitle">Trigger the scan download and import flow into the HCC database.</p>
+          </div>
+          <div className="developer-heading-actions">
+            <Tag value={`Last scan: ${lastScanAt || "Not imported yet"}`} severity={lastScanAt ? "info" : "secondary"} rounded />
+            {onRunScanImport ? <Button label="Run Import Scan" icon="pi pi-refresh" loading={scanImportRunning} onClick={onRunScanImport} /> : null}
+          </div>
+        </div>
+        {scanImportMessage ? <div className="inline-info-row">{scanImportMessage}</div> : null}
+      </Card>
 
       <Card className="table-card developer-policy-table">
         <div className="developer-table-header">

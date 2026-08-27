@@ -290,12 +290,9 @@ def dedupe_policy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def write_latest_payload(payload: list[dict[str, Any]], tmp_dir: Path, consumed_at: datetime | None = None) -> Path:
     tmp_dir.mkdir(parents=True, exist_ok=True)
-    for old_file in tmp_dir.glob("latest_compliance_scan_*.json"):
-        old_file.unlink()
 
     consumed_at = consumed_at or timezone.now()
-    filename = f"latest_compliance_scan_{consumed_at.strftime('%Y%m%dT%H%M%S')}.json"
-    output_path = tmp_dir / filename
+    output_path = tmp_dir / "latest_compliance_scan.json"
     output_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     (tmp_dir / "latest_consumed.json").write_text(
         json.dumps({"consumedAt": consumed_at.isoformat(), "payloadPath": str(output_path)}, indent=2),
