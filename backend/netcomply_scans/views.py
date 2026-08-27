@@ -7,7 +7,9 @@ from .services import (
     delete_policy_settings,
     enqueue_ticket_for_deployment,
     extract_policy_settings_from_docx,
+    clear_hcc_tables,
     latest_devices_for_frontend,
+    list_hcc_cleanup_tables,
     list_deployment_queue_for_frontend,
     list_deployment_worker_heartbeats,
     list_policy_settings_for_frontend,
@@ -36,6 +38,19 @@ def read_json_body(request):
 
 def latest_scan_devices(request):
     return JsonResponse({"devices": latest_devices_for_frontend()})
+
+
+@csrf_exempt
+def hcc_database_cleanup(request):
+    if request.method == "GET":
+        return JsonResponse(list_hcc_cleanup_tables())
+    if request.method == "POST":
+        payload = read_json_body(request) or {}
+        table_keys = payload if isinstance(payload, list) else payload.get("tables", payload.get("tableKeys", []))
+        if not isinstance(table_keys, list):
+            return JsonResponse({"detail": "tables must be a list of cleanup keys or table names."}, status=400)
+        return JsonResponse(clear_hcc_tables(table_keys))
+    return JsonResponse({"detail": "Method not allowed"}, status=405)
 
 
 @csrf_exempt

@@ -33,6 +33,82 @@ FALSE_STRINGS = {"false", "non-compliant", "non compliant", "failed", "fail", "n
 TRUE_STRINGS = {"true", "compliant", "passed", "pass", "yes", "1"}
 
 
+HCC_CLEANUP_TABLES = [
+    {
+        "key": "scan_actual_configs",
+        "label": "Scan actual configs",
+        "tableName": ComplianceScanActualConfig._meta.db_table,
+        "model": ComplianceScanActualConfig,
+        "category": "Daily scan data",
+        "defaultSelected": True,
+    },
+    {
+        "key": "scan_findings",
+        "label": "Scan findings",
+        "tableName": ComplianceScanFinding._meta.db_table,
+        "model": ComplianceScanFinding,
+        "category": "Daily scan data",
+        "defaultSelected": True,
+    },
+    {
+        "key": "scan_devices",
+        "label": "Scan devices",
+        "tableName": ComplianceScanDevice._meta.db_table,
+        "model": ComplianceScanDevice,
+        "category": "Daily scan data",
+        "defaultSelected": True,
+    },
+    {
+        "key": "scan_batches",
+        "label": "Scan batches",
+        "tableName": ComplianceScanBatch._meta.db_table,
+        "model": ComplianceScanBatch,
+        "category": "Daily scan data",
+        "defaultSelected": True,
+    },
+    {
+        "key": "deployment_queue",
+        "label": "Deployment queue",
+        "tableName": DeploymentQueueItem._meta.db_table,
+        "model": DeploymentQueueItem,
+        "category": "Runtime workflow data",
+        "defaultSelected": False,
+    },
+    {
+        "key": "hcc_requests",
+        "label": "HCC requests",
+        "tableName": HCCRequestRecord._meta.db_table,
+        "model": HCCRequestRecord,
+        "category": "Runtime workflow data",
+        "defaultSelected": False,
+    },
+    {
+        "key": "template_requests",
+        "label": "Template requests",
+        "tableName": TemplateRequestRecord._meta.db_table,
+        "model": TemplateRequestRecord,
+        "category": "Admin data",
+        "defaultSelected": False,
+    },
+    {
+        "key": "remediation_templates",
+        "label": "Remediation templates",
+        "tableName": RemediationTemplateRecord._meta.db_table,
+        "model": RemediationTemplateRecord,
+        "category": "Admin data",
+        "defaultSelected": False,
+    },
+    {
+        "key": "policy_settings",
+        "label": "Policy settings",
+        "tableName": PolicySettingRecord._meta.db_table,
+        "model": PolicySettingRecord,
+        "category": "Admin data",
+        "defaultSelected": False,
+    },
+]
+
+
 def scan_db_alias() -> str:
     return getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default")
 
@@ -413,6 +489,65 @@ def cleanup_duplicate_scan_policy_rows(dry_run: bool = True) -> dict[str, Any]:
             model.objects.using(db_alias).filter(id__in=duplicate_ids).delete()
 
     return summary
+
+
+def list_hcc_cleanup_tables() -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    tables = []
+    for table in HCC_CLEANUP_TABLES:
+        row_count = table["model"].objects.using(db_alias).count()
+        tables.append({
+            "key": table["key"],
+            "label": table["label"],
+            "tableName": table["tableName"],
+            "category": table["category"],
+            "defaultSelected": table["defaultSelected"],
+            "rowCount": row_count,
+        })
+    return {"databaseAlias": db_alias, "tables": tables}
+
+
+def clear_hcc_tables(table_keys: list[str]) -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    requested = {str(key).strip() for key in table_keys if str(key).strip()}
+    allowed_by_key = {table["key"]: table for table in HCC_CLEANUP_TABLES}
+    allowed_by_name = {table["tableName"]: table for table in HCC_CLEANUP_TABLES}
+    selected = []
+    invalid = []
+
+    for key in requested:
+        table = allowed_by_key.get(key) or allowed_by_name.get(key)
+        if table:
+            selected.append(table["key"])
+        else:
+            invalid.append(key)
+
+    selected_keys = set(selected)
+    cleared = []
+    with transaction.atomic(using=db_alias):
+        for table in HCC_CLEANUP_TABLES:
+            if table["key"] not in selected_keys:
+                continue
+            queryset = table["model"].objects.using(db_alias).all()
+            before_count = queryset.count()
+            deleted_count, _ = queryset.delete()
+            after_count = table["model"].objects.using(db_alias).count()
+            cleared.append({
+                "key": table["key"],
+                "label": table["label"],
+                "tableName": table["tableName"],
+                "beforeCount": before_count,
+                "deletedCount": deleted_count,
+                "afterCount": after_count,
+            })
+
+    return {
+        "databaseAlias": db_alias,
+        "requested": list(requested),
+        "invalid": invalid,
+        "cleared": cleared,
+        "tables": list_hcc_cleanup_tables()["tables"],
+    }
 
 
 def latest_devices_for_frontend() -> list[dict[str, Any]]:

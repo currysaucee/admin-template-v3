@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import config_snapshot_download, deployment_queue, deployment_queue_process_next, latest_scan_devices, policy_settings, policy_settings_extract_document, run_mock_scan_import_view, run_scan_import, template_requests, templates, tickets
+from .views import config_snapshot_download, deployment_queue, deployment_queue_process_next, hcc_database_cleanup, latest_scan_devices, policy_settings, policy_settings_extract_document, run_mock_scan_import_view, run_scan_import, template_requests, templates, tickets
 
 urlpatterns = [
     path("api/netcomply/scan/devices/", latest_scan_devices, name="netcomply_latest_scan_devices"),
@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/HCCFix/templates/", templates, name="hccfix_templates"),
     path("api/HCCFix/template-requests/", template_requests, name="hccfix_template_requests"),
     path("api/HCCFix/tickets/", tickets, name="hccfix_tickets"),
+    path("api/HCCFix/database-cleanup/", hcc_database_cleanup, name="hccfix_database_cleanup"),
     path("api/hcc/deployment-queue/", deployment_queue, name="hcc_deployment_queue"),
     path("api/hcc/deployment-queue/process-next/", deployment_queue_process_next, name="hcc_deployment_queue_process_next"),
     path("api/HCCFix/deployment-queue/", deployment_queue, name="hccfix_deployment_queue"),
