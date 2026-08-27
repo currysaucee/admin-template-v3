@@ -65,7 +65,6 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
 export function InventoryPage({ devices, templates, policySettings, scanImportRunning = false, scanImportMessage = "", bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice, onRunScanImport }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; scanImportRunning?: boolean; scanImportMessage?: string; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void; onRunScanImport?: () => void }) {
   const [search, setSearch] = useState("");
   const [selectedPolicyFilters, setSelectedPolicyFilters] = useState<string[]>([]);
-  const [status, setStatus] = useState<ComplianceStatus | "All">("All");
   const policyOptions = policySettings.map((setting) => ({
     label: `${setting.settingNumber || setting.id} - ${setting.title}`,
     value: normalizePolicyReference(setting.settingNumber || setting.id),
@@ -76,7 +75,7 @@ export function InventoryPage({ devices, templates, policySettings, scanImportRu
       const refs = [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value));
       return selectedPolicyFilters.some((selected) => refs.includes(selected));
     });
-    return deviceMatch && findingMatch && (status === "All" || device.complianceStatus === status);
+    return deviceMatch && findingMatch;
   });
   const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && getAvailableFixCount(device, templates, policySettings) > 0;
   const filteredReadyDevices = filteredDevices.filter(canBulkSelectDevice);
@@ -99,7 +98,6 @@ export function InventoryPage({ devices, templates, policySettings, scanImportRu
           filter
           maxSelectedLabels={2}
         />
-        <Dropdown value={status} options={["All", "Non-Compliant"]} onChange={(e) => setStatus(e.value as ComplianceStatus | "All")} placeholder="Compliance Status" />
         {onRunScanImport ? <Button label="Run Scan Import" icon="pi pi-refresh" loading={scanImportRunning} outlined onClick={onRunScanImport} /> : null}
       </div>
       {scanImportMessage ? <div className="inline-info-row">{scanImportMessage}</div> : null}
