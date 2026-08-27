@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
+from django.utils import dateparse, timezone
 
 from .models import (
     ComplianceScanActualConfig,
@@ -699,13 +699,14 @@ def replace_template_requests(payloads: list[dict[str, Any]]) -> list[dict[str, 
 
 def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
     payload = record.payload or {}
+    implementation_time = getattr(record, "implementation_time", None)
     return {
         **payload,
         "id": payload.get("id") or record.request_id,
         "crNumber": payload.get("crNumber") or record.external_change_id,
         "requestor": payload.get("requestor") or record.requestor,
         "requestorRole": payload.get("requestorRole") or record.requestor_role,
-        "plannedStart": payload.get("plannedStart") or record.implementation_date,
+        "plannedStart": payload.get("plannedStart") or format_implementation_time(implementation_time) or record.implementation_date,
         "plannedEnd": payload.get("plannedEnd") or "",
         "status": payload.get("status") or record.status,
         "implementationPlan": payload.get("implementationPlan") or record.implementation_plan,
@@ -714,11 +715,39 @@ def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
     }
 
 
+def parse_implementation_time(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        text = str(value or "").strip()
+        parsed = dateparse.parse_datetime(text) or dateparse.parse_date(text)
+        if parsed and not isinstance(parsed, datetime):
+            parsed = datetime.combine(parsed, datetime.min.time())
+        if not parsed:
+            for pattern in ("%d %b %Y, %H:%M", "%d %b %Y, %I:%M %p", "%b %d, %Y, %H:%M", "%b %d, %Y, %I:%M %p", "%b %d, %Y %I:%M %p"):
+                try:
+                    parsed = datetime.strptime(text, pattern)
+                    break
+                except ValueError:
+                    continue
+    if not parsed:
+        parsed = timezone.now()
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed
+
+
+def format_implementation_time(value: Any) -> str:
+    if not isinstance(value, datetime):
+        return ""
+    return timezone.localtime(value).strftime("%b %d, %Y %I:%M %p")
+
+
 def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, Any]:
     request_id = str(payload.get("id") or fallback_id)
     devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
     finding_count = sum(len(device.get("findings", [])) for device in devices if isinstance(device, dict))
-    return {
+    fields = {
         "request_id": request_id,
         "external_change_id": str(payload.get("crNumber") or ""),
         "requestor": str(payload.get("requestor") or ""),
@@ -731,6 +760,9 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
         "backout_plan": str(payload.get("backoutPlan") or ""),
         "payload": {**payload, "id": request_id},
     }
+    if any(field.name == "implementation_time" for field in HCCRequestRecord._meta.fields):
+        fields["implementation_time"] = parse_implementation_time(payload.get("implementationTime") or payload.get("plannedStart"))
+    return fields
 
 
 def list_tickets_for_frontend() -> list[dict[str, Any]]:
