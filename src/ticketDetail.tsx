@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
-import { findPolicySettingForFinding, getDeploymentRunForTemplate, getStatusSeverity, getTicketReconciliationSummary, isFindingNoLongerDetected, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, getDeploymentRunForTemplate, getStatusSeverity, getTicketReconciliationSummary, isFindingNoLongerDetected, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
 import { ConfigSnapshotDownload, FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
@@ -66,7 +66,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
               const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : findPolicySettingForFinding(finding, policySettings);
               const evidenceRun = getDeploymentRunForTemplate(device.deploymentRun ?? ticket.deploymentRun, template);
               const executionResult = device.deploymentRun?.findingResults?.find((result) => result.findingId === finding.id);
-              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} run={evidenceRun} executionResult={noLongerDetected ? undefined : executionResult} skipRemediationReason={noLongerDetected ? finding.latestScanNote : undefined} implementationOnly defaultExpanded={Boolean(noLongerDetected || evidenceRun || executionResult)} />;
+              return <FindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} policySupported={isSupportedPolicyFinding(finding, policySettings)} run={evidenceRun} executionResult={noLongerDetected ? undefined : executionResult} skipRemediationReason={noLongerDetected ? finding.latestScanNote : undefined} implementationOnly defaultExpanded={Boolean(noLongerDetected || evidenceRun || executionResult)} />;
             })}
           </Card>
         })}
