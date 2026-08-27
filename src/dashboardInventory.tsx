@@ -10,7 +10,7 @@ import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
-import { findPolicySettingForFinding, getAvailableFixCount, getExecutableFindings, getFindingDisplayTitle, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getExecutableFindings, getFindingDisplayTitle, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
@@ -105,7 +105,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <Column header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />
           <Column field="hardwareType" header="Hardware Type" sortable />
           <Column field="managementIp" header="Management IP" sortable />
-          <Column field="lastScanned" header="Last Scanned" sortable />
+          <Column header="Last Scanned" sortable body={(row: Device) => formatDateTime(row.lastScanned)} />
           <Column header="Compliance Status" body={(row: Device) => <StatusPill value={row.complianceStatus} severity={getStatusSeverity(row.complianceStatus)} />} />
           <Column header="Findings / Fixes" body={(row: Device) => <FindingFixCount device={row} templates={templates} policySettings={policySettings} />} />
           <Column header="Actions" body={(row: Device) => (
@@ -146,7 +146,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
             <MetaTile label="Hardware Type" value={device.hardwareType} />
           </div>
           <div className="device-info-column">
-            <MetaTile label="Last Scanned" value={device.lastScanned} />
+            <MetaTile label="Last Scanned" value={formatDateTime(device.lastScanned)} />
             <MetaTile label="Site" value={device.site} />
           </div>
         </div>

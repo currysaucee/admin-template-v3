@@ -28,7 +28,21 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
 
 export function formatDate(date: Date | null) {
   if (!date) return "Not selected";
-  return date.toLocaleString("en-SG", { timeZone: "Asia/Singapore", month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return date.toISOString();
+}
+
+export function formatDateTime(value?: string | Date | null) {
+  if (!value) return "Not set";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 }
 
 export function findFindingKey(deviceId: string, findingId: string) {

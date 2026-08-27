@@ -8,7 +8,7 @@ import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
 
 import type { PolicySetting, RemediationTemplate, TemplateApprovalStatus, TemplateRequest } from "./types";
-import { getTemplatePolicySetting } from "./helpers";
+import { formatDateTime, getTemplatePolicySetting } from "./helpers";
 import { TemplateExecutionPreview } from "./remediationViews";
 import { MetaTile, PageHeader, StatusPill, UserCell } from "./sharedUi";
 
@@ -70,7 +70,7 @@ export function TemplateRequestsPage({ requests, setRequests, templates, setTemp
           <div className="device-meta-grid">
             <MetaTile label="Requester" value={selectedRequest.requestor} />
             <MetaTile label="Hardware Type" value={selectedRequest.hardwareType} />
-            <MetaTile label="Submitted" value={selectedRequest.submittedAt} />
+            <MetaTile label="Submitted" value={formatDateTime(selectedRequest.submittedAt)} />
             <MetaTile label="Template Key" value={selectedRequest.templateKey} />
           </div>
         </Card>

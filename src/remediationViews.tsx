@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findPolicySettingForFinding, getFindingDisplayTitle, getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
 import { normalizeConfigSnapshotPath, resolveRealApiUrl } from "./dataMode";
 
 export function ConfigSnapshotDownload({ path, filename }: { path?: string; filename?: string }) {
@@ -40,7 +40,7 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
-        <div><div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{displayTitle}</h3></div><p>{supported ? (policyDescription || finding.detectedAt) : finding.detectedAt}</p></div>
+        <div><div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{displayTitle}</h3></div><p>{supported ? (policyDescription || formatDateTime(finding.detectedAt)) : formatDateTime(finding.detectedAt)}</p></div>
         <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
@@ -102,7 +102,7 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
       <button className="collapsible-header command-header" type="button" onClick={() => setExpanded((prev) => !prev)} aria-expanded={expanded}>
         <div>
           <div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<strong>{displayTitle}</strong></div>
-          <span>{template ? `${getTemplateDisplayName(template)} - updated ${template.updatedAt}` : "No template configured yet"}</span>
+          <span>{template ? `${getTemplateDisplayName(template)} - updated ${formatDateTime(template.updatedAt)}` : "No template configured yet"}</span>
         </div>
         <div className="collapse-meta">
           <i className={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} />

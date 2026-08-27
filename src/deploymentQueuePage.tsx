@@ -2,14 +2,12 @@ import React from "react";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 
-import { getStatusSeverity } from "./helpers";
+import { formatDateTime, getStatusSeverity } from "./helpers";
 import { PageHeader } from "./sharedUi";
 import type { DeploymentQueueItem, DeploymentWorkerHealth } from "./types";
 
 function formatQueueTime(value?: string) {
-  if (!value) return "Not set";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-SG", { timeZone: "Asia/Singapore", month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return formatDateTime(value);
 }
 
 function planDeviceCount(item: DeploymentQueueItem) {

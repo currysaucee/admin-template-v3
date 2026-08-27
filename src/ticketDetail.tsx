@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
-import { findPolicySettingForFinding, getDeploymentRunForTemplate, getStatusSeverity, getTicketReconciliationSummary, isFindingNoLongerDetected, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatDateTime, getDeploymentRunForTemplate, getStatusSeverity, getTicketReconciliationSummary, isFindingNoLongerDetected, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
 import { ConfigSnapshotDownload, FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
@@ -35,7 +35,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
         <div className="device-meta-grid">
           <MetaTile label="Requestor" value={ticket.requestor} />
           <MetaTile label="Role" value={ticket.requestorRole} />
-          <MetaTile label="Implementation Date" value={ticket.plannedStart || "Not selected"} />
+          <MetaTile label="Implementation Date" value={formatDateTime(ticket.plannedStart)} />
         </div>
         {hasDeviceResults && <div className="device-meta-grid ticket-result-summary">
           <MetaTile label="Successful Devices" value={String(completedDevices)} />

@@ -9,7 +9,7 @@ import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Tag } from "primereact/tag";
 
-import { formatDate } from "./helpers";
+import { formatDate, formatDateTime } from "./helpers";
 import { PageHeader } from "./sharedUi";
 import type { PolicySetting } from "./types";
 
@@ -48,7 +48,7 @@ function derivePolicyType(title = "", expectedConfig = "") {
 }
 
 function policyUpdatedAt(setting: PolicySetting) {
-  return setting.updatedAt || setting.createdAt || "Not recorded";
+  return formatDateTime(setting.updatedAt || setting.createdAt);
 }
 
 function policyUpdatedBy(setting: PolicySetting) {

@@ -9,7 +9,7 @@ import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
 
 import type { PolicySetting, RemediationTemplate, TemplateRequest } from "./types";
-import { formatDate, getTemplatePolicySetting } from "./helpers";
+import { formatDate, formatDateTime, getTemplatePolicySetting } from "./helpers";
 import { TemplateExecutionPreview } from "./remediationViews";
 import { MetaTile, PageHeader } from "./sharedUi";
 
@@ -167,7 +167,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
               <strong>{selectedPolicySetting ? <PolicyChip setting={selectedPolicySetting} /> : "Not linked"}</strong>
             </div>
             <MetaTile label="Status" value={selectedTemplate.approvalStatus} />
-            <MetaTile label="Updated" value={selectedTemplate.updatedAt} />
+            <MetaTile label="Updated" value={formatDateTime(selectedTemplate.updatedAt)} />
           </div>
           <TemplateExecutionPreview template={selectedTemplate} policySetting={selectedPolicySetting} mode="implementation" />
         </Card>
@@ -265,7 +265,7 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
               </div>
               <div className="template-list-meta">
                 <span>{template.hardwareTypes.join(", ")}</span>
-                <span>{template.updatedAt}</span>
+                <span>{formatDateTime(template.updatedAt)}</span>
                 <span>{template.implementationCommands.length} implementation command{template.implementationCommands.length === 1 ? "" : "s"}</span>
               </div>
               <i className="pi pi-arrow-right" />

@@ -4,10 +4,9 @@ import json
 import re
 import ssl
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone as datetime_timezone
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 from xml.etree import ElementTree
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -32,7 +31,6 @@ from .models import (
 
 FALSE_STRINGS = {"false", "non-compliant", "non compliant", "failed", "fail", "no", "0"}
 TRUE_STRINGS = {"true", "compliant", "passed", "pass", "yes", "1"}
-SINGAPORE_TZ = ZoneInfo("Asia/Singapore")
 
 
 HCC_CLEANUP_TABLES = [
@@ -115,23 +113,11 @@ def scan_db_alias() -> str:
     return getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default")
 
 
-def singapore_time(value: datetime | None = None) -> datetime:
+def api_datetime(value: datetime | None = None) -> str:
     current = value or timezone.now()
     if timezone.is_naive(current):
         current = timezone.make_aware(current, timezone.get_current_timezone())
-    return timezone.localtime(current, SINGAPORE_TZ)
-
-
-def format_singapore_time(value: datetime | None) -> str:
-    if not value:
-        return ""
-    return singapore_time(value).strftime("%b %d, %Y %I:%M %p SGT")
-
-
-def singapore_isoformat(value: datetime | None) -> str:
-    if not value:
-        return ""
-    return singapore_time(value).isoformat()
+    return current.astimezone(datetime_timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def scan_tmp_dir() -> Path:
@@ -316,7 +302,7 @@ def write_latest_payload(payload: list[dict[str, Any]], tmp_dir: Path, consumed_
     output_path = tmp_dir / "latest_compliance_scan.json"
     output_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     (tmp_dir / "latest_consumed.json").write_text(
-        json.dumps({"consumedAt": singapore_isoformat(consumed_at), "payloadPath": str(output_path)}, indent=2),
+        json.dumps({"consumedAt": api_datetime(consumed_at), "payloadPath": str(output_path)}, indent=2),
         encoding="utf-8",
     )
     return output_path
@@ -382,7 +368,7 @@ def run_daily_scan_import() -> dict[str, Any]:
         "payloadPath": str(latest_path),
         "deviceCount": batch.device_count,
         "nonCompliantDeviceCount": batch.non_compliant_device_count,
-        "consumedAt": singapore_isoformat(batch.consumed_at),
+        "consumedAt": api_datetime(batch.consumed_at),
         "databaseAlias": scan_db_alias(),
     }
 
@@ -407,7 +393,7 @@ def import_scan_file(payload_path: Path | str, source: str = "file-import", cons
         "payloadPath": str(latest_path),
         "deviceCount": batch.device_count,
         "nonCompliantDeviceCount": batch.non_compliant_device_count,
-        "consumedAt": singapore_isoformat(batch.consumed_at),
+        "consumedAt": api_datetime(batch.consumed_at),
         "databaseAlias": scan_db_alias(),
     }
 
@@ -609,7 +595,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
                 "reason": "",
                 "currentValue": config_by_policy.get(policy_id, ""),
                 "expectedValue": expected_value,
-                "detectedAt": format_singapore_time(device.batch.consumed_at),
+                "detectedAt": api_datetime(device.batch.consumed_at),
             })
 
         devices.append({
@@ -619,7 +605,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             "hardwareType": device.hardware_type,
             "managementIp": device.management_ip,
             "site": device.site,
-            "lastScanned": format_singapore_time(device.batch.consumed_at),
+            "lastScanned": api_datetime(device.batch.consumed_at),
             "complianceStatus": "Non-Compliant",
             "configSnapshotPath": config_snapshot_path,
             "configSnapshotFilename": config_snapshot_filename,
@@ -639,8 +625,8 @@ def policy_setting_payload(record: PolicySettingRecord) -> dict[str, Any]:
         "standard": payload.get("standard") or record.standard,
         "description": payload.get("description") or record.description,
         "updatedBy": payload.get("updatedBy") or record.updated_by,
-        "createdAt": payload.get("createdAt") or format_singapore_time(record.created_at),
-        "updatedAt": payload.get("updatedAt") or format_singapore_time(record.updated_at),
+        "createdAt": payload.get("createdAt") or api_datetime(record.created_at),
+        "updatedAt": payload.get("updatedAt") or api_datetime(record.updated_at),
     }
 
 
@@ -745,7 +731,7 @@ def extract_policy_settings_from_docx(file_obj: Any) -> list[dict[str, Any]]:
             "settingPayload": expected_config,
             "standard": derive_policy_type(title, expected_config),
             "description": "",
-            "createdAt": format_singapore_time(timezone.now()),
+            "createdAt": api_datetime(timezone.now()),
         })
 
     deduped: dict[str, dict[str, Any]] = {}
@@ -767,7 +753,7 @@ def template_payload(record: RemediationTemplateRecord) -> dict[str, Any]:
         "implementationCommands": payload.get("implementationCommands") or record.implementation_commands,
         "failureBehaviour": payload.get("failureBehaviour") or record.failure_behaviour,
         "approvalStatus": payload.get("approvalStatus") or record.approval_status,
-        "updatedAt": payload.get("updatedAt") or format_singapore_time(record.updated_at),
+        "updatedAt": payload.get("updatedAt") or api_datetime(record.updated_at),
     }
 
 
@@ -815,7 +801,7 @@ def template_request_payload(record: TemplateRequestRecord) -> dict[str, Any]:
         "status": payload.get("status") or record.status,
         "reviewer": payload.get("reviewer") or record.reviewer,
         "reviewNote": payload.get("reviewNote") or record.review_note,
-        "submittedAt": payload.get("submittedAt") or format_singapore_time(record.created_at),
+        "submittedAt": payload.get("submittedAt") or api_datetime(record.created_at),
     }
 
 
@@ -864,7 +850,7 @@ def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
         "status": payload.get("status") or record.status,
         "implementationPlan": payload.get("implementationPlan") or record.implementation_plan,
         "backoutPlan": payload.get("backoutPlan") or record.backout_plan,
-        "createdAt": payload.get("createdAt") or format_singapore_time(record.created_at),
+        "createdAt": payload.get("createdAt") or api_datetime(record.created_at),
     }
 
 
@@ -886,14 +872,14 @@ def parse_implementation_time(value: Any) -> datetime:
     if not parsed:
         parsed = timezone.now()
     if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed, SINGAPORE_TZ)
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
     return parsed
 
 
 def format_implementation_time(value: Any) -> str:
     if not isinstance(value, datetime):
         return ""
-    return format_singapore_time(value)
+    return api_datetime(value)
 
 
 def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, Any]:
@@ -974,12 +960,12 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
         "queuedBy": item.ticket_payload.get("queuedBy", ""),
         "deviceCount": device_count,
         "policyCount": policy_count,
-        "queuedAt": singapore_isoformat(item.queued_at),
-        "availableAt": singapore_isoformat(item.available_at),
-        "lockedAt": singapore_isoformat(item.locked_at),
+        "queuedAt": api_datetime(item.queued_at),
+        "availableAt": api_datetime(item.available_at),
+        "lockedAt": api_datetime(item.locked_at) if item.locked_at else "",
         "lockedBy": item.locked_by,
-        "startedAt": singapore_isoformat(item.started_at),
-        "completedAt": singapore_isoformat(item.completed_at),
+        "startedAt": api_datetime(item.started_at) if item.started_at else "",
+        "completedAt": api_datetime(item.completed_at) if item.completed_at else "",
         "attemptCount": item.attempt_count,
         "lastError": item.last_error,
         "ticket": item.ticket_payload,

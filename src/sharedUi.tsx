@@ -6,7 +6,7 @@ import { Dropdown } from "primereact/dropdown";
 
 import type { Device, Page, Ticket, TicketStatus, UserRole } from "./types";
 import { roleOptions, ticketStatusOptions } from "./types";
-import { getStatusSeverity, getTicketReconciliationSummary } from "./helpers";
+import { formatDateTime, getStatusSeverity, getTicketReconciliationSummary } from "./helpers";
 
 export function SideMenu({ activePage, onNavigate, onCreate }: { activePage: Page; onNavigate: (page: Page) => void; onCreate: () => void }) {
   const mainItems: Array<{ page: Page; label: string; icon: string; onClick?: () => void }> = [
@@ -123,11 +123,11 @@ export function TicketDeviceCell({ ticket }: { ticket: Ticket }) {
 }
 
 export function WindowCell({ start, end }: { start: string; end: string }) {
-  return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{start.split(",")[0]}</strong><span>{start.includes(",") ? start.split(",").slice(1).join(",") : start} to {end}</span></div></div>;
+  return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{formatDateTime(start)}</strong><span>to {formatDateTime(end)}</span></div></div>;
 }
 
 export function ImplementationDateCell({ date }: { date: string }) {
-  return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{date || "Not selected"}</strong><span>Implementation date</span></div></div>;
+  return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{formatDateTime(date)}</strong><span>Implementation date</span></div></div>;
 }
 
 export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void; showView?: boolean }) {
