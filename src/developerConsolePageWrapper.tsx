@@ -26,10 +26,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
     });
   };
 
-  const lastScanAt = devices
-    .map((device) => device.lastScanned)
-    .filter(Boolean)
-    .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? "";
+  const lastScanAt = devices.find((device) => device.lastScanned)?.lastScanned ?? "";
 
   const runScanImport = async () => {
     setScanImportRunning(true);
@@ -37,7 +34,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
     try {
       const result = await runRealScanImport();
       const scan = result.scan && typeof result.scan === "object" ? result.scan as { consumedAt?: string; deviceCount?: number; nonCompliantDeviceCount?: number } : {};
-      const importedAt = scan.consumedAt ? new Date(scan.consumedAt).toLocaleString("en-SG", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "just now";
+      const importedAt = scan.consumedAt ? new Date(scan.consumedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore", month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "just now";
       setScanImportMessage(`Scan imported at ${importedAt}. ${scan.nonCompliantDeviceCount ?? 0} non-compliant device(s) found from ${scan.deviceCount ?? 0} scanned device(s). Refreshing data...`);
       window.location.reload();
     } catch (error) {

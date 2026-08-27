@@ -9,7 +9,7 @@ import type { DeploymentQueueItem, DeploymentWorkerHealth } from "./types";
 function formatQueueTime(value?: string) {
   if (!value) return "Not set";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-SG", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-SG", { timeZone: "Asia/Singapore", month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function planDeviceCount(item: DeploymentQueueItem) {

@@ -28,7 +28,7 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
 
 export function formatDate(date: Date | null) {
   if (!date) return "Not selected";
-  return date.toLocaleString("en-SG", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("en-SG", { timeZone: "Asia/Singapore", month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export function findFindingKey(deviceId: string, findingId: string) {
