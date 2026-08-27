@@ -1,8 +1,9 @@
 import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
+import { runRealScanImport } from "./dataMode";
 import { DeveloperConsolePage } from "./developerConsolePage";
-import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, onboardRuntimePolicySettings, runRuntimeScanImport, saveRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
+import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, onboardRuntimePolicySettings, saveRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
 import { styles } from "./styles";
 import type { PolicySetting } from "./types";
 
@@ -34,7 +35,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
     setScanImportRunning(true);
     setScanImportMessage("Scan import is running. Please wait...");
     try {
-      const result = await runRuntimeScanImport();
+      const result = await runRealScanImport();
       const scan = result.scan && typeof result.scan === "object" ? result.scan as { consumedAt?: string; deviceCount?: number; nonCompliantDeviceCount?: number } : {};
       const importedAt = scan.consumedAt ? new Date(scan.consumedAt).toLocaleString("en-SG", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "just now";
       setScanImportMessage(`Scan imported at ${importedAt}. ${scan.nonCompliantDeviceCount ?? 0} non-compliant device(s) found from ${scan.deviceCount ?? 0} scanned device(s). Refreshing data...`);

@@ -329,6 +329,15 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .request-review-note strong { color: #334155; font-size: 13px; }
 .sme-label { margin-top: 18px; }
 .developer-console-layout { display: grid; gap: 18px; align-items: start; margin-bottom: 18px; }
+.developer-console-sections { display: grid; gap: 16px; }
+.developer-console-sections .p-accordion-tab { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04); }
+.developer-console-sections .p-accordion-header-link { border: 0 !important; background: #fff !important; padding: 16px 18px !important; color: #0f172a !important; box-shadow: none !important; }
+.developer-console-sections .p-accordion-content { border: 0 !important; border-top: 1px solid #eef2f7 !important; padding: 0 !important; background: #fff !important; }
+.developer-section-title { display: inline-flex; align-items: center; gap: 10px; font-weight: 850; color: #0f172a; }
+.developer-section-title i { color: #2563eb; }
+.developer-section-body { display: grid; gap: 16px; padding: 18px; }
+.developer-operation-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.developer-operation-row h2 { margin: 0; font-size: 18px; letter-spacing: 0; color: #0f172a; }
 .developer-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .developer-card-heading h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
 .developer-card-heading p { margin: 6px 0 0; color: #64748b; line-height: 1.5; }
@@ -404,7 +413,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }
   .numbered-line-panel + .numbered-line-panel { border-left: 0; border-top: 1px solid #eef2f7; }
-  .template-directory-toolbar, .developer-table-header, .developer-modal-heading, .worker-health-header { flex-direction: column; align-items: stretch; }
+  .template-directory-toolbar, .developer-table-header, .developer-modal-heading, .developer-operation-row, .worker-health-header { flex-direction: column; align-items: stretch; }
   .queue-item-header { grid-template-columns: 42px minmax(0, 1fr) auto; }
   .queue-chip-row, .queue-meta-block, .queue-item-header > .p-tag { grid-column: 2 / -1; }
   .queue-device-list { padding-left: 18px; }

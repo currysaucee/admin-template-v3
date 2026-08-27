@@ -1,4 +1,5 @@
 import React from "react";
+import { Accordion, AccordionTab } from "primereact/accordion";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { Column } from "primereact/column";
@@ -126,6 +127,7 @@ export function DeveloperConsolePage({
   const [documentFile, setDocumentFile] = React.useState<File | null>(null);
   const [documentProcessing, setDocumentProcessing] = React.useState(false);
   const [documentError, setDocumentError] = React.useState("");
+  const [activeSections, setActiveSections] = React.useState<number | number[]>([0, 1]);
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.standard, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
@@ -216,94 +218,102 @@ export function DeveloperConsolePage({
     <section className="page-content developer-console-page">
       <PageHeader title="Developer Console" subtitle="Manage supported policy IDs before fixes are exposed to engineers." />
 
-      <Card className="table-card developer-scan-card">
-        <div className="developer-table-header">
-          <div>
-            <h2>Manual Scan Import</h2>
-            <p className="section-subtitle">Trigger the scan download and import flow into the HCC database.</p>
-          </div>
-          <div className="developer-heading-actions">
-            <Tag value={`Last scan: ${lastScanAt || "Not imported yet"}`} severity={lastScanAt ? "info" : "secondary"} rounded />
-            {onRunScanImport ? <Button label="Run Import Scan" icon="pi pi-refresh" loading={scanImportRunning} onClick={onRunScanImport} /> : null}
-          </div>
-        </div>
-        {scanImportMessage ? <div className="inline-info-row">{scanImportMessage}</div> : null}
-      </Card>
-
-      <Card className="table-card developer-policy-table">
-        <div className="developer-table-header">
-          <span className="p-input-icon-left grow-input">
-            <i className="pi pi-search" />
-            <InputText value={filter} placeholder="Filter by policy number, type, title, config text..." onChange={(event) => setFilter(event.target.value)} />
-          </span>
-          <div className="developer-heading-actions">
-            <Tag value={`${filteredPolicies.length} policies`} severity="info" rounded />
-            <Button label="Onboard New Policy" icon="pi pi-plus" onClick={openNewPolicy} />
-          </div>
-        </div>
-        <DataTable
-          value={filteredPolicies}
-          dataKey="id"
-          paginator
-          rows={8}
-          emptyMessage="No policy settings onboarded yet."
-          rowClassName={() => "policy-list-row"}
-          onRowClick={(event) => {
-            setDetailPolicy(event.data as PolicySetting);
-            setEditingPolicy(false);
-          }}
-        >
-          <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
-          <Column header="Policy Type" field="standard" body={(row: PolicySetting) => <Tag value={row.standard || derivePolicyType(row.title, row.settingPayload)} severity="secondary" rounded />} />
-          <Column header="Updated" body={(row: PolicySetting) => policyUpdatedAt(row)} sortable sortField="updatedAt" />
-          <Column header="By" body={(row: PolicySetting) => policyUpdatedBy(row)} sortable sortField="updatedBy" />
-        </DataTable>
-      </Card>
-
-      {showIntake && (
-        <Card className="editor-card developer-intake-card">
-          <div className="developer-card-heading">
-            <div>
-              <h2>{editingPolicy ? "Edit Policy" : "Onboard New Policy"}</h2>
-              <p>Add one or more policy settings. Existing policy numbers are overwritten so developers can correct mappings without editing code.</p>
+      <Accordion className="developer-console-sections" multiple activeIndex={activeSections} onTabChange={(event) => setActiveSections(event.index)}>
+        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-cloud-download" /> Scan Operations</span>}>
+          <div className="developer-section-body">
+            <div className="developer-operation-row">
+              <div>
+                <h2>Manual Scan Import</h2>
+                <p className="section-subtitle">Download the latest scan payload, overwrite the rolling payload file, and import it into the HCC database.</p>
+              </div>
+              <div className="developer-heading-actions">
+                <Tag value={`Last scan: ${lastScanAt || "Not imported yet"}`} severity={lastScanAt ? "info" : "secondary"} rounded />
+                {onRunScanImport ? <Button label="Run Import Scan" icon="pi pi-refresh" loading={scanImportRunning} onClick={onRunScanImport} /> : null}
+              </div>
             </div>
-            <div className="developer-heading-actions">
-              <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
-              <Button label="Close" icon="pi pi-times" outlined severity="secondary" onClick={() => setShowIntake(false)} />
-            </div>
+            {scanImportMessage ? <div className="inline-info-row">{scanImportMessage}</div> : null}
           </div>
+        </AccordionTab>
 
-          <div className="developer-row-stack">
-            {draftRows.map((row, index) => (
-              <div className="developer-policy-row" key={row.rowId}>
-                <div className="developer-policy-row-header">
-                  <strong>Policy Row {index + 1}</strong>
-                  <Button icon="pi pi-trash" rounded text severity="danger" aria-label="Remove policy row" disabled={draftRows.length === 1} onClick={() => removeDraftRow(row.rowId)} />
-                </div>
-                <div className="developer-policy-grid">
-                  <label className="field-block">
-                    <span>Policy Number</span>
-                    <InputText value={row.settingNumber} placeholder="AS003, HWS001" onChange={(event) => updateDraftRow(row.rowId, { settingNumber: event.target.value })} />
-                  </label>
-                  <label className="field-block">
-                    <span>Policy Title</span>
-                    <InputText value={row.title} placeholder="Console idle timeout" onChange={(event) => updateDraftRow(row.rowId, { title: event.target.value })} />
-                  </label>
-                  <label className="field-block full-span">
-                    <span>Expected Config</span>
-                    <InputTextarea value={row.expectedConfig} rows={3} autoResize placeholder="Paste the expected configuration rule or policy payload." onChange={(event) => updateDraftRow(row.rowId, { expectedConfig: event.target.value })} />
-                  </label>
+        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-shield" /> Policy Onboarding</span>}>
+          <div className="developer-section-body">
+            <Card className="table-card developer-policy-table">
+              <div className="developer-table-header">
+                <span className="p-input-icon-left grow-input">
+                  <i className="pi pi-search" />
+                  <InputText value={filter} placeholder="Filter by policy number, type, title, config text..." onChange={(event) => setFilter(event.target.value)} />
+                </span>
+                <div className="developer-heading-actions">
+                  <Tag value={`${filteredPolicies.length} policies`} severity="info" rounded />
+                  <Button label="Onboard New Policy" icon="pi pi-plus" onClick={openNewPolicy} />
                 </div>
               </div>
-            ))}
-          </div>
+              <DataTable
+                value={filteredPolicies}
+                dataKey="id"
+                paginator
+                rows={8}
+                emptyMessage="No policy settings onboarded yet."
+                rowClassName={() => "policy-list-row"}
+                onRowClick={(event) => {
+                  setDetailPolicy(event.data as PolicySetting);
+                  setEditingPolicy(false);
+                }}
+              >
+                <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
+                <Column header="Policy Type" field="standard" body={(row: PolicySetting) => <Tag value={row.standard || derivePolicyType(row.title, row.settingPayload)} severity="secondary" rounded />} />
+                <Column header="Updated" body={(row: PolicySetting) => policyUpdatedAt(row)} sortable sortField="updatedAt" />
+                <Column header="By" body={(row: PolicySetting) => policyUpdatedBy(row)} sortable sortField="updatedBy" />
+              </DataTable>
+            </Card>
 
-          <div className="developer-submit-row">
-            <span>{validRows.length} ready to onboard</span>
-            <Button label={editingPolicy ? "Save Policy" : "Submit Policy Settings"} icon="pi pi-check" disabled={validRows.length === 0} loading={submitting} onClick={onboardPolicies} />
+            {showIntake && (
+              <Card className="editor-card developer-intake-card">
+                <div className="developer-card-heading">
+                  <div>
+                    <h2>{editingPolicy ? "Edit Policy" : "Onboard New Policy"}</h2>
+                    <p>Add one or more policy settings. Existing policy numbers are overwritten so developers can correct mappings without editing code.</p>
+                  </div>
+                  <div className="developer-heading-actions">
+                    <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
+                    <Button label="Close" icon="pi pi-times" outlined severity="secondary" onClick={() => setShowIntake(false)} />
+                  </div>
+                </div>
+
+                <div className="developer-row-stack">
+                  {draftRows.map((row, index) => (
+                    <div className="developer-policy-row" key={row.rowId}>
+                      <div className="developer-policy-row-header">
+                        <strong>Policy Row {index + 1}</strong>
+                        <Button icon="pi pi-trash" rounded text severity="danger" aria-label="Remove policy row" disabled={draftRows.length === 1} onClick={() => removeDraftRow(row.rowId)} />
+                      </div>
+                      <div className="developer-policy-grid">
+                        <label className="field-block">
+                          <span>Policy Number</span>
+                          <InputText value={row.settingNumber} placeholder="AS003, HWS001" onChange={(event) => updateDraftRow(row.rowId, { settingNumber: event.target.value })} />
+                        </label>
+                        <label className="field-block">
+                          <span>Policy Title</span>
+                          <InputText value={row.title} placeholder="Console idle timeout" onChange={(event) => updateDraftRow(row.rowId, { title: event.target.value })} />
+                        </label>
+                        <label className="field-block full-span">
+                          <span>Expected Config</span>
+                          <InputTextarea value={row.expectedConfig} rows={3} autoResize placeholder="Paste the expected configuration rule or policy payload." onChange={(event) => updateDraftRow(row.rowId, { expectedConfig: event.target.value })} />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="developer-submit-row">
+                  <span>{validRows.length} ready to onboard</span>
+                  <Button label={editingPolicy ? "Save Policy" : "Submit Policy Settings"} icon="pi pi-check" disabled={validRows.length === 0} loading={submitting} onClick={onboardPolicies} />
+                </div>
+              </Card>
+            )}
           </div>
-        </Card>
-      )}
+        </AccordionTab>
+      </Accordion>
 
       <Dialog header="Policy Details" visible={Boolean(detailPolicy)} modal style={{ width: "min(760px, calc(100vw - 32px))" }} onHide={() => setDetailPolicy(null)}>
         {detailPolicy && (
