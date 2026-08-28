@@ -374,7 +374,7 @@ def run_daily_scan_import() -> dict[str, Any]:
 
 
 def default_mock_scan_payload_path() -> Path:
-    return Path(getattr(settings, "HCC_MOCK_SCAN_PAYLOAD_PATH", scan_tmp_dir() / "mock_scan_payload.json"))
+    return scan_tmp_dir() / "mock_scan_payload.json"
 
 
 def import_scan_file(payload_path: Path | str, source: str = "file-import", consumed_at: datetime | None = None) -> dict[str, Any]:

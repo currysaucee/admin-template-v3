@@ -27,26 +27,11 @@ npm run build
 The backend exposes one shared scan import flow:
 
 - Ad-hoc API trigger: `POST /api/HCCFix/scan/import/`
-- Local mock scan trigger: `GET /api/HCCFix/scan/import-mock/`
 - File import service function: `backend.netcomply_scans.services.import_scan_file`
 - Thin management command wrapper: `python manage.py import_compliance_scan tmp/hcc-scans/mock_scan_payload.json`
 - Scanner API management command: `python manage.py run_daily_scan_import`
 - Celery task name: `hcc.run_daily_scan_import`
 - File import Celery task name: `hcc.import_scan_file`
-
-For local testing without a scanner API, put the scan response JSON here:
-
-```text
-tmp/hcc-scans/mock_scan_payload.json
-```
-
-Then trigger:
-
-```text
-GET /api/HCCFix/scan/import-mock/
-```
-
-That reads the local JSON file, saves a timestamped copy as the latest consumed scan, and imports it into the scan tables using the current timestamp. The `tmp/` folder is gitignored, so local scan payloads do not get pushed.
 
 For the split schedule model:
 
@@ -64,12 +49,13 @@ HCC_SCAN_DB_ALIAS = "hcc"
 HCC_SCAN_API_URL = "https://scanner.example/api/latest-scan"
 HCC_SCAN_API_METHOD = "GET"
 HCC_SCAN_API_TOKEN = ""
-HCC_SCAN_API_HEADERS = {}
+HCC_SCAN_API_HEADERS = {
+    "Api-Key": "replace-me",
+}
 HCC_SCAN_API_TIMEOUT = 60
 HCC_SCAN_API_VERIFY_SSL = True
 HCC_SCAN_TMP_DIR = BASE_DIR / "tmp" / "hcc-scans"
 HCC_SCAN_SOURCE = "external-api"
-HCC_MOCK_SCAN_PAYLOAD_PATH = BASE_DIR / "tmp" / "hcc-scans" / "mock_scan_payload.json"
 HCC_CONFIG_SNAPSHOT_DIR = BASE_DIR / "tmp" / "hcc-config-snapshots"
 HCC_DEPLOYMENT_WORKER_HEARTBEAT_DIR = BASE_DIR / "tmp" / "hcc-deployment-workers"
 HCC_DEPLOYMENT_EXECUTOR_URL = "http://127.0.0.1:9100/execute"
