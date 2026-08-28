@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("input_json", type=Path)
-        parser.add_argument("--tmp-dir", type=Path, default=Path("tmp/netcomply-scans"))
+        parser.add_argument("--tmp-dir", type=Path, default=Path("tmp/hcc-scans"))
         parser.add_argument("--source", default="external-api")
 
     def handle(self, *args, **options):

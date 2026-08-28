@@ -110,7 +110,7 @@ HCC_CLEANUP_TABLES = [
 
 
 def scan_db_alias() -> str:
-    return getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default")
+    return getattr(settings, "HCC_SCAN_DB_ALIAS", "default")
 
 
 def api_datetime(value: datetime | None = None) -> str:
@@ -121,24 +121,24 @@ def api_datetime(value: datetime | None = None) -> str:
 
 
 def scan_tmp_dir() -> Path:
-    configured_dir = getattr(settings, "NETCOMPLY_SCAN_TMP_DIR", None)
+    configured_dir = getattr(settings, "HCC_SCAN_TMP_DIR", None)
     if configured_dir:
         return Path(configured_dir)
-    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-scans"
+    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-scans"
 
 
 def snapshot_dir() -> Path:
-    configured_dir = getattr(settings, "NETCOMPLY_CONFIG_SNAPSHOT_DIR", None)
+    configured_dir = getattr(settings, "HCC_CONFIG_SNAPSHOT_DIR", None)
     if configured_dir:
         return Path(configured_dir)
-    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-config-snapshots"
+    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-config-snapshots"
 
 
 def deployment_worker_heartbeat_dir() -> Path:
-    configured_dir = getattr(settings, "NETCOMPLY_DEPLOYMENT_WORKER_HEARTBEAT_DIR", None)
+    configured_dir = getattr(settings, "HCC_DEPLOYMENT_WORKER_HEARTBEAT_DIR", None)
     if configured_dir:
         return Path(configured_dir)
-    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "netcomply-deployment-workers"
+    return Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-deployment-workers"
 
 
 def safe_snapshot_filename(hostname: str) -> str:
@@ -317,18 +317,18 @@ def coerce_scan_payload(payload: Any) -> list[dict[str, Any]]:
 
 
 def fetch_external_scan_payload() -> list[dict[str, Any]]:
-    api_url = getattr(settings, "NETCOMPLY_SCAN_API_URL", "")
+    api_url = getattr(settings, "HCC_SCAN_API_URL", "")
     if not api_url:
-        raise ValueError("NETCOMPLY_SCAN_API_URL is not configured")
+        raise ValueError("HCC_SCAN_API_URL is not configured")
 
-    method = str(getattr(settings, "NETCOMPLY_SCAN_API_METHOD", "GET")).upper()
-    request_payload = getattr(settings, "NETCOMPLY_SCAN_API_PAYLOAD", None)
-    timeout = int(getattr(settings, "NETCOMPLY_SCAN_API_TIMEOUT", 60))
+    method = str(getattr(settings, "HCC_SCAN_API_METHOD", "GET")).upper()
+    request_payload = getattr(settings, "HCC_SCAN_API_PAYLOAD", None)
+    timeout = int(getattr(settings, "HCC_SCAN_API_TIMEOUT", 60))
     headers = {
         "Accept": "application/json",
-        **getattr(settings, "NETCOMPLY_SCAN_API_HEADERS", {}),
+        **getattr(settings, "HCC_SCAN_API_HEADERS", {}),
     }
-    token = getattr(settings, "NETCOMPLY_SCAN_API_TOKEN", "")
+    token = getattr(settings, "HCC_SCAN_API_TOKEN", "")
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
@@ -338,7 +338,7 @@ def fetch_external_scan_payload() -> list[dict[str, Any]]:
         headers["Content-Type"] = "application/json"
 
     ssl_context = None
-    if not bool(getattr(settings, "NETCOMPLY_SCAN_API_VERIFY_SSL", True)):
+    if not bool(getattr(settings, "HCC_SCAN_API_VERIFY_SSL", True)):
         ssl_context = ssl._create_unverified_context()
 
     request = Request(api_url, data=data, headers=headers, method=method)
@@ -360,7 +360,7 @@ def run_daily_scan_import() -> dict[str, Any]:
     batch = import_scan_payload(
         payload,
         latest_path,
-        source=str(getattr(settings, "NETCOMPLY_SCAN_SOURCE", "external-api")),
+        source=str(getattr(settings, "HCC_SCAN_SOURCE", "external-api")),
     )
     return {
         "batchId": batch.id,
@@ -374,7 +374,7 @@ def run_daily_scan_import() -> dict[str, Any]:
 
 
 def default_mock_scan_payload_path() -> Path:
-    return Path(getattr(settings, "NETCOMPLY_MOCK_SCAN_PAYLOAD_PATH", scan_tmp_dir() / "mock_scan_payload.json"))
+    return Path(getattr(settings, "HCC_MOCK_SCAN_PAYLOAD_PATH", scan_tmp_dir() / "mock_scan_payload.json"))
 
 
 def import_scan_file(payload_path: Path | str, source: str = "file-import", consumed_at: datetime | None = None) -> dict[str, Any]:
@@ -1121,7 +1121,7 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
 
 
 def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
-    executor_url = getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_URL", "")
+    executor_url = getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_URL", "")
     if not executor_url:
         return {"mode": "dry-run", "detail": "No executor URL configured.", "plan": plan}
 
@@ -1141,9 +1141,9 @@ def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
     }
     body = json.dumps(execution_plan).encode("utf-8")
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    headers.update(getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_HEADERS", {}))
+    headers.update(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_HEADERS", {}))
     request = Request(executor_url, data=body, headers=headers, method="POST")
-    with urlopen(request, timeout=getattr(settings, "NETCOMPLY_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
+    with urlopen(request, timeout=getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
         response_body = response.read().decode("utf-8")
     return json.loads(response_body) if response_body else {"detail": "Executor returned an empty response."}
 

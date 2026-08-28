@@ -26,12 +26,12 @@ def get_policy_setting_model():
 
 
 class Command(BaseCommand):
-    help = "Preload policy settings into the NetComply scan database."
+    help = "Preload policy settings into the HCC scan database."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--database",
-            default=getattr(settings, "NETCOMPLY_SCAN_DB_ALIAS", "default"),
+            default=getattr(settings, "HCC_SCAN_DB_ALIAS", "default"),
             help="Database alias to write to.",
         )
         parser.add_argument(

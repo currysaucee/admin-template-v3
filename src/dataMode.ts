@@ -1,7 +1,7 @@
 import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
-const realDevicesEndpoint = import.meta.env.VITE_NETCOMPLY_REAL_DEVICES_ENDPOINT || "https://127.0.0.1:8443/api/HCCFix/scan/devices/";
-const realApiBase = import.meta.env.VITE_NETCOMPLY_REAL_API_BASE || "https://127.0.0.1:8443/api/HCCFix";
+const realDevicesEndpoint = import.meta.env.VITE_HCC_REAL_DEVICES_ENDPOINT || "https://127.0.0.1:8443/api/HCCFix/scan/devices/";
+const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || "https://127.0.0.1:8443/api/HCCFix";
 
 function endpoint(path: string) {
   return `${realApiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;

@@ -8,10 +8,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
 
-HOST = os.environ.get("NETCOMPLY_MOCK_EXECUTOR_HOST", "127.0.0.1")
-PORT = int(os.environ.get("NETCOMPLY_MOCK_EXECUTOR_PORT", "9100"))
-ALLOW_LOCAL_COMMANDS = os.environ.get("NETCOMPLY_MOCK_EXECUTOR_ALLOW_LOCAL_COMMANDS", "").lower() in {"1", "true", "yes"}
-COMMAND_TIMEOUT_SECONDS = int(os.environ.get("NETCOMPLY_MOCK_EXECUTOR_TIMEOUT", "15"))
+HOST = os.environ.get("HCC_MOCK_EXECUTOR_HOST", "127.0.0.1")
+PORT = int(os.environ.get("HCC_MOCK_EXECUTOR_PORT", "9100"))
+ALLOW_LOCAL_COMMANDS = os.environ.get("HCC_MOCK_EXECUTOR_ALLOW_LOCAL_COMMANDS", "").lower() in {"1", "true", "yes"}
+COMMAND_TIMEOUT_SECONDS = int(os.environ.get("HCC_MOCK_EXECUTOR_TIMEOUT", "15"))
 
 
 def extract_command_rows(payload: dict[str, Any]) -> list[dict[str, str]]:
