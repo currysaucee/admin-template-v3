@@ -40,6 +40,21 @@ For the split schedule model:
 
 The import parsing logic lives in `services.py`; endpoints, management commands, and Celery tasks are only callers.
 
+If copying the service file in pieces, make sure these datetime imports and helper are included because scan, request, queue, and worker API responses all use it:
+
+```python
+from datetime import datetime, timezone as datetime_timezone
+
+from django.utils import timezone
+
+
+def api_datetime(value: datetime | None = None) -> str:
+    current = value or timezone.now()
+    if timezone.is_naive(current):
+        current = timezone.make_aware(current, timezone.get_current_timezone())
+    return current.astimezone(datetime_timezone.utc).isoformat().replace("+00:00", "Z")
+```
+
 Add the scanner connection and Celery beat schedule to your Django settings:
 
 ```python
