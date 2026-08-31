@@ -96,7 +96,6 @@ For the Vite frontend, configure these when the backend URL is different from th
 
 ```text
 VITE_HCC_REAL_API_BASE=https://127.0.0.1:8443/api/HCCFix
-VITE_HCC_REAL_DEVICES_ENDPOINT=https://127.0.0.1:8443/api/HCCFix/scan/devices/
 ```
 
 For local Windows development, run Celery with:

@@ -1,13 +1,6 @@
 import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
-const configuredRealDevicesEndpoint = import.meta.env.VITE_HCC_REAL_DEVICES_ENDPOINT || "";
-
-function deriveApiBaseFromDevicesEndpoint(devicesEndpoint: string) {
-  return devicesEndpoint.replace(/\/scan\/devices\/?$/i, "");
-}
-
-const realDevicesEndpoint = configuredRealDevicesEndpoint || "https://127.0.0.1:8443/api/HCCFix/scan/devices/";
-const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || deriveApiBaseFromDevicesEndpoint(realDevicesEndpoint) || "https://127.0.0.1:8443/api/HCCFix";
+const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || "/api/HCCFix";
 
 function endpoint(path: string) {
   return `${realApiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
@@ -49,7 +42,7 @@ async function requestFormJson<T>(url: string, body: FormData): Promise<T> {
 }
 
 export async function loadRealDevices(): Promise<Device[]> {
-  const payload = await requestJson<Device[] | { devices?: Device[] }>(realDevicesEndpoint);
+  const payload = await requestJson<Device[] | { devices?: Device[] }>(endpoint("scan/devices/"));
   if (Array.isArray(payload)) return payload as Device[];
   if (Array.isArray(payload.devices)) return payload.devices as Device[];
   return [];
