@@ -35,12 +35,11 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
   const isSkippedByLatestScan = Boolean(skipRemediationReason);
   const supported = policySupported ?? Boolean(policySetting);
   const displayTitle = getFindingDisplayTitle(finding, policySetting ? [policySetting] : []);
-  const policyDescription = policySetting?.description || finding.description;
   const agreedSetting = policySetting?.settingPayload || finding.expectedValue || template?.agreedSetting || "";
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
-        <div><div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{displayTitle}</h3></div><p>{supported ? (policyDescription || formatDateTime(finding.detectedAt)) : formatDateTime(finding.detectedAt)}</p></div>
+        <div><div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{displayTitle}</h3></div><p>{formatDateTime(finding.detectedAt)}</p></div>
         <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
