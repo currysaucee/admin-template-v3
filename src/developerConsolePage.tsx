@@ -130,7 +130,7 @@ export function DeveloperConsolePage({
   const [activeSections, setActiveSections] = React.useState<number | number[]>([0, 1]);
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim());
   const filteredPolicies = policySettings.filter((setting) => {
-    const haystack = [setting.id, setting.settingNumber, setting.title, setting.standard, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
+    const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
   });
 
@@ -241,7 +241,7 @@ export function DeveloperConsolePage({
               <div className="developer-table-header">
                 <span className="p-input-icon-left grow-input">
                   <i className="pi pi-search" />
-                  <InputText value={filter} placeholder="Filter by policy number, type, title, config text..." onChange={(event) => setFilter(event.target.value)} />
+                  <InputText value={filter} placeholder="Filter by policy number, title, config text..." onChange={(event) => setFilter(event.target.value)} />
                 </span>
                 <div className="developer-heading-actions">
                   <Tag value={`${filteredPolicies.length} policies`} severity="info" rounded />
@@ -261,7 +261,6 @@ export function DeveloperConsolePage({
                 }}
               >
                 <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
-                <Column header="Policy Type" field="standard" body={(row: PolicySetting) => <Tag value={row.standard || derivePolicyType(row.title, row.settingPayload)} severity="secondary" rounded />} />
                 <Column header="Updated" body={(row: PolicySetting) => policyUpdatedAt(row)} sortable sortField="updatedAt" />
                 <Column header="By" body={(row: PolicySetting) => policyUpdatedBy(row)} sortable sortField="updatedBy" />
               </DataTable>
@@ -321,7 +320,6 @@ export function DeveloperConsolePage({
             <div className="developer-modal-heading">
               <div>
                 <PolicyChip setting={detailPolicy} />
-                <p>{detailPolicy.standard || derivePolicyType(detailPolicy.title, detailPolicy.settingPayload)}</p>
               </div>
               <div className="developer-heading-actions">
                 <Button label="Edit" icon="pi pi-pencil" outlined onClick={() => startEditPolicy(detailPolicy)} />
@@ -329,7 +327,6 @@ export function DeveloperConsolePage({
               </div>
             </div>
             <div className="developer-detail-grid">
-              <div className="meta-tile"><span>Policy Type</span><strong>{detailPolicy.standard || derivePolicyType(detailPolicy.title, detailPolicy.settingPayload)}</strong></div>
               <div className="meta-tile"><span>Updated</span><strong>{policyUpdatedAt(detailPolicy)}</strong></div>
               <div className="meta-tile"><span>By</span><strong>{policyUpdatedBy(detailPolicy)}</strong></div>
             </div>
