@@ -125,7 +125,17 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-result-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #f0fdf4; color: #166534; font-weight: 700; }
 .finding-result-note.failed { background: #fef2f2; color: #991b1b; }
 .fix-availability-cell, .template-availability-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.fix-availability-cell { display: grid; justify-items: start; gap: 8px; min-width: 260px; }
+.fix-availability-cell { display: grid; justify-items: start; gap: 8px; min-width: 280px; }
+.finding-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(74px, 1fr)); gap: 8px; width: min(360px, 100%); }
+.finding-summary-item { display: grid; gap: 2px; min-width: 0; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff; }
+.finding-summary-item strong { font-size: 18px; line-height: 1; font-weight: 950; color: #0f172a; }
+.finding-summary-item span { color: #64748b; font-size: 11px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
+.finding-summary-item.ready { background: #f0fdf4; border-color: #bbf7d0; }
+.finding-summary-item.ready strong { color: #15803d; }
+.finding-summary-item.unsupported { background: #f8fafc; border-color: #cbd5e1; }
+.finding-summary-item.unsupported strong { color: #475569; }
+.finding-summary-item.blocked { background: #fffbeb; border-color: #fde68a; }
+.finding-summary-item.blocked strong { color: #b45309; }
 .finding-coverage-list { display: grid; gap: 6px; min-width: min(360px, 100%); }
 .finding-coverage-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; color: #334155; font-size: 12px; line-height: 1.35; }
 .finding-coverage-row .policy-code { border: 1px solid #e5e7eb; background: #ffffff; color: #334155; border-radius: 999px; padding: 3px 7px; font-weight: 900; }
@@ -211,6 +221,18 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .detail-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .detail-actions { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
 .device-detail-card, .finding-detail-card { margin-bottom: 18px; }
+.device-finding-category-panel { display: grid; gap: 16px; }
+.finding-category-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 2px; }
+.finding-category-tab { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; color: #334155; cursor: pointer; text-align: left; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.03); }
+.finding-category-tab span { font-size: 13px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finding-category-tab strong { flex: 0 0 auto; min-width: 32px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: 13px; font-weight: 950; }
+.finding-category-tab:hover { border-color: #bfdbfe; background: #f8fbff; }
+.finding-category-tab.active.fixable { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.finding-category-tab.active.fixable strong { background: #dcfce7; color: #166534; }
+.finding-category-tab.active.unsupported { border-color: #cbd5e1; background: #f8fafc; color: #475569; }
+.finding-category-tab.active.unsupported strong { background: #e2e8f0; color: #334155; }
+.finding-category-tab.active.noTemplate { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+.finding-category-tab.active.noTemplate strong { background: #fef3c7; color: #92400e; }
 .device-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .device-info-split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid #e5e7eb; }
 .device-info-column { display: grid; align-content: start; padding: 4px 0; }
@@ -453,6 +475,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .grow-input, .policy-filter-dropdown { min-width: 0; width: 100%; max-width: none; }
   .detail-header-row, .device-detail-top, .card-title-row, .finding-detail-header, .template-editor-heading, .deployment-run-header { flex-direction: column; align-items: stretch; }
   .detail-actions { padding-top: 0; flex-wrap: wrap; }
+  .finding-category-tabs { grid-template-columns: 1fr; }
   .structured-section-header, .script-editor-head { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; }
 }
 @media (max-width: 640px) {
@@ -465,6 +488,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .page-header h1 { font-size: 24px; }
   .page-header p { font-size: 14px; }
   .filter-card .p-dropdown, .filter-card .p-multiselect, .template-directory-toolbar .p-button { width: 100%; }
+  .finding-summary-grid { grid-template-columns: 1fr; width: 100%; }
   .meta-tile { grid-template-columns: 1fr; gap: 4px; }
   .meta-tile strong { text-align: left; }
   .table-card .p-datatable .p-datatable-tbody > tr > td { grid-template-columns: 1fr; gap: 4px; }

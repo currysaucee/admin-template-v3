@@ -10,7 +10,7 @@ import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
-import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getExecutableFindings, getFindingDisplayTitle, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
@@ -126,6 +126,16 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
 }
 
 export function DeviceDetailPage({ device, templates, policySettings, onBack, onCreateTicket }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onCreateTicket: (device: Device) => void }) {
+  const [activeFindingCategory, setActiveFindingCategory] = useState<FindingCategoryKey>("fixable");
+  const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
+  const findingCategoryTabs: Array<{ key: FindingCategoryKey; label: string; count: number }> = [
+    { key: "fixable", label: "Fixable", count: findingGroups.fixable.length },
+    { key: "unsupported", label: "Unsupported", count: findingGroups.unsupported.length },
+    { key: "noTemplate", label: "No fix configured", count: findingGroups.noTemplate.length },
+  ];
+  const activeFindings = findingGroups[activeFindingCategory];
+  const activeTabLabel = findingCategoryTabs.find((tab) => tab.key === activeFindingCategory)?.label ?? "findings";
+
   return (
     <section className="page-content">
       <div className="detail-header-row">
@@ -158,37 +168,80 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
       {device.findings.length === 0 ? (
         <Card className="device-detail-card"><div className="empty-row">No non-compliant findings were detected in today's compliance scan.</div></Card>
       ) : (
-        <div className="finding-detail-list">
-          {device.findings.map((finding) => {
-            const template = resolveTemplateForDevice(device, finding, templates, policySettings);
-            const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : findPolicySettingForFinding(finding, policySettings);
-            return <RemediationFindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} policySupported={Boolean(policySetting)} implementationOnly />;
-          })}
+        <div className="device-finding-category-panel">
+          <div className="finding-category-tabs" role="tablist" aria-label="Device finding categories">
+            {findingCategoryTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeFindingCategory === tab.key}
+                className={`finding-category-tab ${tab.key} ${activeFindingCategory === tab.key ? "active" : ""}`}
+                onClick={() => setActiveFindingCategory(tab.key)}
+              >
+                <span>{tab.label}</span>
+                <strong>{tab.count}</strong>
+              </button>
+            ))}
+          </div>
+          <div className="finding-detail-list">
+            {activeFindings.length === 0 ? (
+              <Card className="device-detail-card"><div className="empty-row">No {activeTabLabel.toLowerCase()} findings for this device.</div></Card>
+            ) : activeFindings.map((finding) => {
+              const template = resolveTemplateForDevice(device, finding, templates, policySettings);
+              const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : findPolicySettingForFinding(finding, policySettings);
+              return <RemediationFindingDetailCard key={finding.id} finding={finding} template={template} policySetting={policySetting} policySupported={Boolean(policySetting)} implementationOnly />;
+            })}
+          </div>
         </div>
       )}
     </section>
   );
 }
 
+type FindingCategoryKey = "fixable" | "unsupported" | "noTemplate";
+
+function getFindingCategoryGroups(device: Device, templates: RemediationTemplate[], policySettings: PolicySetting[]) {
+  return device.findings.reduce<Record<FindingCategoryKey, Device["findings"]>>((groups, finding) => {
+    const supported = isSupportedPolicyFinding(finding, policySettings);
+    const availability = getFixAvailability(device, finding, templates, policySettings);
+
+    if (availability.executable) {
+      groups.fixable.push(finding);
+    } else if (!supported) {
+      groups.unsupported.push(finding);
+    } else {
+      groups.noTemplate.push(finding);
+    }
+
+    return groups;
+  }, { fixable: [], unsupported: [], noTemplate: [] });
+}
+
 function FindingFixCount({ device, templates, policySettings }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[] }) {
-  const findingAvailability = device.findings.map((finding) => ({ finding, availability: getFixAvailability(device, finding, templates, policySettings), supported: isSupportedPolicyFinding(finding, policySettings) }));
-  const availableFixCount = findingAvailability.filter((item) => item.availability.executable).length;
-  const summarySeverity = availableFixCount === device.findings.length && device.findings.length > 0 ? "success" : availableFixCount > 0 ? "warning" : "secondary";
+  const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
+  const availableFixCount = findingGroups.fixable.length;
+  const unsupportedCount = findingGroups.unsupported.length;
+  const noTemplateCount = findingGroups.noTemplate.length;
+  const totalFindings = device.findings.length;
+  const summarySeverity = availableFixCount === totalFindings && totalFindings > 0 ? "success" : availableFixCount > 0 ? "warning" : "secondary";
+
   return (
     <div className="fix-availability-cell">
-      <Tag value={`${availableFixCount} of ${device.findings.length} findings ready`} severity={summarySeverity} rounded />
-      <div className="finding-coverage-list">
-        {findingAvailability.length === 0 ? (
-          <small className="template-availability-note">No open findings.</small>
-        ) : (
-          findingAvailability.map(({ finding, availability, supported }) => (
-            <div key={finding.id} className="finding-coverage-row">
-              <span className={`policy-code ${supported ? "" : "unsupported"}`}>{finding.id}</span>
-              <span>{getFindingDisplayTitle(finding, policySettings)}</span>
-              <strong className={availability.executable ? "ready" : "blocked"}>{supported ? (availability.executable ? "Fix ready" : availability.template ? "Needs snapshot" : "No template") : "Unsupported"}</strong>
-            </div>
-          ))
-        )}
+      <Tag value={`${availableFixCount} of ${totalFindings} ready`} severity={summarySeverity} rounded />
+      <div className="finding-summary-grid" aria-label="Finding fix coverage">
+        <div className="finding-summary-item ready">
+          <strong>{availableFixCount}</strong>
+          <span>Fixable</span>
+        </div>
+        <div className="finding-summary-item unsupported">
+          <strong>{unsupportedCount}</strong>
+          <span>Unsupported</span>
+        </div>
+        <div className="finding-summary-item blocked">
+          <strong>{noTemplateCount}</strong>
+          <span>No fix</span>
+        </div>
       </div>
     </div>
   );
