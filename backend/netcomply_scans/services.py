@@ -872,8 +872,11 @@ def parse_implementation_time(value: Any) -> datetime:
                     continue
     if not parsed:
         parsed = timezone.now()
-    if timezone.is_naive(parsed):
+    use_tz = bool(getattr(settings, "USE_TZ", False))
+    if use_tz and timezone.is_naive(parsed):
         parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    elif not use_tz and timezone.is_aware(parsed):
+        parsed = timezone.make_naive(parsed, timezone.get_default_timezone())
     return parsed
 
 
