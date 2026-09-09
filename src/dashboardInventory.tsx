@@ -65,17 +65,6 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
 export function InventoryPage({ devices, templates, policySettings, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
   const [search, setSearch] = useState("");
   const [selectedPolicyFilters, setSelectedPolicyFilters] = useState<string[]>([]);
-  type InventoryColumnKey = "device" | "hardwareType" | "managementIp" | "lastScanned" | "complianceStatus" | "findings";
-  const inventoryColumnOptions: Array<{ label: string; value: InventoryColumnKey }> = [
-    { label: "Device", value: "device" },
-    { label: "Hardware Type", value: "hardwareType" },
-    { label: "Management IP", value: "managementIp" },
-    { label: "Last Scanned", value: "lastScanned" },
-    { label: "Compliance Status", value: "complianceStatus" },
-    { label: "Findings / Fixes", value: "findings" },
-  ];
-  const defaultInventoryColumns = inventoryColumnOptions.map((option) => option.value);
-  const [visibleColumns, setVisibleColumns] = useState<InventoryColumnKey[]>(defaultInventoryColumns);
   const policyOptions = policySettings.map((setting) => ({
     label: `${setting.settingNumber || setting.id} - ${setting.title}`,
     value: normalizePolicyReference(setting.settingNumber || setting.id),
@@ -109,27 +98,15 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           filter
           maxSelectedLabels={2}
         />
-        <MultiSelect
-          className="column-visibility-dropdown"
-          value={visibleColumns}
-          options={inventoryColumnOptions}
-          onChange={(event) => setVisibleColumns(event.value as InventoryColumnKey[])}
-          placeholder="Choose columns"
-          selectedItemsLabel="{0} columns shown"
-          maxSelectedLabels={0}
-          aria-label="Visible table columns"
-        />
-        <Button label="Reset columns" icon="pi pi-refresh" severity="secondary" text onClick={() => setVisibleColumns(defaultInventoryColumns)} />
       </div>
       <Card className="table-card">
         <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter(canBulkSelectDevice))} isDataSelectable={(event) => canBulkSelectDevice(event.data as Device)} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
           <Column key="selection" selectionMode="multiple" headerStyle={{ width: '4rem' }} bodyStyle={{ opacity: 1 }} />
-          {visibleColumns.includes("device") && <Column key="device" header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />}
-          {visibleColumns.includes("hardwareType") && <Column key="hardwareType" field="hardwareType" header="Hardware Type" sortable />}
-          {visibleColumns.includes("managementIp") && <Column key="managementIp" field="managementIp" header="Management IP" sortable />}
-          {visibleColumns.includes("lastScanned") && <Column key="lastScanned" header="Last Scanned" sortable body={(row: Device) => formatDateTime(row.lastScanned)} />}
-          {visibleColumns.includes("complianceStatus") && <Column key="complianceStatus" header="Compliance Status" body={(row: Device) => <StatusPill value={row.complianceStatus} severity={getStatusSeverity(row.complianceStatus)} />} />}
-          {visibleColumns.includes("findings") && <Column key="findings" header="Findings / Fixes" body={(row: Device) => <FindingFixCount device={row} templates={templates} policySettings={policySettings} />} />}
+          <Column key="device" header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />
+          <Column key="hardwareType" field="hardwareType" header="Hardware Type" sortable />
+          <Column key="managementIp" field="managementIp" header="Management IP" sortable />
+          <Column key="lastScanned" header="Last Scanned" sortable body={(row: Device) => formatDateTime(row.lastScanned)} />
+          <Column key="findings" header="Findings / Fixes" body={(row: Device) => <FindingFixCount device={row} templates={templates} policySettings={policySettings} />} />
           <Column key="actions" header="Actions" headerClassName="inventory-actions-column" bodyClassName="inventory-actions-column" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />

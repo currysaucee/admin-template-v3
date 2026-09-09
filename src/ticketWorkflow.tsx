@@ -6,6 +6,7 @@ import { Calendar } from "primereact/calendar";
 import { Card } from "primereact/card";
 import { Dialog } from "primereact/dialog";
 import { Message } from "primereact/message";
+import { Tooltip } from "primereact/tooltip";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { findFindingKey, getFindingDisplayTitle, getFixAvailability, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
@@ -56,6 +57,7 @@ export function CreateTicketPage(props: {
 
   return (
     <section className="page-content">
+      <Tooltip target=".implementation-help-icon" content="Configuration commands that automation will push to the device to fix this finding." position="top" showDelay={150} />
       <PageHeader title="Create HCC Request" subtitle="Select approved findings and review the exact implementation commands before submitting." />
       {props.submitError && <Message severity="error" text={props.submitError} className="ticket-submit-message" />}
       <Card className="wizard-card">
@@ -178,7 +180,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                             <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{finding.expectedValue || availability.template?.agreedSetting || "No agreed setting is configured."}</pre></div>
                           </div>
                           <div className="finding-standard-cell">
-                            <div className="implementation-heading"><strong>Implementation Commands</strong><i className="pi pi-question-circle" title="Configuration commands that automation will push to the device to fix this finding." aria-label="Configuration commands that automation will push to the device to fix this finding." /></div>
+                            <div className="implementation-heading"><strong>Implementation Commands</strong><i className="pi pi-question-circle implementation-help-icon" tabIndex={0} aria-label="About implementation commands" /></div>
                           <div className="command-list compact-command-list implementation-command-preview">
                             {(implementationCommands.length ? implementationCommands : ["No implementation command configured."]).map((command, index) => (
                               <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>

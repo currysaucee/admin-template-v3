@@ -147,7 +147,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-summary-item.unsupported strong { color: #475569; }
 .finding-summary-item.blocked { background: #fffbeb; border-color: #fde68a; }
 .finding-summary-item.blocked strong { color: #b45309; }
-.column-visibility-dropdown { min-width: 180px; }
 .inventory-actions-column { position: sticky; right: 0; z-index: 2; background: #fff; box-shadow: -8px 0 12px -12px rgba(15, 23, 42, .45); }
 .p-datatable-thead .inventory-actions-column { z-index: 3; background: #f8fafc; }
 .finding-coverage-list { display: grid; gap: 6px; min-width: min(360px, 100%); }
