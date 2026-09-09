@@ -26,6 +26,7 @@ from .services import (
     run_daily_scan_import,
     run_mock_scan_import,
     set_ticket_status,
+    TicketValidationError,
     upsert_policy_settings,
     upsert_ticket,
 )
@@ -185,7 +186,7 @@ def tickets(request):
             )
         try:
             ticket = upsert_ticket(payload)
-        except ValueError as exc:
+        except TicketValidationError as exc:
             return api_error(str(exc), code="INVALID_TICKET", status=400)
         except Exception as exc:
             return api_error("The backend could not create the ticket.", code="TICKET_CREATE_FAILED", status=500, details={"reason": str(exc)})
