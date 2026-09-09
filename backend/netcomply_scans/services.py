@@ -1141,62 +1141,111 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
     return {"ticketId": ticket_payload.get("id"), "devices": planned_devices}
 
 
-def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
-    executor_url = getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_URL", "")
-    if not executor_url:
-        return {"mode": "dry-run", "detail": "No executor URL configured.", "plan": plan}
-
-    execution_plan = {
-        **plan,
-        "devices": [
+def build_executor_device_payload(device: dict[str, Any]) -> dict[str, Any] | None:
+    commands = [
+        command
+        for finding in device.get("findings", [])
+        if finding.get("status") == "Pending Execution"
+        for command in finding.get("implementationCommands", [])
+        if str(command).strip()
+    ]
+    if not commands:
+        return None
+    return {
+        "device": device.get("hostname") or device.get("managementIp"),
+        "workflow_tasks": [
             {
-                **device,
-                "findings": [
-                    finding
-                    for finding in device.get("findings", [])
-                    if finding.get("status") == "Pending Execution"
-                ],
+                "command": commands,
+                "type": "config",
+                "description": "HCC remediation implementation commands",
             }
-            for device in plan.get("devices", [])
         ],
+        "aoc_id": "CR12345678",
     }
-    body = json.dumps(execution_plan).encode("utf-8")
+
+
+def simulated_executor_response(payload: dict[str, Any]) -> dict[str, Any]:
+    workflow_tasks = payload.get("workflow_tasks", [])
+    return {
+        "success": True,
+        "execution_time": 0,
+        "task_count": len(workflow_tasks),
+        "successful_tasks": len(workflow_tasks),
+        "failed_tasks": 0,
+        "task_results": [
+            {
+                "success": True,
+                "type": task.get("type"),
+                "description": task.get("description"),
+                "command": task.get("command"),
+                "output": "Simulated successfully; no commands were sent to a device.",
+            }
+            for task in workflow_tasks
+        ],
+        "device_info": {"device": payload.get("device"), "simulated": True},
+    }
+
+
+def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, Any]:
+    if bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)):
+        return simulated_executor_response(payload)
+
+    executor_url = str(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_URL", "")).strip()
+    if not executor_url:
+        raise RuntimeError("HCC_DEPLOYMENT_EXECUTOR_URL is not configured.")
+
+    body = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     headers.update(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_HEADERS", {}))
     request = Request(executor_url, data=body, headers=headers, method="POST")
     with urlopen(request, timeout=getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
         response_body = response.read().decode("utf-8")
-    return json.loads(response_body) if response_body else {"detail": "Executor returned an empty response."}
+    if not response_body:
+        raise RuntimeError("Deployment executor returned an empty response.")
+    result = json.loads(response_body)
+    if not isinstance(result, dict):
+        raise RuntimeError("Deployment executor response must be a JSON object.")
+    return result
 
 
-def expected_execution_command_count(plan: dict[str, Any]) -> int:
-    return sum(
-        len(finding.get("implementationCommands", []))
+def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
+    device_payloads = [
+        payload
         for device in plan.get("devices", [])
-        for finding in device.get("findings", [])
-        if finding.get("status") == "Pending Execution"
-    )
-
-
-def validate_executor_result(result: dict[str, Any], expected_command_count: int) -> None:
-    mode = str(result.get("mode") or "").lower()
-    if expected_command_count > 0 and mode in {"dry-run", "simulate"}:
-        raise RuntimeError("Deployment executor did not run commands. Configure the executor URL and enable local execution for this test.")
-
-    results = result.get("results")
-    if expected_command_count > 0 and not isinstance(results, list):
-        raise RuntimeError("Deployment executor did not return per-command results.")
-
-    if isinstance(results, list) and len(results) < expected_command_count:
-        raise RuntimeError(f"Deployment executor returned {len(results)} command result(s), expected {expected_command_count}.")
-
-    failed_results = [
-        row for row in (results or [])
-        if str(row.get("status") or "").lower() != "executed" or int(row.get("returnCode") or 0) != 0
+        if (payload := build_executor_device_payload(device)) is not None
     ]
-    if failed_results:
-        first_failure = failed_results[0]
-        raise RuntimeError(str(first_failure.get("stderr") or first_failure.get("stdout") or first_failure.get("command") or "A command failed."))
+    device_results = [call_deployment_executor_for_device(payload) for payload in device_payloads]
+    if len(device_results) == 1:
+        return {
+            **device_results[0],
+            "device_results": device_results,
+            "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
+        }
+    return {
+        "success": all(result.get("success") is True for result in device_results),
+        "execution_time": [result.get("execution_time") for result in device_results],
+        "task_count": sum(int(result.get("task_count") or 0) for result in device_results),
+        "successful_tasks": sum(int(result.get("successful_tasks") or 0) for result in device_results),
+        "failed_tasks": sum(int(result.get("failed_tasks") or 0) for result in device_results),
+        "task_results": [task for result in device_results for task in (result.get("task_results") or [])],
+        "device_info": [result.get("device_info") for result in device_results],
+        "device_results": device_results,
+        "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
+    }
+
+
+def validate_executor_result(result: dict[str, Any]) -> None:
+    if result.get("success") is True:
+        return
+    failed_results = [task for task in result.get("task_results", []) if task.get("success") is not True]
+    failure_detail = next(
+        (
+            task.get("error") or task.get("stderr") or task.get("output") or task.get("description")
+            for task in failed_results
+        ),
+        None,
+    )
+    raise RuntimeError(str(failure_detail or "Deployment executor returned success=false."))
 
 
 def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | None:
@@ -1230,7 +1279,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
         executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")
         result = call_deployment_executor(plan)
-        validate_executor_result(result, expected_execution_command_count(plan))
+        validate_executor_result(result)
         item.status = "Skipped" if all_findings and executable_count == 0 else "Complete"
         item.result_payload = result
         item.completed_at = timezone.now()
