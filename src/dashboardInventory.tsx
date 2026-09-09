@@ -110,7 +110,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <Column key="actions" header="Actions" headerClassName="inventory-actions-column" bodyClassName="inventory-actions-column" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />
-              <Button label="Create Request" icon="pi pi-plus-circle" size="small" disabled={bulkInventorySelection.length > 0 || row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
+              <Button label="Create Request" icon="pi pi-plus-circle" size="small" disabled={row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
             </div>
           )} />
         </DataTable>

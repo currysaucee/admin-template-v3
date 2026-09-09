@@ -37,6 +37,7 @@ export default function DeviceDetailPageWrapper(props: DeviceDetailPageProps = {
           policySettings={policySettings}
           onBack={props.onBack ?? (() => navigateToPortalPath(portalRoutePaths.inventory))}
           onCreateTicket={props.onCreateTicket ?? ((selectedDevice) => {
+            setRouteValue("netcomply:selectedDeviceIds", "");
             setRouteValue("netcomply:selectedDeviceId", selectedDevice.id);
             setRouteValue("netcomply:selectedFindingKeys", getPreselectedFindingKeys(selectedDevice, templates, policySettings).join(","));
             navigateToPortalPath(portalRoutePaths.createTicket, { deviceId: selectedDevice.id });

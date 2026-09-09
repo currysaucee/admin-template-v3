@@ -17,7 +17,11 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const selectedBulkDevices = props.bulkInventorySelection ?? bulkInventorySelection;
 
   const startCreateTicket = (device?: Device) => {
-    if (device) setRouteValue("netcomply:selectedDeviceId", device.id);
+    if (device) {
+      setRouteValue("netcomply:selectedDeviceIds", "");
+      setRouteValue("netcomply:selectedDeviceId", device.id);
+      setRouteValue("netcomply:selectedFindingKeys", "");
+    }
     navigateToPortalPath(portalRoutePaths.createTicket, device ? { deviceId: device.id } : {});
   };
 
@@ -39,6 +43,7 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
                 .filter((finding) => filterSet.size === 0 || [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value)).some((value) => filterSet.has(value)))
                 .map((finding) => findFindingKey(device.id, finding.id))
             );
+            setRouteValue("netcomply:selectedDeviceId", "");
             setRouteValue("netcomply:selectedDeviceIds", selectedIds);
             setRouteValue("netcomply:selectedFindingKeys", selectedFindingKeys.join(","));
             navigateToPortalPath(portalRoutePaths.createTicket, { deviceIds: selectedIds });
