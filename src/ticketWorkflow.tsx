@@ -38,6 +38,7 @@ export function CreateTicketPage(props: {
   submitError?: string;
 }) {
   const [showDateDialog, setShowDateDialog] = React.useState(false);
+  const [showExpectedSetting, setShowExpectedSetting] = React.useState(false);
   const today = React.useMemo(() => {
     const value = new Date();
     value.setHours(0, 0, 0, 0);
@@ -68,7 +69,7 @@ export function CreateTicketPage(props: {
           ))}
         </div>
         <div className="step-content">
-          {currentStep === 0 && <ScopeStep {...props} />}
+          {currentStep === 0 && <ScopeStep {...props} showExpectedSetting={showExpectedSetting} setShowExpectedSetting={setShowExpectedSetting} />}
           {currentStep === 1 && <ReviewStep {...props} />}
         </div>
         <div className="wizard-footer">
@@ -96,8 +97,11 @@ export function CreateTicketPage(props: {
   );
 }
 
-function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setSelectedDeviceIds, selectedFindingKeys, setSelectedFindingKeys, selectedDevices }: Parameters<typeof CreateTicketPage>[0]) {
-  const visibleDevices = selectedDeviceIds.length > 0 ? selectedDevices : devices;
+function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setSelectedDeviceIds, selectedFindingKeys, setSelectedFindingKeys, selectedDevices, showExpectedSetting, setShowExpectedSetting }: Parameters<typeof CreateTicketPage>[0] & { showExpectedSetting: boolean; setShowExpectedSetting: (value: boolean) => void }) {
+  const sourceVisibleDevices = selectedDeviceIds.length > 0 ? selectedDevices : devices;
+  const visibleDevices = sourceVisibleDevices
+    .map((device) => ({ ...device, findings: device.findings.filter((finding) => getFixAvailability(device, finding, templates, policySettings).executable) }))
+    .filter((device) => device.findings.length > 0);
   const executableFindingKeys = visibleDevices.flatMap((device) =>
     device.findings
       .filter((finding) => getFixAvailability(device, finding, templates, policySettings).executable)
@@ -125,6 +129,16 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
             <Checkbox checked={allVisibleFindingsSelected} disabled={uniqueExecutableFindingKeys.length === 0} onChange={(event) => toggleAllVisibleFindings(Boolean(event.checked))} />
             <span>Select all fixable findings</span>
           </label>
+          <Button
+            label="Expected setting"
+            icon={showExpectedSetting ? "pi pi-eye" : "pi pi-eye-slash"}
+            size="small"
+            rounded
+            outlined={!showExpectedSetting}
+            severity="secondary"
+            aria-pressed={showExpectedSetting}
+            onClick={() => setShowExpectedSetting(!showExpectedSetting)}
+          />
         </div>
         {visibleDevices.length === 0 ? (
           <p className="empty-text">No eligible findings are available.</p>
@@ -138,8 +152,9 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                 <div className="finding-list-table">
                   <div className="finding-list-header">
                     <span></span>
-                    <span>Finding Rule</span>
-                    <span>Implementation Commands</span>
+                    <span>Policy &amp; Problem</span>
+                    <span>Current Device Configuration</span>
+                    <span className="implementation-heading">Implementation Commands <i className="pi pi-question-circle" title="Configuration commands that automation will push to the device to fix this finding." aria-label="Configuration commands that automation will push to the device to fix this finding." /></span>
                   </div>
                   {device.findings.map((finding) => {
                     const key = findFindingKey(device.id, finding.id);
@@ -167,9 +182,14 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                           }}
                         />
                         <div className="finding-rule-cell">
-                          <span className="mobile-field-label">Finding Rule</span>
+                          <span className="mobile-field-label">Policy &amp; Problem</span>
                           <div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
-                          {!hasTemplateFix && <small className="template-availability-note">{availability.note}</small>}
+                          <p className="finding-problem-description">{finding.description || finding.reason || "The latest scan detected a policy mismatch on this device."}</p>
+                        </div>
+                        <div className="finding-current-config-cell">
+                          <span className="mobile-field-label">Current Device Configuration</span>
+                          <div className="current-config-block"><code>{finding.currentValue || finding.reason || "Current configuration was not included in the scan payload."}</code></div>
+                          {showExpectedSetting && <div className="expected-setting-block"><span>Expected setting</span><code>{finding.expectedValue || "No expected value supplied."}</code></div>}
                         </div>
                         <div className="finding-standard-cell">
                           <span className="mobile-field-label">Implementation Commands</span>
@@ -178,7 +198,6 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                               <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>
                             ))}
                           </div>
-                          {!hasTemplateFix && <div className="template-disabled-note"><i className="pi pi-lock" />No template fix has been configured yet.</div>}
                         </div>
                       </div>
                     );
