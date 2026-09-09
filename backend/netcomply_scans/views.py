@@ -38,6 +38,15 @@ def read_json_body(request):
     return json.loads(request.body.decode("utf-8"))
 
 
+def authenticated_user_display_name(request):
+    user = getattr(request, "user", None)
+    if not user or not bool(getattr(user, "is_authenticated", False)):
+        return ""
+    full_name = str(user.get_full_name() or "").strip() if callable(getattr(user, "get_full_name", None)) else ""
+    username = str(user.get_username() or "").strip() if callable(getattr(user, "get_username", None)) else ""
+    return full_name or username
+
+
 def api_error(message, *, code, status, details=None):
     error_id = str(uuid.uuid4())
     return JsonResponse(
@@ -172,6 +181,9 @@ def tickets(request):
             return api_error("The request body is not valid JSON.", code="INVALID_JSON", status=400, details={"reason": str(exc)})
         if not isinstance(payload, dict):
             return api_error("The ticket payload must be a JSON object.", code="INVALID_PAYLOAD", status=400)
+        authenticated_name = authenticated_user_display_name(request)
+        if authenticated_name:
+            payload = {**payload, "requestor": authenticated_name}
         field_errors = {}
         if not isinstance(payload.get("devices"), list) or not payload.get("devices"):
             field_errors["devices"] = "Select at least one device finding."

@@ -5,28 +5,6 @@ import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
-import { normalizeConfigSnapshotPath, resolveRealApiUrl } from "./dataMode";
-
-export function ConfigSnapshotDownload({ path, filename }: { path?: string; filename?: string }) {
-  const resolvedPath = normalizeConfigSnapshotPath(path || (filename ? `/config-snapshots/${filename}` : ""));
-  if (!resolvedPath) return <span className="config-download-empty">No device config snapshot available.</span>;
-  const downloadSnapshot = async () => {
-    const downloadUrl = resolveRealApiUrl(resolvedPath);
-    const response = await fetch(downloadUrl);
-    if (!response.ok) throw new Error(`Unable to download config snapshot from ${downloadUrl}`);
-    const snapshotText = await response.text();
-    const blob = new Blob([snapshotText], { type: "text/plain;charset=utf-8" });
-    const objectUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename?.toLowerCase().endsWith(".txt") ? filename : `${filename || "device-config-snapshot"}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(objectUrl);
-  };
-  return <Button className="config-download-button" label="Download Config Snapshot" icon="pi pi-download" size="small" outlined onClick={downloadSnapshot} />;
-}
 
 export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, policySupported, showPolicyModel = false, skipRemediationReason }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; policySupported?: boolean; showPolicyModel?: boolean; skipRemediationReason?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -64,7 +42,7 @@ function displayFailureStage(stage?: string) {
   return stage;
 }
 
-export function DeviceFixGroup({ device, templates, policySettings = [], defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false, showSnapshot = true }: { device: TicketDevice; templates: RemediationTemplate[]; policySettings?: PolicySetting[]; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean; showSnapshot?: boolean }) {
+export function DeviceFixGroup({ device, templates, policySettings = [], defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false }: { device: TicketDevice; templates: RemediationTemplate[]; policySettings?: PolicySetting[]; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <div className="nested-card collapsible-device-card">
@@ -79,10 +57,6 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
       </button>
       {expanded && (
         <div className="device-fix-stack">
-          {showSnapshot && <div className="device-snapshot-row">
-            <span>Device Config Snapshot</span>
-            <ConfigSnapshotDownload path={device.configSnapshotPath} filename={device.configSnapshotFilename} />
-          </div>}
           {device.findings.map((finding, index) => {
             const template = resolveTemplateForDevice(device, finding, templates, policySettings);
             const policySetting = template?.policySettingId ? policySettings.find((setting) => setting.id === template.policySettingId) : findPolicySettingForFinding(finding, policySettings);

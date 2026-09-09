@@ -12,7 +12,7 @@ import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Tick
 import { ticketStatusOptions } from "./types";
 import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
-import { ConfigSnapshotDownload, FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
+import { FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
 export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ticket[]; onView: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
   const [search, setSearch] = useState("");
@@ -158,10 +158,6 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
             <MetaTile label="Last Scanned" value={formatDateTime(device.lastScanned)} />
             <MetaTile label="Site" value={device.site} />
           </div>
-        </div>
-        <div className="device-snapshot-row">
-          <span>Device Config Snapshot</span>
-          <ConfigSnapshotDownload path={device.configSnapshotPath} filename={device.configSnapshotFilename} />
         </div>
       </Card>
       {device.findings.length === 0 ? (

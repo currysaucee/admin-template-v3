@@ -5,7 +5,7 @@ import { Card } from "primereact/card";
 
 import type { PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { findPolicySettingForFinding, formatDateTime, getDeploymentRunForTemplate, getStatusSeverity, getTicketReconciliationSummary, isFindingNoLongerDetected, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
-import { ConfigSnapshotDownload, FindingDetailCard } from "./remediationViews";
+import { FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
 export function TicketDetailPage({ ticket, templates, policySettings, onBack, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
@@ -28,7 +28,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
         <div className="device-detail-top">
           <div>
             <h2 className="detail-title">{ticket.id}</h2>
-            <p className="detail-subtitle">{ticket.crNumber} • Requested by {ticket.requestor}</p>
+            {ticket.crNumber && <p className="detail-subtitle">{ticket.crNumber}</p>}
           </div>
           <Tag className={ticket.status === "Partially Complete" ? "partial-complete-status" : undefined} value={ticket.status} severity={getStatusSeverity(ticket.status) as any} rounded />
         </div>
@@ -54,10 +54,6 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
                 {device.deploymentRun && <Tag value={device.deploymentRun.status} severity={device.deploymentRun.status === "Successful" ? "success" : device.deploymentRun.status === "Failed" ? "danger" : "secondary"} rounded />}
                 <Tag value={`${device.findings.length} finding${device.findings.length === 1 ? "" : "s"}`} severity="info" rounded />
               </div>
-            </div>
-            <div className="device-snapshot-row">
-              <span>Device Config Snapshot</span>
-              <ConfigSnapshotDownload path={device.configSnapshotPath} filename={device.configSnapshotFilename} />
             </div>
             {requiresReversion && <div className="device-reversion-warning"><i className="pi pi-exclamation-triangle" /><div><strong>Reversion required</strong><p>Notify the responsible engineer and execute the approved reversion plan for this device.</p></div></div>}
             {device.findings.map((finding) => {
