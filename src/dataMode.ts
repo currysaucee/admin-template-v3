@@ -19,16 +19,45 @@ export function normalizeConfigSnapshotPath(path: string) {
 }
 
 async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
-  });
-  if (!response.ok) throw new Error(`Real API returned ${response.status} for ${url}`);
-  return response.json() as Promise<T>;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Network request failed";
+    throw new Error(`Could not reach the backend at ${url}. ${reason}`);
+  }
+
+  const responseText = await response.text();
+  let payload: unknown = null;
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      if (!response.ok) throw new Error(`Backend returned HTTP ${response.status} with a non-JSON response.`);
+      throw new Error(`Backend returned HTTP ${response.status}, but its response was not valid JSON.`);
+    }
+  }
+
+  if (!response.ok) {
+    const apiError = (payload as { error?: { message?: string; code?: string; errorId?: string; details?: { reason?: string; fields?: Record<string, string> } }; detail?: string } | null);
+    const message = apiError?.error?.message || apiError?.detail || `Backend returned HTTP ${response.status}.`;
+    const reference = apiError?.error?.errorId ? ` Reference: ${apiError.error.errorId}.` : "";
+    const code = apiError?.error?.code ? ` (${apiError.error.code})` : "";
+    const fieldDetails = apiError?.error?.details?.fields
+      ? ` ${Object.values(apiError.error.details.fields).join(" ")}`
+      : "";
+    const reason = apiError?.error?.details?.reason ? ` Reason: ${apiError.error.details.reason}.` : "";
+    throw new Error(`${message}${fieldDetails}${reason}${code}${reference}`);
+  }
+  if (payload === null) throw new Error(`Backend returned HTTP ${response.status} with an empty response.`);
+  return payload as T;
 }
 
 async function requestFormJson<T>(url: string, body: FormData): Promise<T> {
@@ -132,11 +161,12 @@ export async function saveRealTickets(tickets: Ticket[]): Promise<Ticket[]> {
 }
 
 export async function saveRealTicket(ticket: Ticket): Promise<Ticket> {
-  const payload = await requestJson<{ ticket?: Ticket }>(endpoint("tickets/"), {
+  const payload = await requestJson<{ success?: boolean; ticket?: Ticket }>(endpoint("tickets/"), {
     method: "POST",
     body: JSON.stringify(ticket),
   });
-  return payload.ticket ?? ticket;
+  if (!payload.ticket?.id) throw new Error("Backend did not return the created ticket or its generated ID.");
+  return payload.ticket;
 }
 
 export async function updateRealTicketStatus(ticketId: string, status: TicketStatus): Promise<Ticket> {

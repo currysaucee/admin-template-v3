@@ -5,6 +5,7 @@ import { Checkbox } from "primereact/checkbox";
 import { Calendar } from "primereact/calendar";
 import { Card } from "primereact/card";
 import { Dialog } from "primereact/dialog";
+import { Message } from "primereact/message";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { findFindingKey, getFindingDisplayTitle, getFixAvailability, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
@@ -32,7 +33,9 @@ export function CreateTicketPage(props: {
   backoutPlan: string;
   setBackoutPlan: (value: string) => void;
   onCancel: () => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
+  isSubmitting?: boolean;
+  submitError?: string;
 }) {
   const [showDateDialog, setShowDateDialog] = React.useState(false);
   const today = React.useMemo(() => {
@@ -54,6 +57,7 @@ export function CreateTicketPage(props: {
   return (
     <section className="page-content">
       <PageHeader title="Create HCC Request" subtitle="Select approved findings and review the exact implementation commands before submitting." />
+      {props.submitError && <Message severity="error" text={props.submitError} className="ticket-submit-message" />}
       <Card className="wizard-card">
         <div className="ticket-stepper" aria-label="Create ticket steps">
           {steps.map((item, index) => (
@@ -72,7 +76,7 @@ export function CreateTicketPage(props: {
           {currentStep < 1 ? (
             <Button label="Next: Review" icon="pi pi-arrow-right" iconPos="right" disabled={!canGoNext} onClick={() => props.setStep(props.step + 1)} />
           ) : (
-            <Button label="Submit Request" icon="pi pi-check" disabled={!canGoNext} onClick={() => setShowDateDialog(true)} />
+            <Button label="Submit Request" icon="pi pi-check" disabled={!canGoNext || props.isSubmitting} loading={props.isSubmitting} onClick={() => setShowDateDialog(true)} />
           )}
         </div>
       </Card>
@@ -84,7 +88,7 @@ export function CreateTicketPage(props: {
           </div>
           <div className="wizard-footer compact-footer">
             <Button label="Cancel" outlined onClick={() => setShowDateDialog(false)} />
-            <Button label="Submit Request" icon="pi pi-check" disabled={!props.plannedStart} onClick={() => { setShowDateDialog(false); props.onSubmit(); }} />
+            <Button label="Submit Request" icon="pi pi-check" disabled={!props.plannedStart || props.isSubmitting} loading={props.isSubmitting} onClick={() => { setShowDateDialog(false); void props.onSubmit(); }} />
           </div>
         </div>
       </Dialog>

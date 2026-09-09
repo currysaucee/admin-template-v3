@@ -236,11 +236,11 @@ export function saveRuntimeTickets(tickets: Ticket[]) {
   void saveRealTickets(tickets);
 }
 
-export function addRuntimeTicket(ticket: Ticket) {
-  const nextTickets = [ticket, ...getRuntimeTickets().filter((item) => item.id !== ticket.id)];
-  void saveRealTicket(ticket);
-  setRouteValue(latestRuntimeTicketIdKey, ticket.id);
-  return nextTickets;
+export async function addRuntimeTicket(ticket: Ticket) {
+  const createdTicket = await saveRealTicket(ticket);
+  const nextTickets = [createdTicket, ...getRuntimeTickets().filter((item) => item.id !== createdTicket.id)];
+  setRouteValue(latestRuntimeTicketIdKey, createdTicket.id);
+  return { createdTicket, tickets: nextTickets };
 }
 
 export function getLatestRuntimeTicketId() {
@@ -351,10 +351,10 @@ export function getPreselectedFindingKeys(device: Device, templates: Remediation
   return getExecutableFindings(device, templates, policySettings).map((finding) => findFindingKey(device.id, finding.id));
 }
 
-export function createPendingTicket(currentRole: UserRole, tickets: Ticket[], selectedTicketDevices: TicketDevice[], state: CreateTicketState): Ticket {
+export function createPendingTicket(currentRole: UserRole, selectedTicketDevices: TicketDevice[], state: CreateTicketState): Ticket {
   return {
-    id: `TKT-${2846 + tickets.length}`,
-    crNumber: `CR-2025-${String(126 + tickets.length).padStart(6, "0")}`,
+    id: "",
+    crNumber: "",
     requestor: "Current User",
     requestorRole: currentRole,
     devices: selectedTicketDevices,

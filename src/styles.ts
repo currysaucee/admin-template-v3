@@ -381,6 +381,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .document-process-dialog { display: grid; gap: 16px; }
 .document-upload-target { min-height: 260px; }
 .document-process-error { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #991b1b; font-weight: 700; line-height: 1.45; }
+.ticket-submit-message { width: 100%; margin-bottom: 14px; justify-content: flex-start; }
 .document-process-error i { margin-top: 2px; }
 .developer-policy-table { margin-bottom: 18px; }
 .developer-policy-detail .p-card-body, .developer-intake-card .p-card-body { padding: 22px; }

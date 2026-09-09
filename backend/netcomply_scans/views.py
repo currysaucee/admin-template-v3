@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -34,6 +35,22 @@ def read_json_body(request):
     if not request.body:
         return None
     return json.loads(request.body.decode("utf-8"))
+
+
+def api_error(message, *, code, status, details=None):
+    error_id = str(uuid.uuid4())
+    return JsonResponse(
+        {
+            "success": False,
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details or {},
+                "errorId": error_id,
+            },
+        },
+        status=status,
+    )
 
 
 def latest_scan_devices(request):
@@ -148,8 +165,31 @@ def tickets(request):
     if request.method == "GET":
         return JsonResponse({"tickets": list_tickets_for_frontend()})
     if request.method == "POST":
-        payload = read_json_body(request) or {}
-        return JsonResponse({"ticket": upsert_ticket(payload)})
+        try:
+            payload = read_json_body(request) or {}
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            return api_error("The request body is not valid JSON.", code="INVALID_JSON", status=400, details={"reason": str(exc)})
+        if not isinstance(payload, dict):
+            return api_error("The ticket payload must be a JSON object.", code="INVALID_PAYLOAD", status=400)
+        field_errors = {}
+        if not isinstance(payload.get("devices"), list) or not payload.get("devices"):
+            field_errors["devices"] = "Select at least one device finding."
+        if not str(payload.get("plannedStart") or "").strip():
+            field_errors["plannedStart"] = "Choose an implementation date."
+        if field_errors:
+            return api_error(
+                "The ticket could not be created because some fields are invalid.",
+                code="TICKET_VALIDATION_FAILED",
+                status=400,
+                details={"fields": field_errors},
+            )
+        try:
+            ticket = upsert_ticket(payload)
+        except ValueError as exc:
+            return api_error(str(exc), code="INVALID_TICKET", status=400)
+        except Exception as exc:
+            return api_error("The backend could not create the ticket.", code="TICKET_CREATE_FAILED", status=500, details={"reason": str(exc)})
+        return JsonResponse({"success": True, "ticket": ticket}, status=201)
     if request.method == "PATCH":
         payload = read_json_body(request) or {}
         ticket_id = str(payload.get("ticketId") or payload.get("id") or "").strip()

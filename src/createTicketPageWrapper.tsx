@@ -17,6 +17,8 @@ export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {
   const { items: runtimeTickets } = usePortalTickets();
   const [step, setStep] = React.useState(0);
   const [tickets, setTickets] = React.useState<Ticket[]>(runtimeTickets);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState("");
   React.useEffect(() => setTickets(runtimeTickets), [runtimeTickets]);
   const [state, setState] = React.useState(() => {
     const initial = createInitialTicketState();
@@ -55,6 +57,8 @@ export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {
           selectedDevices={props.selectedDevices ?? selectedDevices}
           selectedTicketDevices={props.selectedTicketDevices ?? selectedTicketDevices}
           selectedCommandCount={props.selectedCommandCount ?? selectedCommandCount}
+          isSubmitting={props.isSubmitting ?? isSubmitting}
+          submitError={props.submitError ?? submitError}
           plannedStart={props.plannedStart ?? state.plannedStart}
           setPlannedStart={props.setPlannedStart ?? ((plannedStart) => setState((prev) => ({ ...prev, plannedStart })))}
           plannedEnd={props.plannedEnd ?? state.plannedEnd}
@@ -64,11 +68,21 @@ export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {
           backoutPlan={props.backoutPlan ?? state.backoutPlan}
           setBackoutPlan={props.setBackoutPlan ?? ((backoutPlan) => setState((prev) => ({ ...prev, backoutPlan })))}
           onCancel={props.onCancel ?? (() => navigateToPortalPath(portalRoutePaths.dashboard))}
-          onSubmit={props.onSubmit ?? (() => {
-            const nextTicket = createPendingTicket("Network Engineer", tickets, selectedTicketDevices, state);
-            setTickets(addRuntimeTicket(nextTicket));
-            setRouteValue("netcomply:selectedTicketId", nextTicket.id);
-            navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: nextTicket.id });
+          onSubmit={props.onSubmit ?? (async () => {
+            if (isSubmitting) return;
+            setIsSubmitting(true);
+            setSubmitError("");
+            try {
+              const draftTicket = createPendingTicket("Network Engineer", selectedTicketDevices, state);
+              const result = await addRuntimeTicket(draftTicket);
+              setTickets(result.tickets);
+              setRouteValue("netcomply:selectedTicketId", result.createdTicket.id);
+              navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: result.createdTicket.id });
+            } catch (error) {
+              setSubmitError(error instanceof Error ? error.message : "The ticket could not be created. Please try again.");
+            } finally {
+              setIsSubmitting(false);
+            }
           })}
         />
       </div>
