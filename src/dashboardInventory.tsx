@@ -123,14 +123,14 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
       </div>
       <Card className="table-card">
         <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter(canBulkSelectDevice))} isDataSelectable={(event) => canBulkSelectDevice(event.data as Device)} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
-          <Column selectionMode="multiple" headerStyle={{ width: '4rem' }} bodyStyle={{ opacity: 1 }} />
-          {visibleColumns.includes("device") && <Column header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />}
-          {visibleColumns.includes("hardwareType") && <Column field="hardwareType" header="Hardware Type" sortable />}
-          {visibleColumns.includes("managementIp") && <Column field="managementIp" header="Management IP" sortable />}
-          {visibleColumns.includes("lastScanned") && <Column header="Last Scanned" sortable body={(row: Device) => formatDateTime(row.lastScanned)} />}
-          {visibleColumns.includes("complianceStatus") && <Column header="Compliance Status" body={(row: Device) => <StatusPill value={row.complianceStatus} severity={getStatusSeverity(row.complianceStatus)} />} />}
-          {visibleColumns.includes("findings") && <Column header="Findings / Fixes" body={(row: Device) => <FindingFixCount device={row} templates={templates} policySettings={policySettings} />} />}
-          <Column header="Actions" body={(row: Device) => (
+          <Column key="selection" selectionMode="multiple" headerStyle={{ width: '4rem' }} bodyStyle={{ opacity: 1 }} />
+          {visibleColumns.includes("device") && <Column key="device" header="Device" sortable body={(row: Device) => <DeviceCell device={row} />} />}
+          {visibleColumns.includes("hardwareType") && <Column key="hardwareType" field="hardwareType" header="Hardware Type" sortable />}
+          {visibleColumns.includes("managementIp") && <Column key="managementIp" field="managementIp" header="Management IP" sortable />}
+          {visibleColumns.includes("lastScanned") && <Column key="lastScanned" header="Last Scanned" sortable body={(row: Device) => formatDateTime(row.lastScanned)} />}
+          {visibleColumns.includes("complianceStatus") && <Column key="complianceStatus" header="Compliance Status" body={(row: Device) => <StatusPill value={row.complianceStatus} severity={getStatusSeverity(row.complianceStatus)} />} />}
+          {visibleColumns.includes("findings") && <Column key="findings" header="Findings / Fixes" body={(row: Device) => <FindingFixCount device={row} templates={templates} policySettings={policySettings} />} />}
+          <Column key="actions" header="Actions" headerClassName="inventory-actions-column" bodyClassName="inventory-actions-column" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />
               <Button label="Create Request" icon="pi pi-plus-circle" size="small" disabled={bulkInventorySelection.length > 0 || row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />

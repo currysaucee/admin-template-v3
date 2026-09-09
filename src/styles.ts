@@ -97,16 +97,19 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .select-all-findings { display: inline-flex; align-items: center; gap: 9px; flex: 0 0 auto; padding: 9px 11px; border: 1px solid #dbe3ef; border-radius: 10px; background: #f8fafc; color: #334155; font-weight: 850; cursor: pointer; }
 .select-all-findings.disabled { color: #94a3b8; cursor: not-allowed; }
 .finding-list-table { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
-.finding-list-header, .finding-list-row { display: grid; grid-template-columns: 40px minmax(210px, 0.85fr) minmax(250px, 1fr) minmax(300px, 1.15fr); gap: 14px; align-items: start; }
+.finding-list-header, .finding-list-row { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; align-items: start; }
 .finding-list-header { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 850; text-transform: uppercase; padding: 11px 14px; border-bottom: 1px solid #e5e7eb; }
 .finding-list-row { padding: 14px; border-bottom: 1px solid #eef2f7; }
 .finding-list-row:last-child { border-bottom: 0; }
 .finding-problem-description { margin: 8px 0 0; color: #64748b; font-size: 13px; line-height: 1.45; }
-.finding-current-config-cell { min-width: 0; display: grid; gap: 9px; }
-.current-config-block, .expected-setting-block { min-width: 0; padding: 10px 12px; border-radius: 9px; background: #0f172a; color: #e2e8f0; }
-.current-config-block code, .expected-setting-block code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; }
-.expected-setting-block { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-.expected-setting-block span { display: block; margin-bottom: 5px; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.finding-request-content { min-width: 0; display: grid; gap: 14px; }
+.finding-setting-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.setting-evidence { min-width: 0; padding: 12px 14px; border: 1px solid #dbe3ef; border-radius: 11px; background: #f8fafc; }
+.setting-evidence strong { display: block; margin-bottom: 7px; color: #334155; font-size: 12px; }
+.setting-evidence pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #0f172a; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.setting-evidence.current { background: #f8fafc; }
+.setting-evidence.agreed { background: #f0fdf4; border-color: #bbf7d0; }
+.setting-evidence.agreed strong, .setting-evidence.agreed pre { color: #166534; }
 .implementation-heading { display: inline-flex; align-items: center; gap: 6px; }
 .implementation-heading i { cursor: help; color: #64748b; font-size: 13px; }
 .finding-list-row-disabled { background: #f8fafc; opacity: 0.82; }
@@ -145,6 +148,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-summary-item.blocked { background: #fffbeb; border-color: #fde68a; }
 .finding-summary-item.blocked strong { color: #b45309; }
 .column-visibility-dropdown { min-width: 180px; }
+.inventory-actions-column { position: sticky; right: 0; z-index: 2; background: #fff; box-shadow: -8px 0 12px -12px rgba(15, 23, 42, .45); }
+.p-datatable-thead .inventory-actions-column { z-index: 3; background: #f8fafc; }
 .finding-coverage-list { display: grid; gap: 6px; min-width: min(360px, 100%); }
 .finding-coverage-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; color: #334155; font-size: 12px; line-height: 1.35; }
 .finding-coverage-row .policy-code { border: 1px solid #e5e7eb; background: #ffffff; color: #334155; border-radius: 999px; padding: 3px 7px; font-weight: 900; }
@@ -516,7 +521,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .wizard-footer .p-button { flex: 1 1 180px; }
   .finding-list-header { display: none; }
   .finding-list-row { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
-  .finding-rule-cell, .finding-current-config-cell, .finding-standard-cell { grid-column: 2; }
+  .finding-setting-comparison { grid-template-columns: 1fr; }
+  .inventory-actions-column { position: static; box-shadow: none; }
   .mobile-field-label { display: block; }
   .command-line { grid-template-columns: 32px minmax(0, 1fr); }
   .command-line .p-tag { grid-column: 2; justify-self: start; }

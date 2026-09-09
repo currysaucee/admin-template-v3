@@ -44,7 +44,10 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
       </div>
       {expanded && <>
       {isSkippedByLatestScan && <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>Execution will skip this finding</strong><p>{skipRemediationReason}</p></div></div>}
-      {agreedSetting && <div className="agreed-setting-box compact-agreed-setting"><strong>Agreed Setting</strong><pre>{agreedSetting}</pre></div>}
+      <div className="finding-setting-comparison">
+        <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
+        <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{agreedSetting || "No agreed setting is configured."}</pre></div>
+      </div>
       <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
@@ -108,7 +111,10 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
         </div>
       </button>
       {expanded && <>
-        {agreedSetting && <div className="agreed-setting-box compact-agreed-setting"><strong>Agreed Setting</strong><pre>{agreedSetting}</pre></div>}
+        <div className="finding-setting-comparison">
+          <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
+          <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{agreedSetting || "No agreed setting is configured."}</pre></div>
+        </div>
         <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} />
       </>}
     </div>
