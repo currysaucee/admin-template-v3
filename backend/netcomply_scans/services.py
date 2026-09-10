@@ -609,7 +609,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
         snapshot = find_device_snapshot(device.hostname)
         config_snapshot_path, config_snapshot_filename = snapshot if snapshot else ("", "")
         findings = []
-        for finding in device.findings.all():
+        for finding in ([] if unreachable else device.findings.all()):
             policy_id = normalize_policy_id(finding.policy_id)
             policy_setting = policy_settings.get(policy_id, {})
             title = policy_setting.get("title") or finding.policy_title or finding.policy_id
