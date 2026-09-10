@@ -23,6 +23,7 @@ async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T
   try {
     response = await fetch(url, {
       ...options,
+      credentials: options.credentials ?? "include",
       headers: {
         Accept: "application/json",
         ...(options.body ? { "Content-Type": "application/json" } : {}),

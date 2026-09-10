@@ -1,6 +1,12 @@
+import base64
+import binascii
+import hashlib
+import hmac
 import json
+import time
 import uuid
 
+from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -38,13 +44,71 @@ def read_json_body(request):
     return json.loads(request.body.decode("utf-8"))
 
 
-def authenticated_user_display_name(request):
-    user = getattr(request, "user", None)
-    if not user or not bool(getattr(user, "is_authenticated", False)):
-        return ""
-    full_name = str(user.get_full_name() or "").strip() if callable(getattr(user, "get_full_name", None)) else ""
-    username = str(user.get_username() or "").strip() if callable(getattr(user, "get_username", None)) else ""
-    return full_name or username
+class JwtAuthenticationError(ValueError):
+    pass
+
+
+def decode_base64url_json(value):
+    try:
+        padded = value + "=" * (-len(value) % 4)
+        return json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError, binascii.Error) as exc:
+        raise JwtAuthenticationError("X-Auth contains a malformed JWT.") from exc
+
+
+def requester_from_x_auth(request):
+    token = str(request.COOKIES.get("X-Auth") or "").strip()
+    if not token:
+        raise JwtAuthenticationError("The X-Auth authentication cookie is missing.")
+
+    secret = str(getattr(settings, "HCC_AUTH_JWT_SECRET", "") or "")
+    if not secret:
+        raise RuntimeError("HCC_AUTH_JWT_SECRET is not configured.")
+
+    parts = token.split(".")
+    if len(parts) != 3:
+        raise JwtAuthenticationError("X-Auth contains a malformed JWT.")
+    encoded_header, encoded_payload, encoded_signature = parts
+    header = decode_base64url_json(encoded_header)
+    claims = decode_base64url_json(encoded_payload)
+    if not isinstance(header, dict) or header.get("alg") != "HS256":
+        raise JwtAuthenticationError("X-Auth must use the HS256 signing algorithm.")
+    if not isinstance(claims, dict):
+        raise JwtAuthenticationError("X-Auth JWT claims must be a JSON object.")
+
+    try:
+        signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise JwtAuthenticationError("X-Auth contains a malformed JWT.") from exc
+    expected_signature = base64.urlsafe_b64encode(
+        hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    ).rstrip(b"=").decode("ascii")
+    if not hmac.compare_digest(expected_signature, encoded_signature):
+        raise JwtAuthenticationError("X-Auth JWT signature verification failed.")
+
+    now = time.time()
+    clock_skew = int(getattr(settings, "HCC_AUTH_JWT_CLOCK_SKEW_SECONDS", 30))
+    try:
+        if "exp" in claims and now > float(claims["exp"]) + clock_skew:
+            raise JwtAuthenticationError("X-Auth JWT has expired.")
+        if "nbf" in claims and now + clock_skew < float(claims["nbf"]):
+            raise JwtAuthenticationError("X-Auth JWT is not active yet.")
+    except (TypeError, ValueError) as exc:
+        raise JwtAuthenticationError("X-Auth JWT has an invalid exp or nbf claim.") from exc
+
+    expected_issuer = str(getattr(settings, "HCC_AUTH_JWT_ISSUER", "") or "").strip()
+    if expected_issuer and claims.get("iss") != expected_issuer:
+        raise JwtAuthenticationError("X-Auth JWT issuer is invalid.")
+    expected_audience = str(getattr(settings, "HCC_AUTH_JWT_AUDIENCE", "") or "").strip()
+    token_audience = claims.get("aud", [])
+    audiences = token_audience if isinstance(token_audience, list) else [token_audience]
+    if expected_audience and expected_audience not in audiences:
+        raise JwtAuthenticationError("X-Auth JWT audience is invalid.")
+
+    requester = str(claims.get("sub") or "").strip()
+    if not requester:
+        raise JwtAuthenticationError("X-Auth JWT does not contain a usable sub claim.")
+    return requester
 
 
 def api_error(message, *, code, status, details=None):
@@ -181,9 +245,13 @@ def tickets(request):
             return api_error("The request body is not valid JSON.", code="INVALID_JSON", status=400, details={"reason": str(exc)})
         if not isinstance(payload, dict):
             return api_error("The ticket payload must be a JSON object.", code="INVALID_PAYLOAD", status=400)
-        authenticated_name = authenticated_user_display_name(request)
-        if authenticated_name:
-            payload = {**payload, "requestor": authenticated_name}
+        try:
+            requester = requester_from_x_auth(request)
+        except JwtAuthenticationError as exc:
+            return api_error(str(exc), code="AUTHENTICATION_FAILED", status=401)
+        except RuntimeError as exc:
+            return api_error(str(exc), code="AUTHENTICATION_NOT_CONFIGURED", status=500)
+        payload = {**payload, "requestor": requester}
         field_errors = {}
         if not isinstance(payload.get("devices"), list) or not payload.get("devices"):
             field_errors["devices"] = "Select at least one device finding."

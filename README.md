@@ -58,6 +58,8 @@ def api_datetime(value: datetime | None = None) -> str:
 Add the scanner connection and Celery beat schedule to your Django settings:
 
 ```python
+import os
+
 from celery.schedules import crontab
 
 HCC_SCAN_DB_ALIAS = "hcc"
@@ -78,6 +80,14 @@ HCC_DEPLOYMENT_EXECUTOR_HEADERS = {}
 HCC_DEPLOYMENT_EXECUTOR_TIMEOUT = 60
 # Keep True while testing. Set False to call HCC_DEPLOYMENT_EXECUTOR_URL.
 HCC_DEPLOYMENT_EXECUTOR_SIMULATE = True
+
+# Secret used by the identity provider to sign the HS256 JWT in the X-Auth cookie.
+# Do not commit the real secret; load it from your deployment secret store.
+HCC_AUTH_JWT_SECRET = os.environ["HCC_AUTH_JWT_SECRET"]
+# Optional but recommended when these values are defined by the token issuer.
+HCC_AUTH_JWT_ISSUER = ""
+HCC_AUTH_JWT_AUDIENCE = ""
+HCC_AUTH_JWT_CLOCK_SKEW_SECONDS = 30
 
 CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
 CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/1"
