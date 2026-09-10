@@ -12,7 +12,7 @@ import { Tag } from "primereact/tag";
 
 import { formatDate, formatDateTime } from "./helpers";
 import { PageHeader } from "./sharedUi";
-import type { PolicyLookupResult, PolicySetting } from "./types";
+import type { DeploymentQueueItem, PolicyLookupResult, PolicySetting } from "./types";
 
 type DraftPolicyRow = {
   rowId: string;
@@ -100,6 +100,7 @@ function PolicyChip({ setting }: { setting: PolicySetting }) {
 
 export function DeveloperConsolePage({
   policySettings,
+  deploymentQueue = [],
   setPolicySettings,
   onOnboardPolicySettings,
   onLookupPolicySetting,
@@ -111,6 +112,7 @@ export function DeveloperConsolePage({
   lastScanAt = "",
 }: {
   policySettings: PolicySetting[];
+  deploymentQueue?: DeploymentQueueItem[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
   onOnboardPolicySettings?: (policySettings: PolicySetting[]) => Promise<PolicySetting[]>;
   onLookupPolicySetting?: (settingNumber: string) => Promise<PolicyLookupResult>;
@@ -142,6 +144,7 @@ export function DeveloperConsolePage({
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
   });
+  const capturedExecutorResponses = deploymentQueue.filter((item) => item.result && typeof item.result === "object" && Object.keys(item.result as object).length > 0);
   const rowHasDuplicateConfig = (row: DraftPolicyRow) => Boolean(policyLookups[row.rowId]?.variants.some((variant) => variant.settingPayload.trim() === row.expectedConfig.trim()));
   const cannotSubmit = validRows.length === 0 || validRows.some((row) => {
     const lookup = policyLookups[row.rowId];
@@ -362,6 +365,25 @@ export function DeveloperConsolePage({
                 </div>
               </div>
             </Dialog>
+          </div>
+        </AccordionTab>
+
+        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-code" /> Executor Response Inspector</span>}>
+          <div className="developer-section-body">
+            <div className="developer-operation-row">
+              <div><h2>Captured executor responses</h2><p className="section-subtitle">Exact responses stored by the queue worker and linked to their HCC request.</p></div>
+              <Tag value={`${capturedExecutorResponses.length} captured`} severity={capturedExecutorResponses.length ? "info" : "secondary"} rounded />
+            </div>
+            {capturedExecutorResponses.length === 0 ? <div className="empty-row">No executor response has been captured yet.</div> : (
+              <div className="executor-response-list">
+                {capturedExecutorResponses.map((item) => (
+                  <details key={item.queueId} className="executor-response-item">
+                    <summary><div><strong>{item.ticketId}</strong><span>{item.queueId} · {formatDateTime(item.completedAt || item.startedAt)}</span></div><Tag value={item.status} severity={item.status === "Complete" ? "success" : item.status === "Failed" ? "danger" : "secondary"} rounded /></summary>
+                    <pre>{JSON.stringify(item.result, null, 2)}</pre>
+                  </details>
+                ))}
+              </div>
+            )}
           </div>
         </AccordionTab>
       </Accordion>

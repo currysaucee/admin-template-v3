@@ -1029,10 +1029,13 @@ def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
     return hcc_request_payload(hcc_request)
 
 
-def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str) -> None:
+def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str, executor_result: dict[str, Any] | None = None) -> None:
+    next_payload = {**payload, "status": status}
+    if executor_result is not None:
+        next_payload["executorResponse"] = executor_result
     HCCRequestRecord.objects.using(scan_db_alias()).filter(request_id=request_id).update(
         status=status,
-        payload={**payload, "status": status},
+        payload=next_payload,
     )
 
 
@@ -1271,8 +1274,34 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     headers.update(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_HEADERS", {}))
     request = Request(executor_url, data=body, headers=headers, method="POST")
-    with urlopen(request, timeout=getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
-        response_body = response.read().decode("utf-8")
+    capture_only = bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_CAPTURE_ONLY", True))
+    try:
+        with urlopen(request, timeout=getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
+            http_status = response.status
+            response_headers = dict(response.headers.items())
+            response_body = response.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        if not capture_only:
+            raise
+        http_status = exc.code
+        response_headers = dict(exc.headers.items()) if exc.headers else {}
+        response_body = exc.read().decode("utf-8", errors="replace")
+
+    if capture_only:
+        try:
+            response_payload = json.loads(response_body) if response_body else None
+        except json.JSONDecodeError:
+            response_payload = None
+        return {
+            "capture_only": True,
+            "executor_url": executor_url,
+            "request_payload": payload,
+            "http_status": http_status,
+            "response_headers": response_headers,
+            "raw_response_body": response_body,
+            "response_payload": response_payload,
+        }
+
     if not response_body:
         raise RuntimeError("Deployment executor returned an empty response.")
     result = json.loads(response_body)
@@ -1347,24 +1376,28 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
     if not item:
         return {"claimed": False, "detail": "No queued deployment item is available."}
 
+    result: dict[str, Any] | None = None
     try:
         plan = item.execution_plan or build_deployment_execution_plan(item.ticket_payload)
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
         executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")
         result = call_deployment_executor(plan)
-        validate_executor_result(result)
+        item.result_payload = result
+        item.save(using=db_alias)
+        if not bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_CAPTURE_ONLY", True)):
+            validate_executor_result(result)
         item.status = "Skipped" if all_findings and executable_count == 0 else "Complete"
         item.result_payload = result
         item.completed_at = timezone.now()
         item.last_error = ""
         item.save(using=db_alias)
         final_status = "Complete" if item.status == "Complete" else "Skipped"
-        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status)
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status, executor_result=result)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
         item.status = "Failed"
         item.last_error = str(exc)
         item.completed_at = timezone.now()
         item.save(using=db_alias)
-        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed")
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed", executor_result=result)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}

@@ -82,6 +82,10 @@ HCC_DEPLOYMENT_EXECUTOR_HEADERS = {}
 HCC_DEPLOYMENT_EXECUTOR_TIMEOUT = 60
 # Keep True while testing. Set False to call HCC_DEPLOYMENT_EXECUTOR_URL.
 HCC_DEPLOYMENT_EXECUTOR_SIMULATE = True
+# Temporary discovery mode: store the complete executor response and mark executed
+# tickets complete without interpreting its success fields. Set False after the
+# response contract is confirmed to restore strict success validation.
+HCC_DEPLOYMENT_EXECUTOR_CAPTURE_ONLY = True
 
 CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
 CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/1"
