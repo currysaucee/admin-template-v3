@@ -378,13 +378,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .developer-section-title { display: inline-flex; align-items: center; gap: 10px; font-weight: 850; color: #0f172a; }
 .developer-section-title i { color: #2563eb; }
 .developer-section-body { display: grid; gap: 16px; padding: 18px; }
-.executor-response-list { display: grid; gap: 10px; }
-.executor-response-item { border: 1px solid #dbe3ef; border-radius: 10px; background: #f8fafc; overflow: hidden; }
-.executor-response-item summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 14px; cursor: pointer; list-style: none; }
-.executor-response-item summary::-webkit-details-marker { display: none; }
-.executor-response-item summary div { display: grid; gap: 3px; }
-.executor-response-item summary span { color: #64748b; font-size: 12px; }
-.executor-response-item pre { max-height: 520px; overflow: auto; margin: 0; padding: 16px; border-top: 1px solid #dbe3ef; background: #0f172a; color: #dbeafe; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .developer-operation-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .developer-operation-row h2 { margin: 0; font-size: 18px; letter-spacing: 0; color: #0f172a; }
 .developer-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }

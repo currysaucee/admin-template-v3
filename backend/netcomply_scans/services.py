@@ -13,6 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.core.cache.backends.filebased import FileBasedCache
 from django.db import transaction
 from django.db.models import Q
 from django.utils import dateparse, timezone
@@ -27,6 +28,12 @@ from .models import (
     PolicySettingRecord,
     RemediationTemplateRecord,
     TemplateRequestRecord,
+)
+
+
+EXECUTOR_RESPONSE_CACHE = FileBasedCache(
+    str(Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-executor-response-cache"),
+    {"TIMEOUT": None, "OPTIONS": {"MAX_ENTRIES": 10000}},
 )
 
 
@@ -1029,13 +1036,10 @@ def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
     return hcc_request_payload(hcc_request)
 
 
-def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str, executor_result: dict[str, Any] | None = None) -> None:
-    next_payload = {**payload, "status": status}
-    if executor_result is not None:
-        next_payload["executorResponse"] = executor_result
+def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str) -> None:
     HCCRequestRecord.objects.using(scan_db_alias()).filter(request_id=request_id).update(
         status=status,
-        payload=next_payload,
+        payload={**payload, "status": status},
     )
 
 
@@ -1274,40 +1278,28 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     headers.update(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_HEADERS", {}))
     request = Request(executor_url, data=body, headers=headers, method="POST")
-    capture_only = bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_CAPTURE_ONLY", True))
     try:
         with urlopen(request, timeout=getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
             http_status = response.status
             response_headers = dict(response.headers.items())
             response_body = response.read().decode("utf-8", errors="replace")
     except HTTPError as exc:
-        if not capture_only:
-            raise
         http_status = exc.code
         response_headers = dict(exc.headers.items()) if exc.headers else {}
         response_body = exc.read().decode("utf-8", errors="replace")
 
-    if capture_only:
-        try:
-            response_payload = json.loads(response_body) if response_body else None
-        except json.JSONDecodeError:
-            response_payload = None
-        return {
-            "capture_only": True,
-            "executor_url": executor_url,
-            "request_payload": payload,
-            "http_status": http_status,
-            "response_headers": response_headers,
-            "raw_response_body": response_body,
-            "response_payload": response_payload,
-        }
-
-    if not response_body:
-        raise RuntimeError("Deployment executor returned an empty response.")
-    result = json.loads(response_body)
-    if not isinstance(result, dict):
-        raise RuntimeError("Deployment executor response must be a JSON object.")
-    return result
+    try:
+        response_payload = json.loads(response_body) if response_body else None
+    except json.JSONDecodeError:
+        response_payload = None
+    return {
+        "executorUrl": executor_url,
+        "requestPayload": payload,
+        "httpStatus": http_status,
+        "responseHeaders": response_headers,
+        "rawResponseBody": response_body,
+        "responsePayload": response_payload,
+    }
 
 
 def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
@@ -1350,6 +1342,24 @@ def validate_executor_result(result: dict[str, Any]) -> None:
     raise RuntimeError(str(failure_detail or "Deployment executor returned success=false."))
 
 
+def executor_response_cache_key(ticket_id: str) -> str:
+    return f"hcc-executor-response:{ticket_id}"
+
+
+def cache_executor_response(ticket_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    cached_result = {
+        "ticketId": ticket_id,
+        "capturedAt": api_datetime(timezone.now()),
+        "response": result,
+    }
+    EXECUTOR_RESPONSE_CACHE.set(executor_response_cache_key(ticket_id), cached_result, timeout=None)
+    return cached_result
+
+
+def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
+    return EXECUTOR_RESPONSE_CACHE.get(executor_response_cache_key(ticket_id))
+
+
 def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | None:
     db_alias = scan_db_alias()
     with transaction.atomic(using=db_alias):
@@ -1376,28 +1386,26 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
     if not item:
         return {"claimed": False, "detail": "No queued deployment item is available."}
 
-    result: dict[str, Any] | None = None
     try:
         plan = item.execution_plan or build_deployment_execution_plan(item.ticket_payload)
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
         executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")
         result = call_deployment_executor(plan)
-        item.result_payload = result
-        item.save(using=db_alias)
-        if not bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_CAPTURE_ONLY", True)):
-            validate_executor_result(result)
+        cache_executor_response(item.ticket_id, result)
+        # Temporary discovery behaviour: preserve the response for inspection and
+        # do not interpret its fields until the executor contract is confirmed.
         item.status = "Skipped" if all_findings and executable_count == 0 else "Complete"
         item.result_payload = result
         item.completed_at = timezone.now()
         item.last_error = ""
         item.save(using=db_alias)
         final_status = "Complete" if item.status == "Complete" else "Skipped"
-        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status, executor_result=result)
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
         item.status = "Failed"
         item.last_error = str(exc)
         item.completed_at = timezone.now()
         item.save(using=db_alias)
-        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed", executor_result=result)
+        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed")
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}

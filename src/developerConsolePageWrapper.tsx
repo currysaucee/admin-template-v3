@@ -4,7 +4,7 @@ import DefaultLayout from "../layout/defaultLayout";
 import { runRealScanImport } from "./dataMode";
 import { DeveloperConsolePage } from "./developerConsolePage";
 import { formatDateTime } from "./helpers";
-import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDeploymentQueue, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
+import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
 import { styles } from "./styles";
 import type { PolicySetting } from "./types";
 
@@ -13,7 +13,6 @@ type DeveloperConsolePageProps = Partial<React.ComponentProps<typeof DeveloperCo
 export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageProps = {}) {
   const { items: loadedPolicySettings } = usePortalPolicySettings(props.policySettings);
   const { devices } = usePortalDevices();
-  const { items: deploymentQueue } = usePortalDeploymentQueue();
   const [policySettings, setPolicySettingsState] = React.useState<PolicySetting[]>(loadedPolicySettings);
   const [scanImportRunning, setScanImportRunning] = React.useState(false);
   const [scanImportMessage, setScanImportMessage] = React.useState("");
@@ -50,7 +49,6 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
       <div className="netcomply-page-wrapper netcomply-developer-wrapper">
         <DeveloperConsolePage
           policySettings={props.policySettings ?? policySettings}
-          deploymentQueue={props.deploymentQueue ?? deploymentQueue}
           setPolicySettings={props.setPolicySettings ?? setPolicySettings}
           onOnboardPolicySettings={props.onOnboardPolicySettings ?? onboardRuntimePolicySettings}
           onLookupPolicySetting={props.onLookupPolicySetting ?? lookupRuntimePolicySetting}

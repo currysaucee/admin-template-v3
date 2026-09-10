@@ -10,6 +10,7 @@ from .services import (
     delete_policy_settings,
     enqueue_ticket_for_deployment,
     extract_policy_settings_from_docx,
+    get_cached_executor_response,
     clear_hcc_tables,
     latest_devices_for_frontend,
     list_hcc_cleanup_tables,
@@ -272,6 +273,18 @@ def deployment_queue(request):
         except Exception as exc:
             return JsonResponse({"detail": f"Unable to queue deployment: {exc}"}, status=400)
     return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+
+def executor_response(request):
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    ticket_id = str(request.GET.get("ticketId") or "").strip()
+    if not ticket_id:
+        return JsonResponse({"detail": "ticketId is required"}, status=400)
+    cached_result = get_cached_executor_response(ticket_id)
+    if cached_result is None:
+        return JsonResponse({"detail": f"No cached executor response was found for {ticket_id}."}, status=404)
+    return JsonResponse(cached_result)
 
 
 @csrf_exempt

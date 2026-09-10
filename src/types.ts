@@ -127,7 +127,6 @@ export type Ticket = {
   backoutPlan: string;
   createdAt: string;
   deploymentRun?: DeploymentRunResult;
-  executorResponse?: unknown;
 };
 
 export type DeploymentQueueItem = {
