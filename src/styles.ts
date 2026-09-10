@@ -156,6 +156,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-coverage-row strong { white-space: nowrap; font-size: 11px; }
 .finding-coverage-row strong.ready { color: #15803d; }
 .finding-coverage-row strong.blocked { color: #b45309; }
+.unreachable-finding-note { color: #b45309; font-size: 12px; font-weight: 800; }
 .policy-id-tag, .p-tag.policy-id-tag { background: #ffffff !important; color: #334155 !important; border: 1px solid #dbe3ef !important; }
 .review-policy-id-tag, .p-tag.review-policy-id-tag { background: #eaf2ff !important; color: #0b63f6 !important; border: 1px solid #bfdbfe !important; }
 .policy-chip-line { display: inline-flex !important; align-items: center; gap: 8px; min-width: 0; vertical-align: middle; }

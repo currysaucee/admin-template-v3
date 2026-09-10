@@ -31,6 +31,7 @@ from .models import (
 
 
 FALSE_STRINGS = {"false", "non-compliant", "non compliant", "failed", "fail", "no", "0"}
+UNREACHABLE_POLICY_ID = "0000"
 TRUE_STRINGS = {"true", "compliant", "passed", "pass", "yes", "1"}
 
 
@@ -197,7 +198,8 @@ def normalize_policy_id(value: Any) -> str:
 
 
 def looks_like_policy_id(value: Any) -> bool:
-    return bool(re.match(r"^[A-Za-z]{1,8}[-_\s]?\d{1,4}$", str(value).strip()))
+    text = str(value).strip()
+    return text == UNREACHABLE_POLICY_ID or bool(re.match(r"^[A-Za-z]{1,8}[-_\s]?\d{1,4}$", text))
 
 
 def is_non_compliant(device: dict[str, Any]) -> bool:
@@ -264,11 +266,24 @@ def normalize_keyed_payload(raw_value: Any) -> list[dict[str, Any]]:
                 rows.extend(keyed_policy_rows)
                 continue
 
-            policy_id = normalize_policy_id(pick(item, "id", "policyId", "policyNumber", "settingNumber", "identifier"))
+            policy_id = normalize_policy_id(pick(item, "id", "policy", "policyId", "policyNumber", "settingNumber", "identifier"))
             payload = pick(item, "payload", "expectedValue", "agreedSetting", "settingPayload", "expected", "rule", "description", "actualConfig", "config", default="")
             if policy_id:
                 rows.append({"policy_id": policy_id, "payload": payload_text(payload), "raw": item})
     return rows
+
+
+def scan_finding_rows(device: dict[str, Any]) -> list[dict[str, Any]]:
+    return dedupe_policy_rows(normalize_keyed_payload(
+        pick(device, "findings", "policies", "violations", "exceptions", default=[]),
+    ))
+
+
+def is_device_unreachable(device: dict[str, Any]) -> bool:
+    return any(
+        normalize_policy_id(finding.get("policy_id")) == UNREACHABLE_POLICY_ID
+        for finding in scan_finding_rows(device)
+    )
 
 
 def dedupe_policy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -411,7 +426,11 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
         consumed_at=consumed_at,
         raw_payload_path=str(raw_payload_path),
         device_count=len(payload),
-        non_compliant_device_count=sum(1 for item in payload if isinstance(item, dict) and is_non_compliant(item)),
+        non_compliant_device_count=sum(
+            1
+            for item in payload
+            if isinstance(item, dict) and is_non_compliant(item) and not is_device_unreachable(item)
+        ),
     )
     policy_settings = {
         normalize_policy_id(value): policy_setting_payload(record)
@@ -421,7 +440,11 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
     }
 
     for raw_device in payload:
-        if not isinstance(raw_device, dict) or not is_non_compliant(raw_device):
+        if not isinstance(raw_device, dict):
+            continue
+
+        unreachable = is_device_unreachable(raw_device)
+        if not unreachable and not is_non_compliant(raw_device):
             continue
 
         hostname = str(pick(raw_device, "hostname", "hostName", "device", "deviceName", "name")).strip()
@@ -442,7 +465,10 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
             raw_payload=raw_device,
         )
 
-        for finding in dedupe_policy_rows(normalize_keyed_payload(pick(raw_device, "findings", "policies", "violations", "exceptions", default=[]))):
+        # Policy 0000 is a scanner connectivity signal, not a remediable policy.
+        # It overrides all other findings because the device could not be checked.
+        findings = [] if unreachable else scan_finding_rows(raw_device)
+        for finding in findings:
             policy_setting = policy_settings.get(normalize_policy_id(finding["policy_id"]), {})
             ComplianceScanFinding.objects.using(db_alias).create(
                 device=device,
@@ -455,7 +481,8 @@ def import_scan_payload(payload: list[dict[str, Any]], raw_payload_path: Path | 
                 raw_payload=finding["raw"],
             )
 
-        for config in dedupe_policy_rows(normalize_keyed_payload(pick(raw_device, "actualConfig", "actualConfigs", "configSnapshot", "runningConfig", "rawConfig", "configuration", default=[]))):
+        configs = [] if unreachable else dedupe_policy_rows(normalize_keyed_payload(pick(raw_device, "actualConfig", "actualConfigs", "configSnapshot", "runningConfig", "rawConfig", "configuration", default=[])))
+        for config in configs:
             ComplianceScanActualConfig.objects.using(db_alias).create(
                 device=device,
                 policy_id=config["policy_id"],
@@ -577,6 +604,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             continue
         seen_hostnames.add(hostname_key)
 
+        unreachable = is_device_unreachable(device.raw_payload or {})
         config_by_policy = {normalize_policy_id(config.policy_id): config.config_payload for config in device.actual_configs.all()}
         snapshot = find_device_snapshot(device.hostname)
         config_snapshot_path, config_snapshot_filename = snapshot if snapshot else ("", "")
@@ -607,7 +635,7 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
             "managementIp": device.management_ip,
             "site": device.site,
             "lastScanned": api_datetime(device.batch.consumed_at),
-            "complianceStatus": "Non-Compliant",
+            "complianceStatus": "Device Unreachable" if unreachable else "Non-Compliant",
             "configSnapshotPath": config_snapshot_path,
             "configSnapshotFilename": config_snapshot_filename,
             "findings": findings,

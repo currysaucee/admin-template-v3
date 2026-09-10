@@ -24,6 +24,8 @@ npm run build
 
 ## Daily scan import
 
+Policy `0000` in a device's `findings` marks that device as unreachable. The importer keeps the device for visibility, ignores every other finding and actual-config row for that device, and exposes it to the UI with compliance status `Device Unreachable` instead of `Non-Compliant`.
+
 The backend exposes one shared scan import flow:
 
 - Ad-hoc API trigger: `POST /api/HCCFix/scan/import/`

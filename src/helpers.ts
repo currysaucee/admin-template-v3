@@ -12,6 +12,7 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
       return "danger";
     case "Pending Approval":
     case "Scan Pending":
+    case "Device Unreachable":
       return "warning";
     case "Queued":
     case "In Progress":

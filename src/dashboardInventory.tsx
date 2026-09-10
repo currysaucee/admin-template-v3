@@ -82,7 +82,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
 
   return (
     <section className="page-content">
-      <PageHeader title="Exceptions" subtitle="Review non-compliant devices from the latest compliance scan and create HCC requests." />
+      <PageHeader title="Exceptions" subtitle="Review non-compliant and unreachable devices from the latest compliance scan." />
       <div className="filter-card">
         <span className="p-input-icon-left grow-input">
           <i className="pi pi-search" />
@@ -106,6 +106,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
           <Column key="hardwareType" field="hardwareType" header="Hardware Type" sortable />
           <Column key="managementIp" field="managementIp" header="Management IP" sortable />
           <Column key="lastScanned" header="Last Scanned" sortable body={(row: Device) => formatDateTime(row.lastScanned)} />
+          <Column key="complianceStatus" field="complianceStatus" header="Compliance Status" sortable body={(row: Device) => <StatusPill value={row.complianceStatus} severity={getStatusSeverity(row.complianceStatus)} />} />
           <Column key="findings" header="Findings / Fixes" body={(row: Device) => <FindingFixCount device={row} templates={templates} policySettings={policySettings} />} />
           <Column key="actions" header="Actions" headerClassName="inventory-actions-column" bodyClassName="inventory-actions-column" body={(row: Device) => (
             <div className="action-row">
@@ -161,7 +162,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
         </div>
       </Card>
       {device.findings.length === 0 ? (
-        <Card className="device-detail-card"><div className="empty-row">No non-compliant findings were detected in today's compliance scan.</div></Card>
+        <Card className="device-detail-card"><div className="empty-row">{device.complianceStatus === "Device Unreachable" ? "The scanner could not reach this device, so its compliance could not be checked." : "No non-compliant findings were detected in today's compliance scan."}</div></Card>
       ) : (
         <div className="device-finding-category-panel">
           <div className="finding-category-tabs" role="tablist" aria-label="Device finding categories">
@@ -214,6 +215,10 @@ function getFindingCategoryGroups(device: Device, templates: RemediationTemplate
 }
 
 function FindingFixCount({ device, templates, policySettings }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[] }) {
+  if (device.complianceStatus === "Device Unreachable") {
+    return <span className="unreachable-finding-note">Not checked</span>;
+  }
+
   const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
   const availableFixCount = findingGroups.fixable.length;
   const unsupportedCount = findingGroups.unsupported.length;

@@ -1,6 +1,6 @@
 export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" | "createTicket" | "deploymentQueue" | "templates" | "templateRequests" | "developerConsole";
 export type UserRole = "Network Engineer" | "Approver" | "Change Manager";
-export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Scan Pending";
+export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Device Unreachable" | "Scan Pending";
 export type TicketStatus = "Pending Approval" | "Approved" | "Queued" | "In Progress" | "Complete" | "Partially Complete" | "Skipped" | "Failed" | "Rejected" | "Cancelled";
 export type TemplateApprovalStatus = "Pending Approval" | "Approved" | "Rejected";
 
