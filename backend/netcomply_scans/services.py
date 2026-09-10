@@ -622,6 +622,7 @@ def latest_devices_for_frontend(reachability: str = "") -> list[dict[str, Any]]:
             findings.append({
                 "id": policy_id,
                 "templateKey": policy_id,
+                "policyVariantId": policy_setting.get("id") or policy_id,
                 "title": title,
                 "standard": policy_setting.get("standard") or finding.policy_type or "Imported compliance scan",
                 "description": description,
@@ -664,7 +665,8 @@ def policy_setting_payload(record: PolicySettingRecord) -> dict[str, Any]:
 
 
 def policy_setting_fields(payload: dict[str, Any]) -> dict[str, Any]:
-    setting_number = str(payload.get("settingNumber") or payload.get("id") or "").strip()
+    setting_number = str(payload.get("id") or payload.get("settingNumber") or "").strip()
+    base_setting_number = str(payload.get("settingNumber") or setting_number).strip()
     return {
         "setting_number": setting_number,
         "title": str(payload.get("title") or setting_number),
@@ -672,12 +674,37 @@ def policy_setting_fields(payload: dict[str, Any]) -> dict[str, Any]:
         "standard": str(payload.get("standard") or ""),
         "description": str(payload.get("description") or ""),
         "updated_by": str(payload.get("updatedBy") or ""),
-        "payload": {**payload, "id": str(payload.get("id") or setting_number), "settingNumber": setting_number},
+        "payload": {**payload, "id": setting_number, "settingNumber": base_setting_number},
     }
 
 
 def list_policy_settings_for_frontend() -> list[dict[str, Any]]:
     return [policy_setting_payload(record) for record in PolicySettingRecord.objects.using(scan_db_alias()).order_by("setting_number", "id")]
+
+
+def lookup_policy_setting(setting_number: str) -> dict[str, Any]:
+    base_id = normalize_policy_id(setting_number)
+    records = [
+        record
+        for record in PolicySettingRecord.objects.using(scan_db_alias()).order_by("id")
+        if normalize_policy_id((record.payload or {}).get("settingNumber") or record.setting_number) == base_id
+    ]
+    variants = [policy_setting_payload(record) for record in records]
+    next_variant = max((int(variant.get("variantNumber") or 1) for variant in variants), default=0) + 1
+    variant_ids = {variant.get("id") for variant in variants} | {base_id}
+    related_templates = [
+        template_payload(record)
+        for record in RemediationTemplateRecord.objects.using(scan_db_alias()).order_by("id")
+        if record.policy_setting_id in variant_ids or normalize_policy_id(record.policy_setting_id) == base_id
+    ]
+    return {
+        "settingNumber": base_id,
+        "exists": bool(variants),
+        "currentPolicy": variants[-1] if variants else None,
+        "variants": variants,
+        "templates": related_templates,
+        "nextVariant": next_variant,
+    }
 
 
 def replace_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -689,18 +716,29 @@ def replace_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, An
 
 def upsert_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
-    for payload in payloads:
-        setting_id = str(payload.get("id") or payload.get("settingNumber") or "").strip()
-        if not setting_id:
-            continue
-        fields = policy_setting_fields({**payload, "id": setting_id, "settingNumber": str(payload.get("settingNumber") or setting_id)})
-        record = PolicySettingRecord.objects.using(db_alias).filter(Q(setting_number=fields["setting_number"]) | Q(payload__id=setting_id) | Q(payload__settingNumber=setting_id)).first()
-        if record:
-            for key, value in fields.items():
-                setattr(record, key, value)
-            record.save(using=db_alias)
-        else:
-            PolicySettingRecord.objects.using(db_alias).create(**fields)
+    with transaction.atomic(using=db_alias):
+        for payload in payloads:
+            base_id = normalize_policy_id(payload.get("settingNumber") or payload.get("id"))
+            if not base_id:
+                continue
+            lookup = lookup_policy_setting(base_id)
+            variants = lookup["variants"]
+            expected_config = str(payload.get("settingPayload") or "").strip()
+            if any(str(variant.get("settingPayload") or "").strip() == expected_config for variant in variants):
+                raise ValueError(f"{base_id} already has a variant with the same expected configuration.")
+            if variants and payload.get("confirmNewVariant") is not True:
+                raise ValueError(f"Confirm that onboarding {base_id} creates a new policy variant.")
+
+            variant_number = int(lookup["nextVariant"])
+            variant_id = base_id if variant_number == 1 else f"{base_id}-V{variant_number}"
+            variant_payload = {
+                **payload,
+                "id": variant_id,
+                "settingNumber": base_id,
+                "variantNumber": variant_number,
+                "supersedesPolicyId": variants[-1].get("id") if variants else "",
+            }
+            PolicySettingRecord.objects.using(db_alias).create(**policy_setting_fields(variant_payload))
     return list_policy_settings_for_frontend()
 
 
@@ -1111,6 +1149,9 @@ def template_matches_queue_finding(template: dict[str, Any], ticket_device: dict
     hardware_type = str(ticket_device.get("hardwareType") or "")
     if hardware_type not in template.get("hardwareTypes", []):
         return False
+    policy_variant_id = str(finding.get("policyVariantId") or "").strip()
+    if policy_variant_id:
+        return str(template.get("policySettingId") or "").strip() == policy_variant_id
     finding_refs = {
         normalize_policy_id(finding.get("id")),
         normalize_policy_id(finding.get("templateKey")),

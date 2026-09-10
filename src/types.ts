@@ -8,6 +8,7 @@ export type TemplateApprovalStatus = "Pending Approval" | "Approved" | "Rejected
 export type Finding = {
   id: string;
   templateKey: string;
+  policyVariantId?: string;
   title: string;
   standard: string;
   description?: string;
@@ -56,6 +57,18 @@ export type PolicySetting = {
   createdAt: string;
   updatedAt?: string;
   updatedBy?: string;
+  variantNumber?: number;
+  supersedesPolicyId?: string;
+  confirmNewVariant?: boolean;
+};
+
+export type PolicyLookupResult = {
+  settingNumber: string;
+  exists: boolean;
+  currentPolicy?: PolicySetting | null;
+  variants: PolicySetting[];
+  templates: RemediationTemplate[];
+  nextVariant: number;
 };
 
 export type TemplateRequest = {

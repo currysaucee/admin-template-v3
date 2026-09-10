@@ -89,8 +89,12 @@ function findingReferences(finding: Finding) {
 }
 
 export function findPolicySettingForFinding(finding: Finding, policySettings: PolicySetting[] = []) {
+  if (finding.policyVariantId) {
+    const exactVariant = policySettings.find((setting) => setting.id === finding.policyVariantId);
+    if (exactVariant) return exactVariant;
+  }
   const findingRefs = new Set(findingReferences(finding));
-  return policySettings.find((setting) => {
+  return [...policySettings].sort((a, b) => (b.variantNumber ?? 1) - (a.variantNumber ?? 1)).find((setting) => {
     const settingRefs = [setting.id, setting.settingNumber].map((value) => normalizePolicyReference(value)).filter(Boolean);
     return settingRefs.some((ref) => findingRefs.has(ref));
   });
@@ -175,6 +179,7 @@ export function getTemplateAgreedSetting(template: RemediationTemplate | undefin
 }
 
 export function templateMatchesFindingPolicy(template: RemediationTemplate, finding: Finding, policySettings: PolicySetting[] = []) {
+  if (finding.policyVariantId) return template.policySettingId === finding.policyVariantId;
   const setting = getTemplatePolicySetting(template, policySettings);
   const findingRefs = new Set([normalizePolicyReference(finding.id), normalizePolicyReference(finding.templateKey)].filter(Boolean));
   const templateRefs = [

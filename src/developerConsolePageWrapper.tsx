@@ -4,7 +4,7 @@ import DefaultLayout from "../layout/defaultLayout";
 import { runRealScanImport } from "./dataMode";
 import { DeveloperConsolePage } from "./developerConsolePage";
 import { formatDateTime } from "./helpers";
-import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, onboardRuntimePolicySettings, saveRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
+import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
 import { styles } from "./styles";
 import type { PolicySetting } from "./types";
 
@@ -21,9 +21,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
 
   const setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>> = (updater) => {
     setPolicySettingsState((prev) => {
-      const next = typeof updater === "function" ? (updater as (value: PolicySetting[]) => PolicySetting[])(prev) : updater;
-      saveRuntimePolicySettings(next);
-      return next;
+      return typeof updater === "function" ? (updater as (value: PolicySetting[]) => PolicySetting[])(prev) : updater;
     });
   };
 
@@ -53,6 +51,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
           policySettings={props.policySettings ?? policySettings}
           setPolicySettings={props.setPolicySettings ?? setPolicySettings}
           onOnboardPolicySettings={props.onOnboardPolicySettings ?? onboardRuntimePolicySettings}
+          onLookupPolicySetting={props.onLookupPolicySetting ?? lookupRuntimePolicySetting}
           onDeletePolicySetting={props.onDeletePolicySetting ?? ((id) => deleteRuntimePolicySettings([id]))}
           onExtractDocument={props.onExtractDocument ?? extractRuntimePolicySettingsFromDocument}
           onRunScanImport={props.onRunScanImport ?? runScanImport}

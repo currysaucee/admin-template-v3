@@ -405,6 +405,15 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .document-process-error i { margin-top: 2px; }
 .developer-policy-table { margin-bottom: 18px; }
 .developer-policy-detail .p-card-body, .developer-intake-card .p-card-body { padding: 22px; }
+.developer-intake-card { display: grid; gap: 18px; }
+.policy-lookup-state { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: #64748b; font-size: 13px; }
+.policy-variant-warning { display: grid; gap: 12px; margin-top: 14px; padding: 14px; border: 1px solid #facc15; border-radius: 12px; background: #fffbeb; color: #713f12; }
+.policy-variant-warning > div:first-child { display: grid; gap: 3px; }
+.policy-variant-warning span { font-size: 13px; line-height: 1.45; }
+.policy-existing-summary { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid #fde68a; }
+.policy-existing-summary pre { max-height: 150px; overflow: auto; margin: 0; padding: 10px; border-radius: 8px; background: #ffffff; color: #334155; white-space: pre-wrap; }
+.variant-confirmation { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; }
+.policy-duplicate-error { color: #b91c1c; font-size: 13px; font-weight: 750; }
 .developer-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .developer-table-header { padding: 14px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .developer-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }

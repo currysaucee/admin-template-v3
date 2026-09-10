@@ -1,4 +1,4 @@
-import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicyLookupResult, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
 const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || "/api/HCCFix";
 
@@ -87,6 +87,11 @@ export async function loadRealPolicySettings(): Promise<PolicySetting[]> {
   const payload = await requestJson<PolicySetting[] | { policySettings?: PolicySetting[] }>(endpoint("policy-settings/"));
   if (Array.isArray(payload)) return payload;
   return payload.policySettings ?? [];
+}
+
+export async function lookupRealPolicySetting(settingNumber: string): Promise<PolicyLookupResult> {
+  const payload = await requestJson<{ lookup: PolicyLookupResult }>(`${endpoint("policy-settings/")}?lookup=${encodeURIComponent(settingNumber)}`);
+  return payload.lookup;
 }
 
 export async function saveRealPolicySettings(policySettings: PolicySetting[]): Promise<PolicySetting[]> {

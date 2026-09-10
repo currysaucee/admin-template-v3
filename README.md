@@ -26,6 +26,8 @@ npm run build
 
 Policy `0000` in a device's `findings` marks that device as unreachable. The importer keeps the device for visibility, ignores every other finding and actual-config row for that device, and exposes it to the UI with compliance status `Device Unreachable` instead of `Non-Compliant`.
 
+Policy onboarding is append-only. Reusing a recognized policy number requires a different expected configuration and explicit variant acknowledgement; the backend stores a new `-V2`, `-V3`, and later record while preserving earlier policy and ticket payloads for audit history.
+
 The backend exposes one shared scan import flow:
 
 - Ad-hoc API trigger: `POST /api/HCCFix/scan/import/`

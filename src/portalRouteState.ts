@@ -8,6 +8,7 @@ import {
   loadRealDeploymentQueue,
   loadRealDevices,
   loadRealPolicySettings,
+  lookupRealPolicySetting,
   loadRealTemplateRequests,
   loadRealTemplates,
   loadRealTickets,
@@ -93,6 +94,10 @@ export function usePortalDevices(overrideDevices?: Device[], reachability?: Reac
 
 export async function runRuntimeScanImport() {
   return runRealScanImport();
+}
+
+export async function lookupRuntimePolicySetting(settingNumber: string) {
+  return lookupRealPolicySetting(settingNumber);
 }
 
 export function getInitialPolicySettings() {

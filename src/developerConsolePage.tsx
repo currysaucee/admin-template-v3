@@ -2,6 +2,7 @@ import React from "react";
 import { Accordion, AccordionTab } from "primereact/accordion";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
+import { Checkbox } from "primereact/checkbox";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { Dialog } from "primereact/dialog";
@@ -11,7 +12,7 @@ import { Tag } from "primereact/tag";
 
 import { formatDate, formatDateTime } from "./helpers";
 import { PageHeader } from "./sharedUi";
-import type { PolicySetting } from "./types";
+import type { PolicyLookupResult, PolicySetting } from "./types";
 
 type DraftPolicyRow = {
   rowId: string;
@@ -30,7 +31,9 @@ function createDraftRow(): DraftPolicyRow {
 }
 
 function normalizePolicyNumber(value: string) {
-  return value.trim().replace(/\s+/g, "").toUpperCase();
+  const text = value.trim().replace(/\s+/g, "").toUpperCase();
+  const match = text.match(/^([A-Z]{1,8})[-_]?0*(\d{1,4})$/);
+  return match ? `${match[1]}${Number(match[2]).toString().padStart(3, "0")}` : text;
 }
 
 function derivePolicyType(title = "", expectedConfig = "") {
@@ -89,7 +92,7 @@ function mergePolicySettings(current: PolicySetting[], nextPolicies: PolicySetti
 function PolicyChip({ setting }: { setting: PolicySetting }) {
   return (
     <span className="policy-chip-line">
-      <Tag className="policy-id-tag" value={setting.settingNumber || setting.id} rounded />
+      <Tag className="policy-id-tag" value={`${setting.settingNumber || setting.id}${(setting.variantNumber ?? 1) > 1 ? ` · V${setting.variantNumber}` : ""}`} rounded />
       <span>{setting.title}</span>
     </span>
   );
@@ -99,6 +102,7 @@ export function DeveloperConsolePage({
   policySettings,
   setPolicySettings,
   onOnboardPolicySettings,
+  onLookupPolicySetting,
   onDeletePolicySetting,
   onExtractDocument,
   onRunScanImport,
@@ -109,6 +113,7 @@ export function DeveloperConsolePage({
   policySettings: PolicySetting[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
   onOnboardPolicySettings?: (policySettings: PolicySetting[]) => Promise<PolicySetting[]>;
+  onLookupPolicySetting?: (settingNumber: string) => Promise<PolicyLookupResult>;
   onDeletePolicySetting?: (policySettingId: string) => Promise<PolicySetting[]>;
   onExtractDocument?: (document: File) => Promise<PolicySetting[]>;
   onRunScanImport?: () => void;
@@ -122,6 +127,10 @@ export function DeveloperConsolePage({
   const [editingPolicy, setEditingPolicy] = React.useState(false);
   const [showIntake, setShowIntake] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [policyLookups, setPolicyLookups] = React.useState<Record<string, PolicyLookupResult | undefined>>({});
+  const [lookupLoading, setLookupLoading] = React.useState<Record<string, boolean>>({});
+  const [variantAcknowledged, setVariantAcknowledged] = React.useState<Record<string, boolean>>({});
+  const [submitError, setSubmitError] = React.useState("");
   const [deletingId, setDeletingId] = React.useState("");
   const [documentDialogOpen, setDocumentDialogOpen] = React.useState(false);
   const [documentFile, setDocumentFile] = React.useState<File | null>(null);
@@ -133,6 +142,28 @@ export function DeveloperConsolePage({
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
   });
+  const rowHasDuplicateConfig = (row: DraftPolicyRow) => Boolean(policyLookups[row.rowId]?.variants.some((variant) => variant.settingPayload.trim() === row.expectedConfig.trim()));
+  const cannotSubmit = validRows.length === 0 || validRows.some((row) => {
+    const lookup = policyLookups[row.rowId];
+    const lookupPending = Boolean(onLookupPolicySetting && (!lookup || lookup.settingNumber !== normalizePolicyNumber(row.settingNumber)));
+    return lookupPending || lookupLoading[row.rowId] || rowHasDuplicateConfig(row) || Boolean(lookup?.exists && !variantAcknowledged[row.rowId]);
+  });
+
+  React.useEffect(() => {
+    if (!showIntake || !onLookupPolicySetting) return;
+    const timer = window.setTimeout(() => {
+      draftRows.forEach((row) => {
+        const settingNumber = normalizePolicyNumber(row.settingNumber);
+        if (!settingNumber) return;
+        setLookupLoading((current) => ({ ...current, [row.rowId]: true }));
+        onLookupPolicySetting(settingNumber)
+          .then((lookup) => setPolicyLookups((current) => ({ ...current, [row.rowId]: lookup })))
+          .catch(() => setPolicyLookups((current) => ({ ...current, [row.rowId]: undefined })))
+          .finally(() => setLookupLoading((current) => ({ ...current, [row.rowId]: false })));
+      });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [draftRows.map((row) => row.settingNumber).join("|"), onLookupPolicySetting, showIntake]);
 
   const updateDraftRow = (rowId: string, patch: Partial<DraftPolicyRow>) => {
     setDraftRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
@@ -143,8 +174,9 @@ export function DeveloperConsolePage({
   };
 
   const onboardPolicies = async () => {
-    const nextPolicies = validRows.map(toPolicySetting);
+    const nextPolicies = validRows.map((row) => ({ ...toPolicySetting(row), confirmNewVariant: Boolean(policyLookups[row.rowId]?.exists && variantAcknowledged[row.rowId]) }));
     setSubmitting(true);
+    setSubmitError("");
     try {
       if (onOnboardPolicySettings) {
         const savedPolicies = await onOnboardPolicySettings(nextPolicies);
@@ -154,6 +186,8 @@ export function DeveloperConsolePage({
       }
       setDraftRows([createDraftRow()]);
       setShowIntake(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to onboard the policy.");
     } finally {
       setSubmitting(false);
     }
@@ -211,6 +245,9 @@ export function DeveloperConsolePage({
   const openNewPolicy = () => {
     setDraftRows([createDraftRow()]);
     setEditingPolicy(false);
+    setPolicyLookups({});
+    setVariantAcknowledged({});
+    setSubmitError("");
     setShowIntake(true);
   };
 
@@ -266,12 +303,12 @@ export function DeveloperConsolePage({
               </DataTable>
             </Card>
 
-            {showIntake && (
-              <Card className="editor-card developer-intake-card">
+            <Dialog header={editingPolicy ? "Create Policy Variant" : "Onboard New Policy"} visible={showIntake} modal style={{ width: "min(900px, calc(100vw - 32px))" }} onHide={() => !submitting && setShowIntake(false)}>
+              <div className="developer-intake-card">
                 <div className="developer-card-heading">
                   <div>
-                    <h2>{editingPolicy ? "Edit Policy" : "Onboard New Policy"}</h2>
-                    <p>Add one or more policy settings. Existing policy numbers are overwritten so developers can correct mappings without editing code.</p>
+                    <h2>{editingPolicy ? "Create a new policy variant" : "Policy details"}</h2>
+                    <p>Existing policies are preserved. Reusing a policy number creates a separately auditable variant.</p>
                   </div>
                   <div className="developer-heading-actions">
                     <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
@@ -289,7 +326,7 @@ export function DeveloperConsolePage({
                       <div className="developer-policy-grid">
                         <label className="field-block">
                           <span>Policy Number</span>
-                          <InputText value={row.settingNumber} placeholder="AS003, HWS001" onChange={(event) => updateDraftRow(row.rowId, { settingNumber: event.target.value })} />
+                          <InputText value={row.settingNumber} placeholder="AS003, HWS001" onChange={(event) => { updateDraftRow(row.rowId, { settingNumber: event.target.value }); setPolicyLookups((current) => ({ ...current, [row.rowId]: undefined })); setVariantAcknowledged((current) => ({ ...current, [row.rowId]: false })); }} />
                         </label>
                         <label className="field-block">
                           <span>Policy Title</span>
@@ -300,16 +337,31 @@ export function DeveloperConsolePage({
                           <InputTextarea value={row.expectedConfig} rows={3} autoResize placeholder="Paste the expected configuration rule or policy payload." onChange={(event) => updateDraftRow(row.rowId, { expectedConfig: event.target.value })} />
                         </label>
                       </div>
+                      {lookupLoading[row.rowId] && <div className="policy-lookup-state"><i className="pi pi-spin pi-spinner" /> Checking existing policy and templates…</div>}
+                      {!lookupLoading[row.rowId] && policyLookups[row.rowId]?.exists && (
+                        <div className="policy-variant-warning">
+                          <div><strong>{policyLookups[row.rowId]?.settingNumber} already exists</strong><span>Submitting will create variant {policyLookups[row.rowId]?.nextVariant}; previous variants and their ticket history will remain unchanged.</span></div>
+                          <div className="policy-existing-summary">
+                            <span>Current expected configuration</span>
+                            <pre>{policyLookups[row.rowId]?.currentPolicy?.settingPayload}</pre>
+                            <span>Related fix templates</span>
+                            <strong>{policyLookups[row.rowId]?.templates.length ? policyLookups[row.rowId]?.templates.map((template) => template.findingName || template.key).join(", ") : "No related fix template"}</strong>
+                          </div>
+                          {rowHasDuplicateConfig(row) ? <div className="policy-duplicate-error">Expected configuration must differ from every existing variant.</div> : (
+                            <label className="variant-confirmation"><Checkbox checked={Boolean(variantAcknowledged[row.rowId])} onChange={(event) => setVariantAcknowledged((current) => ({ ...current, [row.rowId]: Boolean(event.checked) }))} /><span>I understand this creates a new policy variant and does not replace the existing policy.</span></label>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 <div className="developer-submit-row">
-                  <span>{validRows.length} ready to onboard</span>
-                  <Button label={editingPolicy ? "Save Policy" : "Submit Policy Settings"} icon="pi pi-check" disabled={validRows.length === 0} loading={submitting} onClick={onboardPolicies} />
+                  <span>{submitError || `${validRows.length} ready to onboard`}</span>
+                  <Button label={editingPolicy ? "Create Variant" : "Submit Policy Settings"} icon="pi pi-check" disabled={cannotSubmit} loading={submitting} onClick={onboardPolicies} />
                 </div>
-              </Card>
-            )}
+              </div>
+            </Dialog>
           </div>
         </AccordionTab>
       </Accordion>
@@ -322,8 +374,7 @@ export function DeveloperConsolePage({
                 <PolicyChip setting={detailPolicy} />
               </div>
               <div className="developer-heading-actions">
-                <Button label="Edit" icon="pi pi-pencil" outlined onClick={() => startEditPolicy(detailPolicy)} />
-                <Button label="Delete" icon="pi pi-trash" severity="danger" loading={deletingId === (detailPolicy.id || detailPolicy.settingNumber)} onClick={() => deletePolicy(detailPolicy)} />
+                <Button label="Create New Variant" icon="pi pi-copy" outlined onClick={() => startEditPolicy(detailPolicy)} />
               </div>
             </div>
             <div className="developer-detail-grid">

@@ -16,6 +16,7 @@ from .services import (
     list_deployment_queue_for_frontend,
     list_deployment_worker_heartbeats,
     list_policy_settings_for_frontend,
+    lookup_policy_setting,
     list_template_requests_for_frontend,
     list_templates_for_frontend,
     list_tickets_for_frontend,
@@ -144,11 +145,17 @@ def config_snapshot_download(request, filename):
 @csrf_exempt
 def policy_settings(request):
     if request.method == "GET":
+        lookup = str(request.GET.get("lookup") or "").strip()
+        if lookup:
+            return JsonResponse({"lookup": lookup_policy_setting(lookup)})
         return JsonResponse({"policySettings": list_policy_settings_for_frontend()})
     if request.method == "POST":
         payload = read_json_body(request) or {}
         values = payload if isinstance(payload, list) else payload.get("policySettings", [payload])
-        return JsonResponse({"policySettings": upsert_policy_settings(values)})
+        try:
+            return JsonResponse({"policySettings": upsert_policy_settings(values)})
+        except ValueError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
     if request.method == "PUT":
         payload = read_json_body(request) or {}
         values = payload if isinstance(payload, list) else payload.get("policySettings", [])
