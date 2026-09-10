@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateCommandCount, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
 
 export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, policySupported, showPolicyModel = false, skipRemediationReason }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; policySupported?: boolean; showPolicyModel?: boolean; skipRemediationReason?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -18,7 +18,7 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
         <div><div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<h3>{displayTitle}</h3></div><p>{formatDateTime(finding.detectedAt)}</p></div>
-        <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Tag value={`${getTemplateCommandCount(template)} total steps`} severity="info" rounded /><Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
+        <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
       {isSkippedByLatestScan && <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>Execution will skip this finding</strong><p>{skipRemediationReason}</p></div></div>}
@@ -101,7 +101,7 @@ export function TemplateExecutionPreview({ template, run, showFailureBehaviour =
     <div className="execution-preview">
       {run && <div className="run-alert-inline"><strong>{run.status === "Successful" ? "Deployment completed" : `${displayFailureStage(run.failureStage)} failed`}</strong><p>{run.failureReason ?? `${run.runId} completed and evidence is shown against each command below.`}</p></div>}
       {showPolicyModel && <PolicyModelBlock setting={policySetting} fallbackPayload={template.agreedSetting} />}
-      <CommandList phase="fix" title="Implementation Commands" badge={run ? (run.implementationCommands.some((item) => item.status === "Executed") ? "Executed" : "Skipped") : "Config push"} commands={template.implementationCommands} runCommands={run?.implementationCommands} />
+      <CommandList phase="fix" title="Implementation Commands" badge={run ? (run.implementationCommands.some((item) => item.status === "Executed") ? "Executed" : "Skipped") : undefined} commands={template.implementationCommands} runCommands={run?.implementationCommands} />
       {showFailureBehaviour && <div className="failure-behaviour-box"><strong>Failure behaviour</strong><p>{template.failureBehaviour}</p></div>}
     </div>
   );
@@ -119,10 +119,10 @@ function PolicyModelBlock({ setting, fallbackPayload }: { setting?: PolicySettin
   );
 }
 
-function CommandList({ phase = "fix", title, badge, commands, runCommands }: { phase?: "fix"; title: string; badge: string; commands: string[]; runCommands?: DeploymentRunResult["implementationCommands"] }) {
+function CommandList({ phase = "fix", title, badge, commands, runCommands }: { phase?: "fix"; title: string; badge?: string; commands: string[]; runCommands?: DeploymentRunResult["implementationCommands"] }) {
   return (
     <div className={`execution-section phase-section phase-${phase}`}>
-      <div className="execution-section-header"><strong>{title}</strong><Tag value={badge} severity="warning" /></div>
+      <div className="execution-section-header"><strong>{title}</strong>{badge && <Tag value={badge} severity="warning" />}</div>
       <div className="command-list">{commands.map((command, index) => {
         const runCommand = runCommands?.[index];
         return <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code>{runCommand && <Tag value={runCommand.status} severity={runCommand.status === "Executed" ? "success" : "secondary"} />}</div>;

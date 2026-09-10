@@ -89,7 +89,10 @@ def api_error(message, *, code, status, details=None):
 
 
 def latest_scan_devices(request):
-    return JsonResponse({"devices": latest_devices_for_frontend()})
+    reachability = str(request.GET.get("reachability") or "").strip().lower()
+    if reachability not in {"", "reachable", "unreachable"}:
+        return JsonResponse({"detail": "reachability must be reachable or unreachable."}, status=400)
+    return JsonResponse({"devices": latest_devices_for_frontend(reachability)})
 
 
 @csrf_exempt

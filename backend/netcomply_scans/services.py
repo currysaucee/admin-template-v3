@@ -582,7 +582,7 @@ def clear_hcc_tables(table_keys: list[str]) -> dict[str, Any]:
     }
 
 
-def latest_devices_for_frontend() -> list[dict[str, Any]]:
+def latest_devices_for_frontend(reachability: str = "") -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
     if not ComplianceScanBatch.objects.using(db_alias).exists():
         return []
@@ -605,6 +605,10 @@ def latest_devices_for_frontend() -> list[dict[str, Any]]:
         seen_hostnames.add(hostname_key)
 
         unreachable = is_device_unreachable(device.raw_payload or {})
+        if reachability == "reachable" and unreachable:
+            continue
+        if reachability == "unreachable" and not unreachable:
+            continue
         config_by_policy = {normalize_policy_id(config.policy_id): config.config_payload for config in device.actual_configs.all()}
         snapshot = find_device_snapshot(device.hostname)
         config_snapshot_path, config_snapshot_filename = snapshot if snapshot else ("", "")

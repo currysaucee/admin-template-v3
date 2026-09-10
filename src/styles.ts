@@ -37,6 +37,12 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .plain-page-title { margin-bottom: 22px; }
 .plain-page-title h1 { margin: 0; font-size: 30px; letter-spacing: -0.04em; }
 .filter-card { display: flex; gap: 16px; align-items: center; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); padding: 16px; border-radius: 14px; margin-bottom: 18px; }
+.reachability-tabs { display: flex; gap: 28px; border-bottom: 1px solid #dbe3ef; margin-bottom: 18px; }
+.reachability-tabs button { appearance: none; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64748b; cursor: pointer; font: inherit; font-size: 14px; font-weight: 750; padding: 0 2px 12px; }
+.reachability-tabs button.active { border-bottom-color: #334155; color: #0f172a; }
+.filter-mode-toggle { display: inline-flex; flex: 0 0 auto; padding: 3px; border: 1px solid #dbe3ef; border-radius: 10px; background: #f8fafc; }
+.filter-mode-toggle button { appearance: none; border: 0; border-radius: 7px; background: transparent; color: #64748b; cursor: pointer; font: inherit; font-size: 13px; font-weight: 750; padding: 8px 13px; }
+.filter-mode-toggle button.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
 .inline-info-row { color: #475569; font-size: 13px; margin: -8px 0 14px; }
 .grow-input { flex: 1; min-width: 260px; }
 .policy-filter-dropdown { flex: 1; min-width: 300px; max-width: 520px; }
@@ -58,14 +64,14 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: #1e293b; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
 .device-icon { width: 34px; height: 34px; border-radius: 10px; background: #eff6ff; color: #0b63f6; display: grid; place-items: center; }
 .wizard-card .p-card-body { padding: 28px; }
-.ticket-stepper { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 10px; align-items: stretch; }
-.ticket-stepper-item { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; color: #64748b; }
+.ticket-stepper { display: flex; width: min(520px, 100%); align-items: flex-start; }
+.ticket-stepper-item { position: relative; display: flex; flex: 1 1 0; align-items: center; gap: 10px; min-width: 0; color: #94a3b8; }
+.ticket-stepper-item:not(:last-child)::after { content: ""; position: absolute; top: 14px; left: 42px; right: 14px; height: 2px; background: #dbe3ef; }
 .ticket-stepper-item span { width: 28px; height: 28px; flex: 0 0 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 900; font-size: 13px; }
-.ticket-stepper-item strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 900; }
-.ticket-stepper-item.active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
-.ticket-stepper-item.active span { background: #2563eb; color: #ffffff; }
-.ticket-stepper-item.complete { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
-.ticket-stepper-item.complete span { background: #22c55e; color: #ffffff; }
+.ticket-stepper-item strong { position: relative; z-index: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #ffffff; padding-right: 14px; font-size: 13px; font-weight: 800; }
+.ticket-stepper-item.active, .ticket-stepper-item.complete { color: #0f172a; }
+.ticket-stepper-item.active span, .ticket-stepper-item.complete span { position: relative; z-index: 1; background: #334155; color: #ffffff; }
+.ticket-stepper-item.complete:not(:last-child)::after { background: #334155; }
 .step-content { margin-top: 30px; min-height: 430px; }
 .wizard-footer { border-top: 1px solid #e5e7eb; padding-top: 20px; display: flex; justify-content: space-between; }
 .scope-grid, .step-stack { display: grid; gap: 18px; }
@@ -514,7 +520,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .device-cell, .user-cell, .window-cell, .device-mini-card { align-items: flex-start; }
   .device-mini-card { flex-wrap: wrap; }
   .wizard-card .p-card-body { padding: 18px; }
-  .ticket-stepper { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ticket-stepper { width: 100%; }
   .scope-heading-row { flex-direction: column; align-items: stretch; }
   .select-all-findings { justify-content: flex-start; width: fit-content; }
   .wizard-footer { gap: 10px; flex-wrap: wrap; }

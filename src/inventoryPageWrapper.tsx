@@ -5,13 +5,14 @@ import { InventoryPage } from "./dashboardInventory";
 import { findFindingKey, getExecutableFindings, normalizePolicyReference } from "./helpers";
 import { navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
 import { styles } from "./styles";
-import type { Device } from "./types";
+import type { Device, ReachabilityFilter } from "./types";
 
 type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
 
 export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
   const [bulkInventorySelection, setBulkInventorySelection] = React.useState<Device[]>([]);
-  const { devices } = usePortalDevices(props.devices);
+  const [reachabilityFilter, setReachabilityFilter] = React.useState<ReachabilityFilter>("reachable");
+  const { devices } = usePortalDevices(props.devices, reachabilityFilter);
   const { items: templates } = usePortalTemplates(props.templates);
   const { items: policySettings } = usePortalPolicySettings(props.policySettings);
   const selectedBulkDevices = props.bulkInventorySelection ?? bulkInventorySelection;
@@ -31,6 +32,8 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
       <div className="netcomply-page-wrapper netcomply-exceptions-wrapper">
         <InventoryPage
           devices={devices}
+          reachabilityFilter={reachabilityFilter}
+          setReachabilityFilter={setReachabilityFilter}
           templates={templates}
           policySettings={policySettings}
           bulkInventorySelection={selectedBulkDevices}

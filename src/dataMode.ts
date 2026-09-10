@@ -1,4 +1,4 @@
-import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
 const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || "/api/HCCFix";
 
@@ -71,8 +71,9 @@ async function requestFormJson<T>(url: string, body: FormData): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function loadRealDevices(): Promise<Device[]> {
-  const payload = await requestJson<Device[] | { devices?: Device[] }>(endpoint("scan/devices/"));
+export async function loadRealDevices(reachability?: ReachabilityFilter): Promise<Device[]> {
+  const query = reachability ? `?reachability=${encodeURIComponent(reachability)}` : "";
+  const payload = await requestJson<Device[] | { devices?: Device[] }>(`${endpoint("scan/devices/")}${query}`);
   if (Array.isArray(payload)) return payload as Device[];
   if (Array.isArray(payload.devices)) return payload.devices as Device[];
   return [];

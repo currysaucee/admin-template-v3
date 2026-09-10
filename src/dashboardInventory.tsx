@@ -8,7 +8,7 @@ import { Dropdown } from "primereact/dropdown";
 import { MultiSelect } from "primereact/multiselect";
 import { Card } from "primereact/card";
 
-import type { Device, ComplianceStatus, PolicySetting, RemediationTemplate, Ticket, TicketStatus } from "./types";
+import type { Device, ComplianceStatus, PolicySetting, ReachabilityFilter, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
 import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
@@ -62,20 +62,23 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
   return <StatusPill value={status} severity={getStatusSeverity(status)} />;
 }
 
-export function InventoryPage({ devices, templates, policySettings, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
+export function InventoryPage({ devices, templates, policySettings, reachabilityFilter, setReachabilityFilter, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; reachabilityFilter: ReachabilityFilter; setReachabilityFilter: (filter: ReachabilityFilter) => void; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
   const [search, setSearch] = useState("");
   const [selectedPolicyFilters, setSelectedPolicyFilters] = useState<string[]>([]);
+  const [filterMode, setFilterMode] = useState<"device" | "policy">("device");
   const policyOptions = policySettings.map((setting) => ({
     label: `${setting.settingNumber || setting.id} - ${setting.title}`,
     value: normalizePolicyReference(setting.settingNumber || setting.id),
   }));
   const filteredDevices = devices.filter((device) => {
-    const deviceMatch = `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase());
-    const findingMatch = selectedPolicyFilters.length === 0 || device.findings.some((finding) => {
+    const expectedStatus = reachabilityFilter === "unreachable" ? "Device Unreachable" : "Non-Compliant";
+    const reachabilityMatch = device.complianceStatus === expectedStatus;
+    const deviceMatch = filterMode !== "device" || `${device.hostname} ${device.hardwareType} ${device.role} ${device.managementIp} ${device.site}`.toLowerCase().includes(search.toLowerCase());
+    const findingMatch = filterMode !== "policy" || selectedPolicyFilters.length === 0 || device.findings.some((finding) => {
       const refs = [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value));
       return selectedPolicyFilters.some((selected) => refs.includes(selected));
     });
-    return deviceMatch && findingMatch;
+    return reachabilityMatch && deviceMatch && findingMatch;
   });
   const canBulkSelectDevice = (device: Device) => device.complianceStatus === "Non-Compliant" && hasConfigSnapshot(device) && getAvailableFixCount(device, templates, policySettings) > 0;
   const filteredReadyDevices = filteredDevices.filter(canBulkSelectDevice);
@@ -83,21 +86,26 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
   return (
     <section className="page-content">
       <PageHeader title="Exceptions" subtitle="Review non-compliant and unreachable devices from the latest compliance scan." />
+      <div className="reachability-tabs" role="tablist" aria-label="Device reachability">
+        {(["reachable", "unreachable"] as ReachabilityFilter[]).map((value) => (
+          <button key={value} type="button" role="tab" aria-selected={reachabilityFilter === value} className={reachabilityFilter === value ? "active" : ""} onClick={() => { setBulkInventorySelection([]); setReachabilityFilter(value); }}>
+            {value === "reachable" ? "Reachable" : "Unreachable"}
+          </button>
+        ))}
+      </div>
       <div className="filter-card">
-        <span className="p-input-icon-left grow-input">
-          <i className="pi pi-search" />
-          <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search devices..." />
-        </span>
-        <MultiSelect
-          className="policy-filter-dropdown"
-          value={selectedPolicyFilters}
-          options={policyOptions}
-          onChange={(event) => setSelectedPolicyFilters(event.value as string[])}
-          placeholder="Filter by onboarded policy"
-          display="chip"
-          filter
-          maxSelectedLabels={2}
-        />
+        <div className="filter-mode-toggle" aria-label="Filter devices by">
+          <button type="button" className={filterMode === "device" ? "active" : ""} onClick={() => { setFilterMode("device"); setSelectedPolicyFilters([]); }}>Device</button>
+          <button type="button" className={filterMode === "policy" ? "active" : ""} onClick={() => { setFilterMode("policy"); setSearch(""); }}>Policies</button>
+        </div>
+        {filterMode === "device" ? (
+          <span className="p-input-icon-left grow-input">
+            <i className="pi pi-search" />
+            <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search devices..." />
+          </span>
+        ) : (
+          <MultiSelect className="policy-filter-dropdown" value={selectedPolicyFilters} options={policyOptions} onChange={(event) => setSelectedPolicyFilters(event.value as string[])} placeholder="Filter by onboarded policy" display="chip" filter maxSelectedLabels={2} />
+        )}
       </div>
       <Card className="table-card">
         <DataTable value={filteredDevices} selection={bulkInventorySelection} onSelectionChange={(e) => setBulkInventorySelection((e.value as Device[]).filter(canBulkSelectDevice))} isDataSelectable={(event) => canBulkSelectDevice(event.data as Device)} selectionMode="multiple" paginator rows={8} dataKey="id" responsiveLayout="stack" breakpoint="1440px" tableStyle={{ width: "100%" }}>
@@ -125,7 +133,7 @@ export function InventoryPage({ devices, templates, policySettings, bulkInventor
   );
 }
 
-export function DeviceDetailPage({ device, templates, policySettings, onBack, onCreateTicket }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onCreateTicket: (device: Device) => void }) {
+export function DeviceDetailPage({ device, templates, policySettings, onCreateTicket }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onCreateTicket: (device: Device) => void }) {
   const [activeFindingCategory, setActiveFindingCategory] = useState<FindingCategoryKey>("fixable");
   const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
   const findingCategoryTabs: Array<{ key: FindingCategoryKey; label: string; count: number }> = [
@@ -139,9 +147,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onBack, on
   return (
     <section className="page-content">
       <div className="detail-header-row">
-        <div className="plain-page-title"><h1>Device Findings</h1></div>
         <div className="detail-actions">
-          <Button label="Back to Exceptions" icon="pi pi-arrow-left" outlined onClick={onBack} />
           <Button label="Create Request" icon="pi pi-plus-circle" disabled={!hasConfigSnapshot(device) || getAvailableFixCount(device, templates, policySettings) === 0} onClick={() => onCreateTicket(device)} />
         </div>
       </div>

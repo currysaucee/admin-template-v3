@@ -86,13 +86,9 @@ export function TopBar({ currentRole, setCurrentRole }: { currentRole: UserRole;
 }
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="page-header">
-      <div className="breadcrumb">{title}</div>
-      <h1>{title}</h1>
-      <p>{subtitle}</p>
-    </div>
-  );
+  void title;
+  void subtitle;
+  return null;
 }
 
 export function MetaTile({ label, value }: { label: string; value: string }) {

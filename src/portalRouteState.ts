@@ -21,7 +21,7 @@ import {
   updateRealTicketStatus,
 } from "./dataMode";
 import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
-import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
+import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
 
 export const portalRoutePaths = {
   dashboard: "/dashboard",
@@ -53,7 +53,7 @@ export function getInitialDevices() {
   return [];
 }
 
-export function usePortalDevices(overrideDevices?: Device[]) {
+export function usePortalDevices(overrideDevices?: Device[], reachability?: ReachabilityFilter) {
   const [devices, setDevices] = React.useState<Device[]>(overrideDevices ?? []);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -69,7 +69,7 @@ export function usePortalDevices(overrideDevices?: Device[]) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadRealDevices()
+    loadRealDevices(reachability)
       .then((nextDevices) => {
         if (!cancelled) setDevices(nextDevices);
       })
@@ -86,7 +86,7 @@ export function usePortalDevices(overrideDevices?: Device[]) {
     return () => {
       cancelled = true;
     };
-  }, [overrideDevices]);
+  }, [overrideDevices, reachability]);
 
   return { devices, loading, error };
 }
