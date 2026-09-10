@@ -110,3 +110,27 @@ For local Windows development, run Celery with:
 celery -A backend worker -l info --pool=solo
 celery -A backend beat -l info
 ```
+
+## Deployment worker without Celery or Redis
+
+From the Django project folder that contains `manage.py`, run:
+
+```bash
+python manage.py run_hcc_deployment_worker
+```
+
+The process stays open and checks the database queue every five seconds. Stop it
+cleanly with `Ctrl+C`. To use a different interval or a recognizable worker name:
+
+```bash
+python manage.py run_hcc_deployment_worker --poll-interval 10 --worker-id hcc-worker-01
+```
+
+For a single immediate queue check, useful during testing:
+
+```bash
+python manage.py run_hcc_deployment_worker --once
+```
+
+This command uses the same database locking, executor simulation/HTTP call, result
+storage, and ticket status transitions as the Celery task.
