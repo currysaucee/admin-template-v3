@@ -4,6 +4,7 @@ import json
 import uuid
 
 from django.http import FileResponse, Http404, JsonResponse
+from django.db import IntegrityError
 from django.views.decorators.csrf import csrf_exempt
 
 from .services import (
@@ -30,6 +31,7 @@ from .services import (
     run_daily_scan_import,
     run_mock_scan_import,
     set_ticket_status,
+    ticket_integrity_error_details,
     TicketValidationError,
     upsert_policy_settings,
     upsert_ticket,
@@ -238,6 +240,14 @@ def tickets(request):
             ticket = upsert_ticket(payload)
         except TicketValidationError as exc:
             return api_error(str(exc), code="INVALID_TICKET", status=400)
+        except IntegrityError as exc:
+            details = ticket_integrity_error_details(exc)
+            return api_error(
+                "The ticket could not be created because the database rejected a duplicate value.",
+                code="TICKET_DUPLICATE_ENTRY",
+                status=409,
+                details=details,
+            )
         except Exception as exc:
             return api_error("The backend could not create the ticket.", code="TICKET_CREATE_FAILED", status=500, details={"reason": str(exc)})
         return JsonResponse({"success": True, "ticket": ticket}, status=201)

@@ -993,6 +993,47 @@ class TicketValidationError(ValueError):
     pass
 
 
+def ticket_integrity_error_details(error: Exception) -> dict[str, Any]:
+    database_code = error.args[0] if error.args and isinstance(error.args[0], int) else None
+    database_message = str(error.args[1] if len(error.args) > 1 else error)
+    duplicate_match = re.search(r"Duplicate entry '(.+)' for key '([^']+)'", database_message, re.IGNORECASE)
+    duplicate_value = duplicate_match.group(1) if duplicate_match else ""
+    constraint = duplicate_match.group(2) if duplicate_match else ""
+    model_field = ""
+
+    if constraint.upper() == "PRIMARY" or constraint.upper().endswith(".PRIMARY"):
+        model_field = HCCRequestRecord._meta.pk.name
+    elif constraint:
+        normalized_constraint = constraint.rsplit(".", 1)[-1]
+        model_field = next(
+            (
+                field.name
+                for field in HCCRequestRecord._meta.fields
+                if field.name == normalized_constraint or field.column == normalized_constraint
+            ),
+            normalized_constraint,
+        )
+
+    detail_parts = ["The database rejected a duplicate value"]
+    if duplicate_value:
+        detail_parts.append(f"'{duplicate_value}'")
+    if model_field:
+        detail_parts.append(f"for field '{model_field}'")
+    if constraint:
+        detail_parts.append(f"using constraint '{constraint}'")
+    detail_parts.append(f"in table '{HCCRequestRecord._meta.db_table}'.")
+
+    return {
+        "reason": " ".join(detail_parts),
+        "databaseCode": database_code,
+        "databaseMessage": database_message,
+        "table": HCCRequestRecord._meta.db_table,
+        "field": model_field,
+        "constraint": constraint,
+        "duplicateValue": duplicate_value,
+    }
+
+
 def generate_ticket_id() -> str:
     """Return a human-readable ID; uniqueness is enforced again by the database."""
     current_time = timezone.now()
