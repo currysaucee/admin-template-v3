@@ -14,8 +14,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.core.cache.backends.filebased import FileBasedCache
-from django.db import connections, transaction
-from django.db.utils import DatabaseError, IntegrityError
+from django.db import transaction
 from django.db.models import Q
 from django.utils import dateparse, timezone
 
@@ -994,27 +993,13 @@ class TicketValidationError(ValueError):
     pass
 
 
-def ticket_create_error_details(error: Exception) -> dict[str, Any]:
-    db_alias = scan_db_alias()
-    try:
-        database_vendor = connections[db_alias].vendor
-    except Exception:
-        database_vendor = "unknown"
+def ticket_integrity_error_details(error: Exception) -> dict[str, Any]:
     database_code = error.args[0] if error.args and isinstance(error.args[0], int) else None
-    error_message = str(error.args[1] if len(error.args) > 1 else error)
-    duplicate_match = re.search(r"Duplicate entry '(.+)' for key '([^']+)'", error_message, re.IGNORECASE)
+    database_message = str(error.args[1] if len(error.args) > 1 else error)
+    duplicate_match = re.search(r"Duplicate entry '(.+)' for key '([^']+)'", database_message, re.IGNORECASE)
     duplicate_value = duplicate_match.group(1) if duplicate_match else ""
     constraint = duplicate_match.group(2) if duplicate_match else ""
     model_field = ""
-
-    field_match = re.search(
-        r"(?:column|field) ['`\"]?([A-Za-z0-9_]+)['`\"]? (?:cannot be null|is invalid|doesn't exist)|"
-        r"(?:for column|constraint failed: [^.]+\.)([A-Za-z0-9_]+)",
-        error_message,
-        re.IGNORECASE,
-    )
-    if field_match:
-        model_field = next((value for value in field_match.groups() if value), "")
 
     if constraint.upper() == "PRIMARY" or constraint.upper().endswith(".PRIMARY"):
         model_field = HCCRequestRecord._meta.pk.name
@@ -1029,50 +1014,23 @@ def ticket_create_error_details(error: Exception) -> dict[str, Any]:
             normalized_constraint,
         )
 
-    cause_chain: list[dict[str, str]] = []
-    current_error: BaseException | None = error
-    seen_errors: set[int] = set()
-    while current_error is not None and id(current_error) not in seen_errors and len(cause_chain) < 5:
-        seen_errors.add(id(current_error))
-        cause_chain.append({"type": type(current_error).__name__, "message": str(current_error)})
-        current_error = current_error.__cause__ or current_error.__context__
-
-    unique_fields = [field.name for field in HCCRequestRecord._meta.fields if field.unique]
-    model_constraints = [
-        {"name": constraint.name, "fields": list(getattr(constraint, "fields", ())) }
-        for constraint in HCCRequestRecord._meta.constraints
-    ]
-    detail_parts = [f"{type(error).__name__}: {error_message}"]
+    detail_parts = ["The database rejected a duplicate value"]
     if duplicate_value:
-        detail_parts.append(f"Duplicate value: '{duplicate_value}'.")
+        detail_parts.append(f"'{duplicate_value}'")
     if model_field:
-        detail_parts.append(f"Field: '{model_field}'.")
+        detail_parts.append(f"for field '{model_field}'")
     if constraint:
-        detail_parts.append(f"Constraint: '{constraint}'.")
-    detail_parts.append(
-        f"Database: alias '{db_alias}', vendor '{database_vendor}'. "
-        f"Model table: '{HCCRequestRecord._meta.db_table}', primary key: "
-        f"'{HCCRequestRecord._meta.pk.name}' ({HCCRequestRecord._meta.pk.column})."
-    )
+        detail_parts.append(f"using constraint '{constraint}'")
+    detail_parts.append(f"in table '{HCCRequestRecord._meta.db_table}'.")
 
     return {
         "reason": " ".join(detail_parts),
-        "errorType": type(error).__name__,
-        "errorMessage": error_message,
-        "category": "integrity" if isinstance(error, IntegrityError) else "database" if isinstance(error, DatabaseError) else "application",
         "databaseCode": database_code,
-        "databaseAlias": db_alias,
-        "databaseVendor": database_vendor,
+        "databaseMessage": database_message,
         "table": HCCRequestRecord._meta.db_table,
-        "model": HCCRequestRecord._meta.label,
-        "primaryKeyField": HCCRequestRecord._meta.pk.name,
-        "primaryKeyColumn": HCCRequestRecord._meta.pk.column,
-        "uniqueFields": unique_fields,
-        "modelConstraints": model_constraints,
         "field": model_field,
         "constraint": constraint,
         "duplicateValue": duplicate_value,
-        "causeChain": cause_chain,
     }
 
 
