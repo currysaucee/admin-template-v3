@@ -1288,6 +1288,7 @@ def build_executor_device_payload(device: dict[str, Any]) -> dict[str, Any] | No
 def simulated_executor_response(payload: dict[str, Any]) -> dict[str, Any]:
     workflow_tasks = payload.get("workflow_tasks", [])
     return {
+        "requestPayload": payload,
         "success": True,
         "execution_time": 0,
         "task_count": len(workflow_tasks),
@@ -1388,9 +1389,19 @@ def executor_response_cache_key(ticket_id: str) -> str:
 
 
 def cache_executor_response(ticket_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    device_results = result.get("device_results") or []
+    request_payloads = [
+        device_result.get("requestPayload")
+        for device_result in device_results
+        if device_result.get("requestPayload") is not None
+    ]
+    request_payload = result.get("requestPayload")
+    if request_payload is None and request_payloads:
+        request_payload = request_payloads[0] if len(request_payloads) == 1 else request_payloads
     cached_result = {
         "ticketId": ticket_id,
         "capturedAt": api_datetime(timezone.now()),
+        "requestPayload": request_payload,
         "response": result,
     }
     EXECUTOR_RESPONSE_CACHE.set(executor_response_cache_key(ticket_id), cached_result, timeout=None)
