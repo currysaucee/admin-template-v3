@@ -1409,7 +1409,44 @@ def cache_executor_response(ticket_id: str, result: dict[str, Any]) -> dict[str,
 
 
 def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
-    return EXECUTOR_RESPONSE_CACHE.get(executor_response_cache_key(ticket_id))
+    cached_result = EXECUTOR_RESPONSE_CACHE.get(executor_response_cache_key(ticket_id))
+    if cached_result is not None and cached_result.get("requestPayload") is not None:
+        return cached_result
+
+    queue_item = (
+        DeploymentQueueItem.objects.using(scan_db_alias())
+        .filter(ticket_id=ticket_id)
+        .order_by("-completed_at", "-id")
+        .first()
+    )
+    if queue_item is None:
+        return cached_result
+
+    result = queue_item.result_payload if isinstance(queue_item.result_payload, dict) else {}
+    device_results = result.get("device_results") or []
+    request_payloads = [
+        device_result.get("requestPayload")
+        for device_result in device_results
+        if isinstance(device_result, dict) and device_result.get("requestPayload") is not None
+    ]
+    request_payload = result.get("requestPayload")
+    if request_payload is None and request_payloads:
+        request_payload = request_payloads[0] if len(request_payloads) == 1 else request_payloads
+    if request_payload is None and isinstance(queue_item.execution_plan, dict):
+        planned_payloads = [
+            payload
+            for device in queue_item.execution_plan.get("devices", [])
+            if (payload := build_executor_device_payload(device)) is not None
+        ]
+        if planned_payloads:
+            request_payload = planned_payloads[0] if len(planned_payloads) == 1 else planned_payloads
+
+    return {
+        "ticketId": ticket_id,
+        "capturedAt": api_datetime(queue_item.completed_at or queue_item.started_at or queue_item.queued_at),
+        "requestPayload": request_payload,
+        "response": result,
+    }
 
 
 def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | None:
