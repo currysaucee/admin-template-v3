@@ -31,7 +31,7 @@ from .services import (
     run_daily_scan_import,
     run_mock_scan_import,
     set_ticket_status,
-    ticket_integrity_error_details,
+    ticket_create_error_details,
     TicketValidationError,
     upsert_policy_settings,
     upsert_ticket,
@@ -241,7 +241,7 @@ def tickets(request):
         except TicketValidationError as exc:
             return api_error(str(exc), code="INVALID_TICKET", status=400)
         except IntegrityError as exc:
-            details = ticket_integrity_error_details(exc)
+            details = ticket_create_error_details(exc)
             return api_error(
                 "The ticket could not be created because the database rejected a duplicate value.",
                 code="TICKET_DUPLICATE_ENTRY",
@@ -249,7 +249,12 @@ def tickets(request):
                 details=details,
             )
         except Exception as exc:
-            return api_error("The backend could not create the ticket.", code="TICKET_CREATE_FAILED", status=500, details={"reason": str(exc)})
+            return api_error(
+                "The backend could not create the ticket.",
+                code="TICKET_CREATE_FAILED",
+                status=500,
+                details=ticket_create_error_details(exc),
+            )
         return JsonResponse({"success": True, "ticket": ticket}, status=201)
     if request.method == "PATCH":
         payload = read_json_body(request) or {}
