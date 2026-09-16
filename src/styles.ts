@@ -64,9 +64,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: #1e293b; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
 .device-icon { width: 34px; height: 34px; border-radius: 10px; background: #eff6ff; color: #0b63f6; display: grid; place-items: center; }
 .wizard-card .p-card-body { padding: 28px; }
-.ticket-stepper { display: flex; width: 100%; max-width: 860px; margin: 0 auto; align-items: flex-start; }
-.ticket-stepper-item { position: relative; display: flex; flex: 1 1 0; align-items: center; gap: 10px; min-width: 0; color: #94a3b8; }
-.ticket-stepper-item:not(:last-child)::after { content: ""; position: absolute; top: 14px; left: 42px; right: 14px; height: 2px; background: #dbe3ef; }
+.ticket-stepper { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; max-width: none; margin: 0; align-items: flex-start; }
+.ticket-stepper-item { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; color: #94a3b8; }
+.ticket-stepper-item:not(:last-child)::after { content: ""; position: absolute; z-index: 0; top: 14px; left: calc(50% + 52px); right: calc(-50% + 52px); height: 2px; background: #dbe3ef; }
 .ticket-stepper-item span { width: 28px; height: 28px; flex: 0 0 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 900; font-size: 13px; }
 .ticket-stepper-item strong { position: relative; z-index: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #ffffff; padding-right: 14px; font-size: 13px; font-weight: 800; }
 .ticket-stepper-item.active, .ticket-stepper-item.complete { color: #0f172a; }
@@ -244,7 +244,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .bulk-selection-info { font-weight: 700; color: #334155; }
 
 .detail-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.device-detail-action-row { justify-content: flex-end; }
+.device-detail-action-row { width: 100%; justify-content: flex-end; }
+.device-detail-action-row .detail-actions { width: 100%; margin-left: auto; justify-content: flex-end; }
 .detail-actions { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
 .device-detail-card, .finding-detail-card { margin-bottom: 18px; }
 .device-finding-category-panel { display: grid; gap: 16px; }
