@@ -21,11 +21,15 @@ export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
   const applyConfirmedTicket = React.useCallback((confirmedTicket: Ticket) => {
     setTicketsState((prev) => prev.map((ticket) => (ticket.id === confirmedTicket.id ? confirmedTicket : ticket)));
   }, []);
-  const handleStatusChange = React.useCallback((id: string, status: TicketStatus) => {
+  const handleStatusChange = React.useCallback((id: string, status: TicketStatus, crTicket?: string) => {
     const ticket = reconciledTickets.find((item) => item.id === id);
     if (!ticket) return;
     if (status === "Queued") {
-      enqueueRuntimeDeployment(ticket)
+      if (!crTicket) {
+        setQueueNotice("Enter a CR number before releasing this request.");
+        return;
+      }
+      enqueueRuntimeDeployment(ticket, crTicket)
         .then((queueItem) => {
           if (queueItem.ticket) applyConfirmedTicket(queueItem.ticket);
           else applyConfirmedTicket({ ...ticket, status: "Queued" });

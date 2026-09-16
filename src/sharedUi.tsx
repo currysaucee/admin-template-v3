@@ -3,6 +3,7 @@ import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
+import { Dialog } from "primereact/dialog";
 
 import type { Device, Page, Ticket, TicketStatus, UserRole } from "./types";
 import { roleOptions, ticketStatusOptions } from "./types";
@@ -126,18 +127,46 @@ export function ImplementationDateCell({ date }: { date: string }) {
   return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{formatDateTime(date)}</strong><span>Implementation date</span></div></div>;
 }
 
-export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void; showView?: boolean }) {
+export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void; showView?: boolean }) {
+  const [showReleaseDialog, setShowReleaseDialog] = React.useState(false);
+  const [crTicket, setCrTicket] = React.useState(ticket.crNumber || "");
   const canDecide = ticket.status === "Pending Approval";
   const canRelease = ticket.status === "Approved";
   const canCancel = ["Pending Approval", "Approved", "Queued", "In Progress"].includes(ticket.status);
+  const closeReleaseDialog = () => {
+    setShowReleaseDialog(false);
+    setCrTicket(ticket.crNumber || "");
+  };
+  const confirmRelease = () => {
+    const value = crTicket.trim();
+    if (!value) return;
+    onStatusChange(ticket.id, "Queued", value);
+    setShowReleaseDialog(false);
+  };
   return (
-    <div className="action-row">
-      {showView && onView && <Button label="View" icon="pi pi-eye" size="small" onClick={() => onView(ticket)} />}
-      {canDecide && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}
-      {canDecide && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}
-      {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => onStatusChange(ticket.id, "Queued")} />}
-      {canCancel && <Button label="Cancel" icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
-    </div>
+    <>
+      <div className="action-row">
+        {showView && onView && <Button label="View" icon="pi pi-eye" size="small" onClick={() => onView(ticket)} />}
+        {canDecide && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}
+        {canDecide && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}
+        {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => setShowReleaseDialog(true)} />}
+        {canCancel && <Button label="Cancel" icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
+      </div>
+      <Dialog
+        visible={showReleaseDialog}
+        onHide={closeReleaseDialog}
+        header="Release Request"
+        style={{ width: "min(28rem, calc(100vw - 2rem))" }}
+        modal
+        footer={<div className="release-dialog-footer"><Button label="Cancel" outlined onClick={closeReleaseDialog} /><Button label="Confirm Release" icon="pi pi-send" disabled={!crTicket.trim()} onClick={confirmRelease} /></div>}
+      >
+        <div className="release-dialog-body">
+          <p>Enter the approved CR number before sending this request to the deployment queue.</p>
+          <label htmlFor={`cr-ticket-${ticket.id}`}>CR Number</label>
+          <InputText id={`cr-ticket-${ticket.id}`} value={crTicket} onChange={(event) => setCrTicket(event.target.value)} placeholder="e.g. CR12345678" autoFocus />
+        </div>
+      </Dialog>
+    </>
   );
 }
 

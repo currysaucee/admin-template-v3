@@ -26,11 +26,15 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
   const applyConfirmedTicket = React.useCallback((confirmedTicket: Ticket) => {
     setTicketsState((prev) => prev.map((item) => (item.id === confirmedTicket.id ? confirmedTicket : item)));
   }, []);
-  const handleStatusChange = React.useCallback((id: string, status: TicketStatus) => {
+  const handleStatusChange = React.useCallback((id: string, status: TicketStatus, crTicket?: string) => {
     const currentTicket = hydratedTicket && hydratedTicket.id === id ? hydratedTicket : tickets.find((item) => item.id === id);
     if (!currentTicket) return;
     if (status === "Queued") {
-      enqueueRuntimeDeployment(currentTicket)
+      if (!crTicket) {
+        setActionNotice("Enter a CR number before releasing this request.");
+        return;
+      }
+      enqueueRuntimeDeployment(currentTicket, crTicket)
         .then((queueItem) => {
           if (queueItem.ticket) applyConfirmedTicket(queueItem.ticket);
           else applyConfirmedTicket({ ...currentTicket, status: "Queued" });

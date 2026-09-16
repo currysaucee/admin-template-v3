@@ -197,10 +197,10 @@ export async function loadRealDeploymentQueueState(): Promise<{ queue: Deploymen
   return { queue: payload.queue ?? [], workerHealth: payload.workerHealth ?? [] };
 }
 
-export async function enqueueRealDeployment(ticketId: string): Promise<DeploymentQueueItem> {
+export async function enqueueRealDeployment(ticketId: string, crTicket: string): Promise<DeploymentQueueItem> {
   const payload = await requestJson<{ queueItem?: DeploymentQueueItem }>(endpoint("deployment-queue/"), {
     method: "POST",
-    body: JSON.stringify({ ticketId }),
+    body: JSON.stringify({ ticketId, crTicket }),
   });
   if (!payload.queueItem) throw new Error("Backend did not return a queued deployment item.");
   return payload.queueItem;

@@ -275,11 +275,14 @@ def deployment_queue(request):
     if request.method == "POST":
         payload = read_json_body(request) or {}
         ticket_id = str(payload.get("ticketId") or "").strip()
+        cr_ticket = str(payload.get("crTicket") or payload.get("cr_ticket") or "").strip()
         actor = str(payload.get("actor") or "Current User")
         if not ticket_id:
             return JsonResponse({"detail": "ticketId is required"}, status=400)
+        if not cr_ticket:
+            return JsonResponse({"detail": "crTicket is required"}, status=400)
         try:
-            return JsonResponse({"queueItem": enqueue_ticket_for_deployment(ticket_id, actor=actor)})
+            return JsonResponse({"queueItem": enqueue_ticket_for_deployment(ticket_id, cr_ticket=cr_ticket, actor=actor)})
         except Exception as exc:
             return JsonResponse({"detail": f"Unable to queue deployment: {exc}"}, status=400)
     return JsonResponse({"detail": "Method not allowed"}, status=405)

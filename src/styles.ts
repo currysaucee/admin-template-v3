@@ -230,6 +230,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .command-edit-row > span { width: 28px; height: 28px; border-radius: 999px; background: #eef6ff; color: #0b63f6; display: grid; place-items: center; font-size: 12px; font-weight: 900; }
 .command-edit-row .p-inputtext { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .dialog-stack { display: grid; gap: 14px; }
+.release-dialog-body { display: grid; gap: 10px; }
+.release-dialog-body p { margin: 0 0 4px; color: #64748b; line-height: 1.5; }
+.release-dialog-body label { color: #334155; font-weight: 800; }
+.release-dialog-body .p-inputtext { width: 100%; }
+.release-dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
 .dialog-summary { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .device-option-template { display: grid; gap: 8px; padding: 4px 0; }
 .device-option-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.core.cache.backends.filebased import FileBasedCache
+from django.core.exceptions import FieldDoesNotExist
 from django.db import transaction
 from django.db.models import Q
 from django.utils import dateparse, timezone
@@ -917,10 +918,11 @@ def replace_template_requests(payloads: list[dict[str, Any]]) -> list[dict[str, 
 def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
     payload = record.payload or {}
     implementation_time = getattr(record, "implementation_time", None)
+    cr_ticket = str(getattr(record, "cr_ticket", "") or "").strip()
     return {
         **payload,
         "id": payload.get("id") or record.request_id,
-        "crNumber": payload.get("crNumber") or record.external_change_id,
+        "crNumber": payload.get("crNumber") or cr_ticket or record.external_change_id,
         "requestor": payload.get("requestor") or record.requestor,
         "requestorRole": payload.get("requestorRole") or record.requestor_role,
         "plannedStart": payload.get("plannedStart") or format_implementation_time(implementation_time) or record.implementation_date,
@@ -1144,33 +1146,51 @@ def list_deployment_worker_heartbeats() -> list[dict[str, Any]]:
     return sorted(workers, key=lambda worker: worker.get("workerId", ""))
 
 
-def enqueue_ticket_for_deployment(ticket_id: str, actor: str = "Current User") -> dict[str, Any]:
+def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "Current User") -> dict[str, Any]:
     db_alias = scan_db_alias()
-    hcc_request = HCCRequestRecord.objects.using(db_alias).filter(request_id=ticket_id).first()
-    if not hcc_request:
-        raise ValueError(f"Request {ticket_id} was not found")
+    cr_ticket = str(cr_ticket or "").strip()
+    if not cr_ticket:
+        raise ValueError("CR number is required before releasing a request.")
 
-    existing = DeploymentQueueItem.objects.using(db_alias).filter(ticket_id=ticket_id, status__in=["Queued", "Processing"]).order_by("-queued_at").first()
-    if existing:
-        return serialize_deployment_queue_item(existing)
+    with transaction.atomic(using=db_alias):
+        hcc_request = HCCRequestRecord.objects.using(db_alias).select_for_update().filter(request_id=ticket_id).first()
+        if not hcc_request:
+            raise ValueError(f"Request {ticket_id} was not found")
+        try:
+            HCCRequestRecord._meta.get_field("cr_ticket")
+        except FieldDoesNotExist as exc:
+            raise RuntimeError("HCCRequestRecord must inherit the Request.cr_ticket field before deployment can be queued.") from exc
 
-    now = timezone.now()
-    queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
-    ticket_payload = {**hcc_request_payload(hcc_request), "status": "Queued", "queuedBy": actor}
-    execution_plan = build_deployment_execution_plan(ticket_payload)
-    hcc_request.status = "Queued"
-    hcc_request.payload = ticket_payload
-    hcc_request.save(using=db_alias)
-    item = DeploymentQueueItem.objects.using(db_alias).create(
-        queue_id=queue_id,
-        ticket_id=ticket_id,
-        ticket_payload=ticket_payload,
-        execution_plan=execution_plan,
-        status="Queued",
-        queued_at=now,
-        available_at=now,
-    )
-    return serialize_deployment_queue_item(item)
+        existing = DeploymentQueueItem.objects.using(db_alias).filter(ticket_id=ticket_id, status__in=["Queued", "Processing"]).order_by("-queued_at").first()
+        if existing:
+            return serialize_deployment_queue_item(existing)
+
+        setattr(hcc_request, "cr_ticket", cr_ticket)
+        parent_request_id = hcc_request.pk
+        now = timezone.now()
+        queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
+        ticket_payload = {
+            **hcc_request_payload(hcc_request),
+            "crNumber": cr_ticket,
+            "cr_ticket": cr_ticket,
+            "parentRequestId": parent_request_id,
+            "status": "Queued",
+            "queuedBy": actor,
+        }
+        execution_plan = build_deployment_execution_plan(ticket_payload)
+        hcc_request.status = "Queued"
+        hcc_request.payload = ticket_payload
+        hcc_request.save(using=db_alias)
+        item = DeploymentQueueItem.objects.using(db_alias).create(
+            queue_id=queue_id,
+            ticket_id=ticket_id,
+            ticket_payload=ticket_payload,
+            execution_plan=execution_plan,
+            status="Queued",
+            queued_at=now,
+            available_at=now,
+        )
+        return serialize_deployment_queue_item(item)
 
 
 def find_latest_device_for_ticket(ticket_device: dict[str, Any], latest_devices: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -1259,10 +1279,15 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
             "findings": planned_findings,
         })
 
-    return {"ticketId": ticket_payload.get("id"), "devices": planned_devices}
+    return {
+        "ticketId": ticket_payload.get("id"),
+        "id": ticket_payload.get("parentRequestId"),
+        "cr_ticket": ticket_payload.get("cr_ticket") or ticket_payload.get("crNumber"),
+        "devices": planned_devices,
+    }
 
 
-def build_executor_device_payload(device: dict[str, Any]) -> dict[str, Any] | None:
+def build_executor_device_payload(device: dict[str, Any], *, request_id: Any = None, cr_ticket: str = "") -> dict[str, Any] | None:
     commands = [
         command
         for finding in device.get("findings", [])
@@ -1273,6 +1298,8 @@ def build_executor_device_payload(device: dict[str, Any]) -> dict[str, Any] | No
     if not commands:
         return None
     return {
+        "id": request_id,
+        "cr_ticket": cr_ticket,
         "device": device.get("hostname") or device.get("managementIp"),
         "workflow_tasks": [
             {
@@ -1281,7 +1308,7 @@ def build_executor_device_payload(device: dict[str, Any]) -> dict[str, Any] | No
                 "description": "HCC remediation implementation commands",
             }
         ],
-        "aoc_id": "CR12345678",
+        "aoc_id": cr_ticket,
     }
 
 
@@ -1348,7 +1375,7 @@ def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
     device_payloads = [
         payload
         for device in plan.get("devices", [])
-        if (payload := build_executor_device_payload(device)) is not None
+        if (payload := build_executor_device_payload(device, request_id=plan.get("id"), cr_ticket=str(plan.get("cr_ticket") or ""))) is not None
     ]
     device_results = [call_deployment_executor_for_device(payload) for payload in device_payloads]
     if len(device_results) == 1:
@@ -1436,7 +1463,13 @@ def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
         planned_payloads = [
             payload
             for device in queue_item.execution_plan.get("devices", [])
-            if (payload := build_executor_device_payload(device)) is not None
+            if (
+                payload := build_executor_device_payload(
+                    device,
+                    request_id=queue_item.execution_plan.get("id"),
+                    cr_ticket=str(queue_item.execution_plan.get("cr_ticket") or ""),
+                )
+            ) is not None
         ]
         if planned_payloads:
             request_payload = planned_payloads[0] if len(planned_payloads) == 1 else planned_payloads

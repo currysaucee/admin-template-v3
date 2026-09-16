@@ -14,7 +14,7 @@ import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getF
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
-export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ticket[]; onView: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
+export function DashboardPage({ tickets, onView, onStatusChange }: { tickets: Ticket[]; onView: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TicketStatus | "All">("All");
   const statusOptions: Array<TicketStatus | "All"> = ["All", ...ticketStatusOptions];

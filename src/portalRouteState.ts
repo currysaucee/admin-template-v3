@@ -308,8 +308,8 @@ export function usePortalDeploymentQueueState(overrideQueue?: DeploymentQueueIte
   return { queue, workerHealth, loading, error };
 }
 
-export async function enqueueRuntimeDeployment(ticket: Ticket) {
-  return enqueueRealDeployment(ticket.id);
+export async function enqueueRuntimeDeployment(ticket: Ticket, crTicket: string) {
+  return enqueueRealDeployment(ticket.id, crTicket);
 }
 
 export type CreateTicketState = {

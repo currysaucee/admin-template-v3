@@ -8,7 +8,7 @@ import { findPolicySettingForFinding, formatDateTime, getDeploymentRunForTemplat
 import { FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
-export function TicketDetailPage({ ticket, templates, policySettings, onBack, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onStatusChange: (id: string, status: TicketStatus) => void }) {
+export function TicketDetailPage({ ticket, templates, policySettings, onBack, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void }) {
   const completedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Successful").length;
   const failedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Failed").length;
   const pendingDevices = ticket.devices.length - completedDevices - failedDevices;
