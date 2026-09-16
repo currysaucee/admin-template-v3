@@ -937,6 +937,23 @@ def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
     }
 
 
+def grouped_hcc_request_payload(records: list[HCCRequestRecord]) -> dict[str, Any]:
+    if not records:
+        raise ValueError("At least one HCC request row is required.")
+    grouped_payload = hcc_request_payload(records[0])
+    grouped_devices: list[dict[str, Any]] = []
+    for record in records:
+        row_payload = hcc_request_payload(record)
+        row_devices = row_payload.get("devices") if isinstance(row_payload.get("devices"), list) else []
+        parent_request_id = getattr(record, "id", None)
+        grouped_devices.extend(
+            {**device, "parentRequestId": parent_request_id}
+            for device in row_devices
+            if isinstance(device, dict)
+        )
+    return {**grouped_payload, "id": records[0].request_id, "devices": grouped_devices}
+
+
 def parse_implementation_time(value: Any) -> datetime:
     if isinstance(value, datetime):
         parsed = value
@@ -1026,7 +1043,10 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
 
 
 def list_tickets_for_frontend() -> list[dict[str, Any]]:
-    return [hcc_request_payload(record) for record in HCCRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")]
+    grouped_records: dict[str, list[HCCRequestRecord]] = {}
+    for record in HCCRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id"):
+        grouped_records.setdefault(record.request_id, []).append(record)
+    return [grouped_hcc_request_payload(records) for records in grouped_records.values()]
 
 
 class TicketValidationError(ValueError):
@@ -1085,11 +1105,14 @@ def generate_ticket_id() -> str:
 
 def replace_tickets(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
-    HCCRequestRecord.objects.using(db_alias).all().delete()
-    HCCRequestRecord.objects.using(db_alias).bulk_create([
-        HCCRequestRecord(**hcc_request_fields(payload, f"request-{index}"))
-        for index, payload in enumerate(payloads, start=1)
-    ])
+    with transaction.atomic(using=db_alias):
+        HCCRequestRecord.objects.using(db_alias).all().delete()
+        for index, payload in enumerate(payloads, start=1):
+            request_id = str(payload.get("id") or f"request-{index}")
+            devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
+            for device in devices:
+                row_payload = {**payload, "id": request_id, "devices": [device]}
+                HCCRequestRecord.objects.using(db_alias).create(**hcc_request_fields(row_payload, request_id))
     return list_tickets_for_frontend()
 
 
@@ -1101,27 +1124,39 @@ def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
     request_id = generate_ticket_id()
     while HCCRequestRecord.objects.using(scan_db_alias()).filter(request_id=request_id).exists():
         request_id = generate_ticket_id()
-    fields = hcc_request_fields(payload, request_id)
-    HCCRequestRecord.objects.using(scan_db_alias()).create(**fields)
-    return hcc_request_payload(HCCRequestRecord.objects.using(scan_db_alias()).get(request_id=request_id))
+    devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
+    if not devices:
+        raise TicketValidationError("Select at least one device finding.")
+    db_alias = scan_db_alias()
+    with transaction.atomic(using=db_alias):
+        for device in devices:
+            row_payload = {**payload, "id": request_id, "devices": [device]}
+            HCCRequestRecord.objects.using(db_alias).create(**hcc_request_fields(row_payload, request_id))
+    records = list(HCCRequestRecord.objects.using(db_alias).filter(request_id=request_id).order_by("id"))
+    return grouped_hcc_request_payload(records)
 
 
 def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
     db_alias = scan_db_alias()
-    hcc_request = HCCRequestRecord.objects.using(db_alias).filter(request_id=ticket_id).first()
-    if not hcc_request:
-        raise ValueError(f"Request {ticket_id} was not found")
-    hcc_request.status = base_request_status(status)
-    hcc_request.payload = {**hcc_request.payload, "status": status}
-    hcc_request.save(using=db_alias)
-    return hcc_request_payload(hcc_request)
+    with transaction.atomic(using=db_alias):
+        records = list(HCCRequestRecord.objects.using(db_alias).select_for_update().filter(request_id=ticket_id).order_by("id"))
+        if not records:
+            raise ValueError(f"Request {ticket_id} was not found")
+        for record in records:
+            record.status = base_request_status(status)
+            record.payload = {**record.payload, "status": status}
+            record.save(using=db_alias)
+    return grouped_hcc_request_payload(records)
 
 
 def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str) -> None:
-    HCCRequestRecord.objects.using(scan_db_alias()).filter(request_id=request_id).update(
-        status=base_request_status(status),
-        payload={**payload, "status": status},
-    )
+    db_alias = scan_db_alias()
+    with transaction.atomic(using=db_alias):
+        records = list(HCCRequestRecord.objects.using(db_alias).select_for_update().filter(request_id=request_id))
+        for record in records:
+            record.status = base_request_status(status)
+            record.payload = {**record.payload, "status": status}
+            record.save(using=db_alias)
 
 
 def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]:
@@ -1191,8 +1226,13 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
         raise ValueError("CR number is required before releasing a request.")
 
     with transaction.atomic(using=db_alias):
-        hcc_request = HCCRequestRecord.objects.using(db_alias).select_for_update().filter(request_id=ticket_id).first()
-        if not hcc_request:
+        hcc_requests = list(
+            HCCRequestRecord.objects.using(db_alias)
+            .select_for_update()
+            .filter(request_id=ticket_id)
+            .order_by("id")
+        )
+        if not hcc_requests:
             raise ValueError(f"Request {ticket_id} was not found")
         try:
             HCCRequestRecord._meta.get_field("cr_ticket")
@@ -1203,24 +1243,30 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
         if existing:
             return serialize_deployment_queue_item(existing)
 
-        setattr(hcc_request, "cr_ticket", cr_ticket)
-        parent_request_id = getattr(hcc_request, "id", None)
-        if parent_request_id is None:
-            raise RuntimeError("HCCRequestRecord must expose the inherited Request.id field before deployment can be queued.")
+        for hcc_request in hcc_requests:
+            parent_request_id = getattr(hcc_request, "id", None)
+            if parent_request_id is None:
+                raise RuntimeError("HCCRequestRecord must expose the inherited Request.id field before deployment can be queued.")
+            setattr(hcc_request, "cr_ticket", cr_ticket)
+            hcc_request.status = base_request_status("Queued")
+            hcc_request.payload = {
+                **hcc_request.payload,
+                "crNumber": cr_ticket,
+                "cr_ticket": cr_ticket,
+                "status": "Queued",
+            }
+            hcc_request.save(using=db_alias)
+
         now = timezone.now()
         queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
         ticket_payload = {
-            **hcc_request_payload(hcc_request),
+            **grouped_hcc_request_payload(hcc_requests),
             "crNumber": cr_ticket,
             "cr_ticket": cr_ticket,
-            "parentRequestId": parent_request_id,
             "status": "Queued",
             "queuedBy": actor,
         }
         execution_plan = build_deployment_execution_plan(ticket_payload)
-        hcc_request.status = base_request_status("Queued")
-        hcc_request.payload = ticket_payload
-        hcc_request.save(using=db_alias)
         item = DeploymentQueueItem.objects.using(db_alias).create(
             queue_id=queue_id,
             ticket_id=ticket_id,
@@ -1313,6 +1359,7 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
                 "implementationCommands": commands,
             })
         planned_devices.append({
+            "id": ticket_device.get("parentRequestId"),
             "hostname": ticket_device.get("hostname"),
             "managementIp": ticket_device.get("managementIp"),
             "hardwareType": ticket_device.get("hardwareType"),
@@ -1321,7 +1368,6 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
 
     return {
         "ticketId": ticket_payload.get("id"),
-        "id": ticket_payload.get("parentRequestId"),
         "cr_ticket": ticket_payload.get("cr_ticket") or ticket_payload.get("crNumber"),
         "devices": planned_devices,
     }
@@ -1415,7 +1461,7 @@ def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
     device_payloads = [
         payload
         for device in plan.get("devices", [])
-        if (payload := build_executor_device_payload(device, request_id=plan.get("id"), cr_ticket=str(plan.get("cr_ticket") or ""))) is not None
+        if (payload := build_executor_device_payload(device, request_id=device.get("id"), cr_ticket=str(plan.get("cr_ticket") or ""))) is not None
     ]
     device_results = [call_deployment_executor_for_device(payload) for payload in device_payloads]
     if len(device_results) == 1:
@@ -1513,7 +1559,7 @@ def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
             if (
                 payload := build_executor_device_payload(
                     device,
-                    request_id=queue_item.execution_plan.get("id"),
+                    request_id=device.get("id"),
                     cr_ticket=str(queue_item.execution_plan.get("cr_ticket") or ""),
                 )
             ) is not None
@@ -1522,12 +1568,25 @@ def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
             request_payload = planned_payloads[0] if len(planned_payloads) == 1 else planned_payloads
 
     cr_number = str(queue_item.ticket_payload.get("cr_ticket") or queue_item.ticket_payload.get("crNumber") or "").strip()
-    request_id = queue_item.execution_plan.get("id") if isinstance(queue_item.execution_plan, dict) else None
+    planned_devices = queue_item.execution_plan.get("devices", []) if isinstance(queue_item.execution_plan, dict) else []
+    request_ids_by_device = {
+        str(device.get("hostname") or device.get("managementIp") or ""): device.get("id")
+        for device in planned_devices
+        if isinstance(device, dict)
+    }
     if isinstance(request_payload, dict):
-        request_payload = {**request_payload, "id": request_payload.get("id") or request_id, "cr_number": request_payload.get("cr_number") or cr_number}
+        request_payload = {
+            **request_payload,
+            "id": request_payload.get("id") or request_ids_by_device.get(str(request_payload.get("device") or "")),
+            "cr_number": request_payload.get("cr_number") or cr_number,
+        }
     elif isinstance(request_payload, list):
         request_payload = [
-            {**payload, "id": payload.get("id") or request_id, "cr_number": payload.get("cr_number") or cr_number}
+            {
+                **payload,
+                "id": payload.get("id") or request_ids_by_device.get(str(payload.get("device") or "")),
+                "cr_number": payload.get("cr_number") or cr_number,
+            }
             if isinstance(payload, dict)
             else payload
             for payload in request_payload

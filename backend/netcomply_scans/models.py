@@ -165,7 +165,7 @@ class TemplateRequestRecord(models.Model):
 
 
 class HCCRequestRecord(BaseRequest):
-    request_id = models.CharField(max_length=80, unique=True)
+    request_id = models.CharField(max_length=80, db_index=True)
     external_change_id = models.CharField(max_length=120, blank=True, default="")
     requestor = models.CharField(max_length=120, blank=True, default="")
     requestor_role = models.CharField(max_length=120, blank=True, default="")
