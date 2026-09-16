@@ -19,6 +19,19 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import dateparse, timezone
 
+try:
+    from FEM.models import Device
+    from FEM.utils import generate_AOC_ID
+except ImportError:
+    # These dependencies are supplied by the parent portal when this app is integrated.
+    Device = None
+    generate_AOC_ID = None
+
+try:
+    from approvals.models import *  # noqa: F403
+except ImportError:
+    pass
+
 from .models import (
     ComplianceScanActualConfig,
     ComplianceScanBatch,
@@ -30,10 +43,6 @@ from .models import (
     RemediationTemplateRecord,
     TemplateRequestRecord,
 )
-
-# Import the portal's Device model here before integrating this file, for example:
-# from your_device_app.models import Device
-
 
 EXECUTOR_RESPONSE_CACHE = FileBasedCache(
     str(Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-executor-response-cache"),
@@ -985,6 +994,12 @@ def format_implementation_time(value: Any) -> str:
     return api_datetime(value)
 
 
+def get_current_datetime() -> datetime:
+    if bool(getattr(settings, "USE_TZ", False)):
+        return timezone.now()
+    return datetime.now()
+
+
 BASE_REQUEST_STATUS_MAP = {
     "PENDING": "PENDING",
     "PENDINGAPPROVAL": "PENDING",
@@ -1030,11 +1045,25 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
         "backout_plan": str(payload.get("backoutPlan") or ""),
         "payload": {**payload, "id": request_id},
     }
+    if "id" in model_field_names:
+        if generate_AOC_ID is None:
+            raise RuntimeError("Import generate_AOC_ID from FEM.utils before creating HCC requests.")
+        fields["id"] = generate_AOC_ID("HCC Fix")
+    if "created_at" in model_field_names:
+        fields["created_at"] = get_current_datetime()
+    approval_field_name = next((name for name in ("approvals_required", "required_approvals") if name in model_field_names), None)
+    if approval_field_name:
+        approval_model = globals().get("RequireApprovals") or globals().get("RequiredApprovals")
+        if approval_model is None:
+            raise RuntimeError("Import RequireApprovals from approvals.models before creating HCC requests.")
+        fields[approval_field_name] = approval_model.objects.get(workflow__name="HCC Fix")
     if any(field.name == "implementation_time" for field in HCCRequestRecord._meta.fields):
         fields["implementation_time"] = parse_implementation_time(payload.get("implementationTime") or payload.get("plannedStart"))
     if "automation_provider" in model_field_names:
         fields["automation_provider"] = "nornir"
     if "device" in model_field_names:
+        if Device is None:
+            raise RuntimeError("Import Device from FEM.models before creating HCC requests.")
         hostname = str((devices[0] if devices and isinstance(devices[0], dict) else {}).get("hostname") or "").strip()
         if not hostname:
             raise ValueError("A device hostname is required to populate the inherited Request.device field.")
@@ -1394,7 +1423,6 @@ def build_executor_device_payload(device: dict[str, Any], *, request_id: Any = N
                 "description": "HCC remediation implementation commands",
             }
         ],
-        "aoc_id": cr_ticket,
     }
 
 
