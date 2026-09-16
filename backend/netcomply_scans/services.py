@@ -31,6 +31,9 @@ from .models import (
     TemplateRequestRecord,
 )
 
+# Import the portal's Device model here before integrating this file, for example:
+# from your_device_app.models import Device
+
 
 EXECUTOR_RESPONSE_CACHE = FileBasedCache(
     str(Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-executor-response-cache"),
@@ -965,17 +968,45 @@ def format_implementation_time(value: Any) -> str:
     return api_datetime(value)
 
 
+BASE_REQUEST_STATUS_MAP = {
+    "PENDING": "PENDING",
+    "PENDINGAPPROVAL": "PENDING",
+    "APPROVED": "APPROVED",
+    "QUEUED": "APPROVED",
+    "REJECTED": "REJECTED",
+    "INPROGRESS": "INPROGRESS",
+    "PROCESSING": "INPROGRESS",
+    "COMPLETE": "COMPLETED",
+    "COMPLETED": "COMPLETED",
+    "PARTIALLYCOMPLETE": "COMPLETED",
+    "SKIPPED": "COMPLETED",
+    "ROLLBACKCOMPLATED": "ROLLBACKCOMPLATED",
+    "ROLLBACKFAILED": "ROLLBACKFAILED",
+    "CANCELLED": "CANCELLED",
+    "FAILED": "FAILED",
+}
+
+
+def base_request_status(status: Any) -> str:
+    normalized = re.sub(r"[^A-Z0-9]", "", str(status or "PENDING").upper())
+    try:
+        return BASE_REQUEST_STATUS_MAP[normalized]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported Base Request status: {status}") from exc
+
+
 def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, Any]:
     request_id = str(payload.get("id") or fallback_id)
     devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
     finding_count = sum(len(device.get("findings", [])) for device in devices if isinstance(device, dict))
+    model_field_names = {field.name for field in HCCRequestRecord._meta.get_fields()}
     fields = {
         "request_id": request_id,
         "external_change_id": str(payload.get("crNumber") or ""),
         "requestor": str(payload.get("requestor") or ""),
         "requestor_role": str(payload.get("requestorRole") or ""),
         "implementation_date": str(payload.get("plannedStart") or ""),
-        "status": str(payload.get("status") or "Pending Approval"),
+        "status": base_request_status(payload.get("status") or "PENDING"),
         "device_count": len(devices),
         "finding_count": finding_count,
         "implementation_plan": str(payload.get("implementationPlan") or ""),
@@ -984,6 +1015,13 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
     }
     if any(field.name == "implementation_time" for field in HCCRequestRecord._meta.fields):
         fields["implementation_time"] = parse_implementation_time(payload.get("implementationTime") or payload.get("plannedStart"))
+    if "automation_provider" in model_field_names:
+        fields["automation_provider"] = "nornir"
+    if "device" in model_field_names:
+        hostname = str((devices[0] if devices and isinstance(devices[0], dict) else {}).get("hostname") or "").strip()
+        if not hostname:
+            raise ValueError("A device hostname is required to populate the inherited Request.device field.")
+        fields["device"] = Device.objects.get(hostname=hostname)
     return fields
 
 
@@ -1073,7 +1111,7 @@ def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
     hcc_request = HCCRequestRecord.objects.using(db_alias).filter(request_id=ticket_id).first()
     if not hcc_request:
         raise ValueError(f"Request {ticket_id} was not found")
-    hcc_request.status = status
+    hcc_request.status = base_request_status(status)
     hcc_request.payload = {**hcc_request.payload, "status": status}
     hcc_request.save(using=db_alias)
     return hcc_request_payload(hcc_request)
@@ -1081,7 +1119,7 @@ def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
 
 def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str) -> None:
     HCCRequestRecord.objects.using(scan_db_alias()).filter(request_id=request_id).update(
-        status=status,
+        status=base_request_status(status),
         payload={**payload, "status": status},
     )
 
@@ -1180,7 +1218,7 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
             "queuedBy": actor,
         }
         execution_plan = build_deployment_execution_plan(ticket_payload)
-        hcc_request.status = "Queued"
+        hcc_request.status = base_request_status("Queued")
         hcc_request.payload = ticket_payload
         hcc_request.save(using=db_alias)
         item = DeploymentQueueItem.objects.using(db_alias).create(
