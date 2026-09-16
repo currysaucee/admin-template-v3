@@ -1166,7 +1166,9 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
             return serialize_deployment_queue_item(existing)
 
         setattr(hcc_request, "cr_ticket", cr_ticket)
-        parent_request_id = hcc_request.pk
+        parent_request_id = getattr(hcc_request, "id", None)
+        if parent_request_id is None:
+            raise RuntimeError("HCCRequestRecord must expose the inherited Request.id field before deployment can be queued.")
         now = timezone.now()
         queue_id = f"DQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}"
         ticket_payload = {
