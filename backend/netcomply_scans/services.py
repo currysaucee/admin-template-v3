@@ -1299,7 +1299,7 @@ def build_executor_device_payload(device: dict[str, Any], *, request_id: Any = N
         return None
     return {
         "id": request_id,
-        "cr_ticket": cr_ticket,
+        "cr_number": cr_ticket,
         "device": device.get("hostname") or device.get("managementIp"),
         "workflow_tasks": [
             {
@@ -1425,9 +1425,16 @@ def cache_executor_response(ticket_id: str, result: dict[str, Any]) -> dict[str,
     request_payload = result.get("requestPayload")
     if request_payload is None and request_payloads:
         request_payload = request_payloads[0] if len(request_payloads) == 1 else request_payloads
+    if isinstance(request_payload, dict):
+        cr_number = request_payload.get("cr_number")
+    elif isinstance(request_payload, list):
+        cr_number = next((payload.get("cr_number") for payload in request_payload if isinstance(payload, dict) and payload.get("cr_number")), None)
+    else:
+        cr_number = None
     cached_result = {
         "ticketId": ticket_id,
         "capturedAt": api_datetime(timezone.now()),
+        "crNumber": cr_number,
         "requestPayload": request_payload,
         "response": result,
     }
@@ -1437,7 +1444,7 @@ def cache_executor_response(ticket_id: str, result: dict[str, Any]) -> dict[str,
 
 def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
     cached_result = EXECUTOR_RESPONSE_CACHE.get(executor_response_cache_key(ticket_id))
-    if cached_result is not None and cached_result.get("requestPayload") is not None:
+    if cached_result is not None and cached_result.get("requestPayload") is not None and cached_result.get("crNumber"):
         return cached_result
 
     queue_item = (
@@ -1474,9 +1481,22 @@ def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
         if planned_payloads:
             request_payload = planned_payloads[0] if len(planned_payloads) == 1 else planned_payloads
 
+    cr_number = str(queue_item.ticket_payload.get("cr_ticket") or queue_item.ticket_payload.get("crNumber") or "").strip()
+    request_id = queue_item.execution_plan.get("id") if isinstance(queue_item.execution_plan, dict) else None
+    if isinstance(request_payload, dict):
+        request_payload = {**request_payload, "id": request_payload.get("id") or request_id, "cr_number": request_payload.get("cr_number") or cr_number}
+    elif isinstance(request_payload, list):
+        request_payload = [
+            {**payload, "id": payload.get("id") or request_id, "cr_number": payload.get("cr_number") or cr_number}
+            if isinstance(payload, dict)
+            else payload
+            for payload in request_payload
+        ]
+
     return {
         "ticketId": ticket_id,
         "capturedAt": api_datetime(queue_item.completed_at or queue_item.started_at or queue_item.queued_at),
+        "crNumber": cr_number,
         "requestPayload": request_payload,
         "response": result,
     }
