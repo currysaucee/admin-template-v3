@@ -20,12 +20,12 @@ from django.db.models import Q
 from django.utils import dateparse, timezone
 
 try:
-    from FEM.models import Device
-    from FEM.utils import generate_AOC_ID
+    from fem.models import Device
+    from fem.utils import generate_aoc_id
 except ImportError:
     # These dependencies are supplied by the parent portal when this app is integrated.
     Device = None
-    generate_AOC_ID = None
+    generate_aoc_id = None
 
 try:
     from approvals.models import *  # noqa: F403
@@ -1046,9 +1046,9 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
         "payload": {**payload, "id": request_id},
     }
     if "id" in model_field_names:
-        if generate_AOC_ID is None:
-            raise RuntimeError("Import generate_AOC_ID from FEM.utils before creating HCC requests.")
-        fields["id"] = generate_AOC_ID("HCC Fix")
+        if generate_aoc_id is None:
+            raise RuntimeError("Import generate_aoc_id from fem.utils before creating HCC requests.")
+        fields["id"] = generate_aoc_id("HCCFix")
     if "created_at" in model_field_names:
         fields["created_at"] = get_current_datetime()
     approval_field_name = next((name for name in ("approvals_required", "required_approvals") if name in model_field_names), None)
@@ -1056,14 +1056,14 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
         approval_model = globals().get("RequireApprovals") or globals().get("RequiredApprovals")
         if approval_model is None:
             raise RuntimeError("Import RequireApprovals from approvals.models before creating HCC requests.")
-        fields[approval_field_name] = approval_model.objects.get(workflow__name="HCC Fix")
+        fields[approval_field_name] = approval_model.objects.get(workflow__name="HCCFix")
     if any(field.name == "implementation_time" for field in HCCRequestRecord._meta.fields):
         fields["implementation_time"] = parse_implementation_time(payload.get("implementationTime") or payload.get("plannedStart"))
     if "automation_provider" in model_field_names:
         fields["automation_provider"] = "nornir"
     if "device" in model_field_names:
         if Device is None:
-            raise RuntimeError("Import Device from FEM.models before creating HCC requests.")
+            raise RuntimeError("Import Device from fem.models before creating HCC requests.")
         hostname = str((devices[0] if devices and isinstance(devices[0], dict) else {}).get("hostname") or "").strip()
         if not hostname:
             raise ValueError("A device hostname is required to populate the inherited Request.device field.")
