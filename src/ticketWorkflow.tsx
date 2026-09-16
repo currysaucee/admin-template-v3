@@ -103,21 +103,6 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
   const visibleDevices = sourceVisibleDevices
     .map((device) => ({ ...device, findings: device.findings.filter((finding) => getFixAvailability(device, finding, templates, policySettings).executable) }))
     .filter((device) => device.findings.length > 0);
-  const executableFindingKeys = visibleDevices.flatMap((device) =>
-    device.findings
-      .filter((finding) => getFixAvailability(device, finding, templates, policySettings).executable)
-      .map((finding) => findFindingKey(device.id, finding.id))
-  );
-  const uniqueExecutableFindingKeys = Array.from(new Set(executableFindingKeys));
-  const allVisibleFindingsSelected = uniqueExecutableFindingKeys.length > 0 && uniqueExecutableFindingKeys.every((key) => selectedFindingKeys.includes(key));
-  const toggleAllVisibleFindings = (checked: boolean) => {
-    if (checked) {
-      setSelectedFindingKeys((prev) => Array.from(new Set([...prev, ...uniqueExecutableFindingKeys])));
-      setSelectedDeviceIds((prev) => Array.from(new Set([...prev, ...visibleDevices.filter((device) => device.findings.some((finding) => uniqueExecutableFindingKeys.includes(findFindingKey(device.id, finding.id)))).map((device) => device.id)])));
-      return;
-    }
-    setSelectedFindingKeys((prev) => prev.filter((key) => !uniqueExecutableFindingKeys.includes(key)));
-  };
   return (
     <div className="scope-grid">
       <div className="summary-card full-span">
@@ -126,10 +111,6 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
             <h3>Findings</h3>
             <p className="section-subtitle">Select one or more approved finding fixes. Use the Exceptions page filters to narrow this list before creating a request.</p>
           </div>
-          <label className={`select-all-findings ${uniqueExecutableFindingKeys.length === 0 ? "disabled" : ""}`}>
-            <Checkbox checked={allVisibleFindingsSelected} disabled={uniqueExecutableFindingKeys.length === 0} onChange={(event) => toggleAllVisibleFindings(Boolean(event.checked))} />
-            <span>Select all fixable findings</span>
-          </label>
         </div>
         {visibleDevices.length === 0 ? (
           <p className="empty-text">No eligible findings are available.</p>

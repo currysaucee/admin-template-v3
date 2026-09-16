@@ -62,7 +62,7 @@ function TicketStatusCell({ status }: { status: TicketStatus }) {
   return <StatusPill value={status} severity={getStatusSeverity(status)} />;
 }
 
-export function InventoryPage({ devices, templates, policySettings, reachabilityFilter, setReachabilityFilter, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onCreateTicket, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; reachabilityFilter: ReachabilityFilter; setReachabilityFilter: (filter: ReachabilityFilter) => void; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onCreateTicket: (device: Device) => void; onViewDevice: (device: Device) => void }) {
+export function InventoryPage({ devices, templates, policySettings, reachabilityFilter, setReachabilityFilter, bulkInventorySelection, setBulkInventorySelection, onBulkCreate, onViewDevice }: { devices: Device[]; templates: RemediationTemplate[]; policySettings: PolicySetting[]; reachabilityFilter: ReachabilityFilter; setReachabilityFilter: (filter: ReachabilityFilter) => void; bulkInventorySelection: Device[]; setBulkInventorySelection: (devices: Device[]) => void; onBulkCreate: (policyFilters?: string[]) => void; onViewDevice: (device: Device) => void }) {
   const [search, setSearch] = useState("");
   const [selectedPolicyFilters, setSelectedPolicyFilters] = useState<string[]>([]);
   const [filterMode, setFilterMode] = useState<"device" | "policy">("device");
@@ -119,7 +119,6 @@ export function InventoryPage({ devices, templates, policySettings, reachability
           <Column key="actions" header="Actions" headerClassName="inventory-actions-column" bodyClassName="inventory-actions-column" body={(row: Device) => (
             <div className="action-row">
               <Button label="View" icon="pi pi-eye" size="small" outlined onClick={() => onViewDevice(row)} />
-              <Button label="Create Request" icon="pi pi-plus-circle" size="small" disabled={row.complianceStatus !== "Non-Compliant" || !hasConfigSnapshot(row) || getAvailableFixCount(row, templates, policySettings) === 0} onClick={() => onCreateTicket(row)} />
             </div>
           )} />
         </DataTable>
@@ -146,7 +145,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onCreateTi
 
   return (
     <section className="page-content">
-      <div className="detail-header-row">
+      <div className="detail-header-row device-detail-action-row">
         <div className="detail-actions">
           <Button label="Create Request" icon="pi pi-plus-circle" disabled={!hasConfigSnapshot(device) || getAvailableFixCount(device, templates, policySettings) === 0} onClick={() => onCreateTicket(device)} />
         </div>

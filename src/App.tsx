@@ -181,7 +181,6 @@ function NetComplyPrototype() {
               setPage("createTicket");
               setStep(0);
             }}
-            onCreateTicket={startCreateTicket}
             onViewDevice={(device) => {
               setSelectedDeviceDetail(device);
               setPage("deviceDetail");

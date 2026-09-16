@@ -100,17 +100,12 @@ export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: Deplo
                     <div className="queue-rank">{index + 1}</div>
                     <div className="queue-ticket-main">
                       <strong>{item.ticketId}</strong>
-                      <span>{item.queueId}</span>
                     </div>
                     <div className="queue-chip-row">
                       <Tag value={`${deviceCount} device${deviceCount === 1 ? "" : "s"}`} severity="info" rounded />
                       <Tag value={`${policyCount} polic${policyCount === 1 ? "y" : "ies"}`} severity="warning" rounded />
                       {pendingCount > 0 && <Tag value={`${pendingCount} ready`} severity="success" rounded />}
                       {skippedCount > 0 && <Tag value={`${skippedCount} skipped`} severity="secondary" rounded />}
-                    </div>
-                    <div className="queue-meta-block">
-                      <span>Queued by</span>
-                      <strong>{item.queuedBy || item.ticket?.requestor || "Unknown"}</strong>
                     </div>
                     <div className="queue-meta-block">
                       <span>Queued at</span>
