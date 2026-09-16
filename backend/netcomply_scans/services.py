@@ -1053,9 +1053,9 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
         fields["created_at"] = get_current_datetime()
     approval_field_name = next((name for name in ("approvals_required", "required_approvals") if name in model_field_names), None)
     if approval_field_name:
-        approval_model = globals().get("RequireApprovals") or globals().get("RequiredApprovals")
+        approval_model = globals().get("RequiredApprovals")
         if approval_model is None:
-            raise RuntimeError("Import RequireApprovals from approvals.models before creating HCC requests.")
+            raise RuntimeError("Import RequiredApprovals from approvals.models before creating HCC requests.")
         fields[approval_field_name] = approval_model.objects.get(workflow__name="HCCFix")
     if any(field.name == "implementation_time" for field in HCCRequestRecord._meta.fields):
         fields["implementation_time"] = parse_implementation_time(payload.get("implementationTime") or payload.get("plannedStart"))
