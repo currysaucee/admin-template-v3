@@ -136,7 +136,7 @@ export function DeveloperConsolePage({
   const [documentFile, setDocumentFile] = React.useState<File | null>(null);
   const [documentProcessing, setDocumentProcessing] = React.useState(false);
   const [documentError, setDocumentError] = React.useState("");
-  const [activeSections, setActiveSections] = React.useState<number | number[]>([0, 1]);
+  const [activeSections, setActiveSections] = React.useState<number | number[]>([]);
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();

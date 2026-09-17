@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 set -u
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 RUNTIME_DIR="${HCC_WORKER_RUNTIME_DIR:-${PROJECT_DIR}/runtime}"
 PID_FILE="${RUNTIME_DIR}/hcc-deployment-worker.pid"
@@ -13,60 +13,55 @@ POLL_INTERVAL="${HCC_WORKER_POLL_INTERVAL:-5}"
 STOP_TIMEOUT="${HCC_WORKER_STOP_TIMEOUT:-20}"
 
 is_hcc_worker_pid() {
-  local pid="$1"
-  local process_command
+  hcc_check_pid="$1"
 
-  [[ "${pid}" =~ ^[0-9]+$ ]] || return 1
-  kill -0 "${pid}" 2>/dev/null || return 1
-  process_command="$(ps -p "${pid}" -o args= 2>/dev/null || true)"
-  [[ "${process_command}" == *"manage.py run_hcc_deployment_worker"* ]]
+  case "${hcc_check_pid}" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  kill -0 "${hcc_check_pid}" 2>/dev/null || return 1
+  hcc_process_command="$(ps -p "${hcc_check_pid}" -o args= 2>/dev/null || true)"
+  case "${hcc_process_command}" in
+    *"manage.py run_hcc_deployment_worker"*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 stop_hcc_workers() {
-  local pid
-  local seconds_waited
-  local -a worker_pids=()
+  hcc_worker_pids=""
+  hcc_candidate_pids="$(ps -eo pid=,args= 2>/dev/null | awk '/[m]anage.py run_hcc_deployment_worker/ {print $1}')"
+  for hcc_pid in ${hcc_candidate_pids}; do
+    if is_hcc_worker_pid "${hcc_pid}"; then
+      hcc_worker_pids="${hcc_worker_pids} ${hcc_pid}"
+    fi
+  done
 
-  if command -v pgrep >/dev/null 2>&1; then
-    while IFS= read -r pid; do
-      if is_hcc_worker_pid "${pid}"; then
-        worker_pids+=("${pid}")
-      fi
-    done < <(pgrep -f '[m]anage.py run_hcc_deployment_worker' 2>/dev/null || true)
-  else
-    while IFS= read -r pid; do
-      if is_hcc_worker_pid "${pid}"; then
-        worker_pids+=("${pid}")
-      fi
-    done < <(ps -eo pid=,args= 2>/dev/null | awk '/[m]anage.py run_hcc_deployment_worker/ {print $1}')
-  fi
-
-  if (( ${#worker_pids[@]} == 0 )); then
+  if [ -z "${hcc_worker_pids# }" ]; then
     echo "[HCC worker] No existing worker process was found."
     return
   fi
 
-  echo "[HCC worker] Stopping ${#worker_pids[@]} existing worker process(es): ${worker_pids[*]}"
-  kill "${worker_pids[@]}" 2>/dev/null || true
+  set -- ${hcc_worker_pids}
+  echo "[HCC worker] Stopping $# existing worker process(es):$hcc_worker_pids"
+  kill "$@" 2>/dev/null || true
 
-  seconds_waited=0
-  while (( seconds_waited < STOP_TIMEOUT )); do
-    local any_running=0
-    for pid in "${worker_pids[@]}"; do
-      if kill -0 "${pid}" 2>/dev/null; then
-        any_running=1
+  hcc_seconds_waited=0
+  while [ "${hcc_seconds_waited}" -lt "${STOP_TIMEOUT}" ]; do
+    hcc_any_running=0
+    for hcc_pid in ${hcc_worker_pids}; do
+      if kill -0 "${hcc_pid}" 2>/dev/null; then
+        hcc_any_running=1
         break
       fi
     done
-    (( any_running == 0 )) && break
+    [ "${hcc_any_running}" -eq 0 ] && break
     sleep 1
-    ((seconds_waited += 1))
+    hcc_seconds_waited=$((hcc_seconds_waited + 1))
   done
 
-  for pid in "${worker_pids[@]}"; do
-    if kill -0 "${pid}" 2>/dev/null; then
-      echo "[HCC worker] Worker PID ${pid} did not stop after ${STOP_TIMEOUT} seconds; forcing it to stop."
-      kill -KILL "${pid}" 2>/dev/null || true
+  for hcc_pid in ${hcc_worker_pids}; do
+    if kill -0 "${hcc_pid}" 2>/dev/null; then
+      echo "[HCC worker] Worker PID ${hcc_pid} did not stop after ${STOP_TIMEOUT} seconds; forcing it to stop."
+      kill -KILL "${hcc_pid}" 2>/dev/null || true
     fi
   done
   echo "[HCC worker] Existing worker processes stopped."
@@ -76,7 +71,7 @@ echo "[HCC worker] Project directory: ${PROJECT_DIR}"
 echo "[HCC worker] Python command: ${PYTHON_BIN}"
 echo "[HCC worker] Log file: ${LOG_FILE}"
 
-if [[ ! -f "${PROJECT_DIR}/manage.py" ]]; then
+if [ ! -f "${PROJECT_DIR}/manage.py" ]; then
   echo "[HCC worker] ERROR: manage.py was not found at ${PROJECT_DIR}/manage.py"
   echo "[HCC worker] Put this script in the project's scripts directory and try again."
   exit 1

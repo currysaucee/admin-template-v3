@@ -10,7 +10,7 @@ import { Card } from "primereact/card";
 
 import type { Device, ComplianceStatus, PolicySetting, ReachabilityFilter, RemediationTemplate, Ticket, TicketStatus } from "./types";
 import { ticketStatusOptions } from "./types";
-import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getFixAvailability, getStatusSeverity, hasConfigSnapshot, isSupportedPolicyFinding, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatDateTime, getAvailableFixCount, getFixAvailability, getStatusSeverity, hasConfigSnapshot, normalizePolicyReference, resolveTemplateForDevice } from "./helpers";
 import { DeviceCell, ImplementationDateCell, PageHeader, StatusPill, TicketActions, TicketDeviceCell, UserCell, MetaTile } from "./sharedUi";
 import { FindingDetailCard as RemediationFindingDetailCard } from "./remediationViews";
 
@@ -137,8 +137,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onCreateTi
   const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
   const findingCategoryTabs: Array<{ key: FindingCategoryKey; label: string; count: number }> = [
     { key: "fixable", label: "Fixable", count: findingGroups.fixable.length },
-    { key: "unsupported", label: "Unsupported", count: findingGroups.unsupported.length },
-    { key: "noTemplate", label: "No fix configured", count: findingGroups.noTemplate.length },
+    { key: "noFix", label: "No Fix", count: findingGroups.noFix.length },
   ];
   const activeFindings = findingGroups[activeFindingCategory];
   const activeTabLabel = findingCategoryTabs.find((tab) => tab.key === activeFindingCategory)?.label ?? "findings";
@@ -200,23 +199,20 @@ export function DeviceDetailPage({ device, templates, policySettings, onCreateTi
   );
 }
 
-type FindingCategoryKey = "fixable" | "unsupported" | "noTemplate";
+type FindingCategoryKey = "fixable" | "noFix";
 
 function getFindingCategoryGroups(device: Device, templates: RemediationTemplate[], policySettings: PolicySetting[]) {
   return device.findings.reduce<Record<FindingCategoryKey, Device["findings"]>>((groups, finding) => {
-    const supported = isSupportedPolicyFinding(finding, policySettings);
     const availability = getFixAvailability(device, finding, templates, policySettings);
 
     if (availability.executable) {
       groups.fixable.push(finding);
-    } else if (!supported) {
-      groups.unsupported.push(finding);
     } else {
-      groups.noTemplate.push(finding);
+      groups.noFix.push(finding);
     }
 
     return groups;
-  }, { fixable: [], unsupported: [], noTemplate: [] });
+  }, { fixable: [], noFix: [] });
 }
 
 function FindingFixCount({ device, templates, policySettings }: { device: Device; templates: RemediationTemplate[]; policySettings: PolicySetting[] }) {
@@ -226,8 +222,7 @@ function FindingFixCount({ device, templates, policySettings }: { device: Device
 
   const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
   const availableFixCount = findingGroups.fixable.length;
-  const unsupportedCount = findingGroups.unsupported.length;
-  const noTemplateCount = findingGroups.noTemplate.length;
+  const noFixCount = findingGroups.noFix.length;
 
   return (
     <div className="fix-availability-cell">
@@ -236,13 +231,9 @@ function FindingFixCount({ device, templates, policySettings }: { device: Device
           <strong>{availableFixCount}</strong>
           <span>Fixable</span>
         </div>
-        <div className="finding-summary-item unsupported">
-          <strong>{unsupportedCount}</strong>
-          <span>Unsupported</span>
-        </div>
         <div className="finding-summary-item blocked">
-          <strong>{noTemplateCount}</strong>
-          <span>No fix</span>
+          <strong>{noFixCount}</strong>
+          <span>No Fix</span>
         </div>
       </div>
     </div>

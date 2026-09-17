@@ -143,7 +143,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-result-note.failed { background: #fef2f2; color: #991b1b; }
 .fix-availability-cell, .template-availability-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fix-availability-cell { display: grid; justify-items: start; gap: 8px; min-width: 280px; }
-.finding-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(74px, 1fr)); gap: 8px; width: min(360px, 100%); }
+.finding-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(90px, 1fr)); gap: 8px; width: min(280px, 100%); }
 .finding-summary-item { display: grid; gap: 2px; min-width: 0; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff; }
 .finding-summary-item strong { font-size: 18px; line-height: 1; font-weight: 950; color: #0f172a; }
 .finding-summary-item span { color: #64748b; font-size: 11px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
@@ -251,13 +251,15 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .detail-actions { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
 .device-detail-card, .finding-detail-card { margin-bottom: 18px; }
 .device-finding-category-panel { display: grid; gap: 16px; }
-.finding-category-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 2px; }
+.finding-category-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 2px; }
 .finding-category-tab { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; color: #334155; cursor: pointer; text-align: left; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.03); }
 .finding-category-tab span { font-size: 13px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .finding-category-tab strong { flex: 0 0 auto; min-width: 32px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: 13px; font-weight: 950; }
 .finding-category-tab:hover { border-color: #bfdbfe; background: #f8fbff; }
 .finding-category-tab.active.fixable { border-color: #86efac; background: #f0fdf4; color: #166534; }
 .finding-category-tab.active.fixable strong { background: #dcfce7; color: #166534; }
+.finding-category-tab.active.noFix { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+.finding-category-tab.active.noFix strong { background: #fef3c7; color: #92400e; }
 .finding-category-tab.active.unsupported { border-color: #cbd5e1; background: #f8fafc; color: #475569; }
 .finding-category-tab.active.unsupported strong { background: #e2e8f0; color: #334155; }
 .finding-category-tab.active.noTemplate { border-color: #fde68a; background: #fffbeb; color: #92400e; }

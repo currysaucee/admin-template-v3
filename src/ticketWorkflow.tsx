@@ -153,7 +153,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                         />
                         <div className="finding-request-content">
                           <div className="finding-rule-cell">
-                            <div className="finding-title-row"><Tag className={`policy-id-tag ${supported ? "" : "unsupported-policy-tag"}`} value={finding.id} severity={supported ? "info" : "secondary"} rounded />{!supported && <Tag value="Unsupported" severity="secondary" rounded />}<strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
+                            <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity={supported ? "info" : "secondary"} rounded /><strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
                             <p className="finding-problem-description">{finding.description || finding.reason || "The latest scan detected a policy mismatch on this device."}</p>
                           </div>
                           <div className="finding-setting-comparison">
