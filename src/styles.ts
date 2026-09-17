@@ -462,6 +462,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .queue-policy-list { display: grid; gap: 8px; }
 .queue-policy-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
 .queue-policy-row div { display: grid; gap: 3px; min-width: 0; }
+.queue-execution-log { display: grid; gap: 8px; padding: 14px 0 0; border-top: 1px solid #e5e7eb; }
+.queue-execution-log > strong { color: #0f172a; font-size: 13px; }
+.queue-execution-log pre { max-height: 320px; overflow: auto; margin: 0; padding: 12px 14px; border-radius: 10px; background: #0f172a; color: #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .queue-policy-row strong { overflow-wrap: anywhere; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }

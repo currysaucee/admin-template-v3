@@ -1242,25 +1242,60 @@ def list_deployment_queue_for_frontend() -> list[dict[str, Any]]:
 
 
 def list_deployment_worker_heartbeats() -> list[dict[str, Any]]:
-    directory = deployment_worker_heartbeat_dir()
-    if not directory.exists():
-        return []
+    workers_by_id: dict[str, dict[str, Any]] = {}
+    activity_items = list(
+        DeploymentQueueItem.objects.using(scan_db_alias())
+        .exclude(locked_by="")
+        .order_by("-updated_at", "-id")[:500]
+    )
+    processed_counts: dict[str, int] = {}
+    for item in activity_items:
+        worker_id = str(item.locked_by or "").strip()
+        if not worker_id:
+            continue
+        processed_counts[worker_id] = processed_counts.get(worker_id, 0) + 1
+        if worker_id in workers_by_id:
+            continue
+        last_seen = item.completed_at or item.started_at or item.locked_at or item.updated_at
+        if item.status == "Processing":
+            worker_status = "Processing"
+            detail = f"Processing {item.queue_id}."
+        elif item.status == "Failed":
+            worker_status = "Error"
+            detail = item.last_error or f"Last deployment {item.queue_id} failed."
+        else:
+            worker_status = "Idle"
+            detail = f"Last deployment {item.queue_id} finished with status {item.status}."
+        workers_by_id[worker_id] = {
+            "workerId": worker_id,
+            "status": worker_status,
+            "lastSeenAt": api_datetime(last_seen),
+            "detail": detail,
+            "processedCount": 0,
+            "lastQueueId": item.queue_id,
+        }
 
-    workers: list[dict[str, Any]] = []
-    for heartbeat_file in directory.glob("*.json"):
-        try:
-            payload = json.loads(heartbeat_file.read_text(encoding="utf-8"))
-        except Exception:
-            payload = {"workerId": heartbeat_file.stem, "status": "Unreadable", "lastSeenAt": ""}
-        workers.append({
-            "workerId": str(payload.get("workerId") or heartbeat_file.stem),
-            "status": str(payload.get("status") or "Unknown"),
-            "lastSeenAt": str(payload.get("lastSeenAt") or ""),
-            "detail": str(payload.get("detail") or ""),
-            "processedCount": int(payload.get("processedCount") or 0),
-            "lastQueueId": str(payload.get("lastQueueId") or ""),
-        })
-    return sorted(workers, key=lambda worker: worker.get("workerId", ""))
+    for worker_id, processed_count in processed_counts.items():
+        workers_by_id[worker_id]["processedCount"] = processed_count
+
+    directory = deployment_worker_heartbeat_dir()
+    if directory.exists():
+        for heartbeat_file in directory.glob("*.json"):
+            try:
+                payload = json.loads(heartbeat_file.read_text(encoding="utf-8"))
+            except Exception:
+                payload = {"workerId": heartbeat_file.stem, "status": "Unreadable", "lastSeenAt": ""}
+            worker_id = str(payload.get("workerId") or heartbeat_file.stem)
+            database_worker = workers_by_id.get(worker_id, {})
+            workers_by_id[worker_id] = {
+                "workerId": worker_id,
+                "status": str(payload.get("status") or database_worker.get("status") or "Unknown"),
+                "lastSeenAt": str(payload.get("lastSeenAt") or database_worker.get("lastSeenAt") or ""),
+                "detail": str(payload.get("detail") or database_worker.get("detail") or ""),
+                "processedCount": max(int(payload.get("processedCount") or 0), int(database_worker.get("processedCount") or 0)),
+                "lastQueueId": str(payload.get("lastQueueId") or database_worker.get("lastQueueId") or ""),
+            }
+    return sorted(workers_by_id.values(), key=lambda worker: worker.get("workerId", ""))
 
 
 def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "Current User") -> dict[str, Any]:

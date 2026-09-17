@@ -26,6 +26,14 @@ function skippedPolicyCount(item: DeploymentQueueItem) {
   return item.executionPlan?.devices.reduce((total, device) => total + device.findings.filter((finding) => finding.status === "Skipped").length, 0) ?? 0;
 }
 
+function deploymentLogText(item: DeploymentQueueItem) {
+  if (item.lastError) return item.lastError;
+  if (item.result && (typeof item.result !== "object" || Object.keys(item.result as object).length > 0)) {
+    return JSON.stringify(item.result, null, 2);
+  }
+  return "No execution result has been recorded yet.";
+}
+
 function heartbeatAgeLabel(value?: string) {
   if (!value) return "No heartbeat";
   const date = new Date(value);
@@ -43,12 +51,12 @@ function WorkerHealthStrip({ workers }: { workers: DeploymentWorkerHealth[] }) {
       <div className="worker-health-header">
         <div>
           <h2>Worker Health</h2>
-          <p>{workers.length} worker{workers.length === 1 ? "" : "s"} reporting heartbeat files.</p>
+          <p>{workers.length} worker{workers.length === 1 ? "" : "s"} with recorded deployment activity.</p>
         </div>
-        <Tag value={workers.length > 0 ? "Heartbeat detected" : "No workers"} severity={workers.length > 0 ? "success" : "warning"} rounded />
+        <Tag value={workers.length > 0 ? "Activity recorded" : "No workers"} severity={workers.length > 0 ? "success" : "warning"} rounded />
       </div>
       {workers.length === 0 ? (
-        <div className="worker-empty">No worker heartbeat has been written yet.</div>
+        <div className="worker-empty">No worker activity has been recorded in the deployment queue yet.</div>
       ) : (
         <div className="worker-health-grid">
           {workers.map((worker) => (
@@ -136,6 +144,10 @@ export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: Deplo
                           </div>
                         </div>
                       ))}
+                      <div className="queue-execution-log">
+                        <strong>Deployment log</strong>
+                        <pre>{deploymentLogText(item)}</pre>
+                      </div>
                     </div>
                   )}
                 </div>
