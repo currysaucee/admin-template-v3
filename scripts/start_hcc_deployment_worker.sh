@@ -22,6 +22,56 @@ is_hcc_worker_pid() {
   [[ "${process_command}" == *"manage.py run_hcc_deployment_worker"* ]]
 }
 
+stop_hcc_workers() {
+  local pid
+  local seconds_waited
+  local -a worker_pids=()
+
+  if command -v pgrep >/dev/null 2>&1; then
+    while IFS= read -r pid; do
+      if is_hcc_worker_pid "${pid}"; then
+        worker_pids+=("${pid}")
+      fi
+    done < <(pgrep -f '[m]anage.py run_hcc_deployment_worker' 2>/dev/null || true)
+  else
+    while IFS= read -r pid; do
+      if is_hcc_worker_pid "${pid}"; then
+        worker_pids+=("${pid}")
+      fi
+    done < <(ps -eo pid=,args= 2>/dev/null | awk '/[m]anage.py run_hcc_deployment_worker/ {print $1}')
+  fi
+
+  if (( ${#worker_pids[@]} == 0 )); then
+    echo "[HCC worker] No existing worker process was found."
+    return
+  fi
+
+  echo "[HCC worker] Stopping ${#worker_pids[@]} existing worker process(es): ${worker_pids[*]}"
+  kill "${worker_pids[@]}" 2>/dev/null || true
+
+  seconds_waited=0
+  while (( seconds_waited < STOP_TIMEOUT )); do
+    local any_running=0
+    for pid in "${worker_pids[@]}"; do
+      if kill -0 "${pid}" 2>/dev/null; then
+        any_running=1
+        break
+      fi
+    done
+    (( any_running == 0 )) && break
+    sleep 1
+    ((seconds_waited += 1))
+  done
+
+  for pid in "${worker_pids[@]}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      echo "[HCC worker] Worker PID ${pid} did not stop after ${STOP_TIMEOUT} seconds; forcing it to stop."
+      kill -KILL "${pid}" 2>/dev/null || true
+    fi
+  done
+  echo "[HCC worker] Existing worker processes stopped."
+}
+
 echo "[HCC worker] Project directory: ${PROJECT_DIR}"
 echo "[HCC worker] Python command: ${PYTHON_BIN}"
 echo "[HCC worker] Log file: ${LOG_FILE}"
@@ -40,31 +90,8 @@ fi
 
 mkdir -p "${RUNTIME_DIR}"
 
-if [[ -f "${PID_FILE}" ]]; then
-  EXISTING_PID="$(tr -d '[:space:]' < "${PID_FILE}")"
-  if is_hcc_worker_pid "${EXISTING_PID}"; then
-    echo "[HCC worker] Stopping existing worker with PID ${EXISTING_PID}..."
-    kill "${EXISTING_PID}"
-
-    SECONDS_WAITED=0
-    while kill -0 "${EXISTING_PID}" 2>/dev/null && (( SECONDS_WAITED < STOP_TIMEOUT )); do
-      sleep 1
-      ((SECONDS_WAITED += 1))
-    done
-
-    if kill -0 "${EXISTING_PID}" 2>/dev/null; then
-      echo "[HCC worker] Existing worker did not stop after ${STOP_TIMEOUT} seconds; forcing it to stop."
-      kill -KILL "${EXISTING_PID}"
-    fi
-
-    echo "[HCC worker] Existing worker stopped."
-  elif [[ "${EXISTING_PID}" =~ ^[0-9]+$ ]] && kill -0 "${EXISTING_PID}" 2>/dev/null; then
-    echo "[HCC worker] WARNING: PID ${EXISTING_PID} belongs to another process; it will not be stopped."
-  else
-    echo "[HCC worker] Found a stale PID file."
-  fi
-  rm -f "${PID_FILE}"
-fi
+stop_hcc_workers
+rm -f "${PID_FILE}"
 
 echo "[HCC worker] Starting worker with a ${POLL_INTERVAL}-second polling interval..."
 cd "${PROJECT_DIR}" || exit 1
