@@ -946,20 +946,27 @@ def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
     }
 
 
-def inherited_request_id(record: HCCRequestRecord) -> Any:
-    direct_id = getattr(record, "id", None)
-    if direct_id is not None:
-        return direct_id
+def inherited_request_id(record: HCCRequestRecord, *, required: bool = False) -> Any:
+    for field_name in ("aoc_id", "id"):
+        direct_id = getattr(record, field_name, None)
+        if direct_id is not None and str(direct_id).strip():
+            return direct_id
     for parent_link in record._meta.parents.values():
         if parent_link is None:
             continue
-        parent_instance = getattr(record, parent_link.name, None)
-        parent_id = getattr(parent_instance, "id", None) or getattr(parent_instance, "pk", None)
-        if parent_id is not None:
-            return parent_id
-    if record.pk is not None:
-        return record.pk
-    raise RuntimeError(f"HCC request row {record.request_id} does not have an inherited Base Request id.")
+        try:
+            parent_instance = getattr(record, parent_link.name, None)
+        except Exception:
+            parent_instance = None
+        for field_name in ("aoc_id", "id"):
+            parent_id = getattr(parent_instance, field_name, None)
+            if parent_id is not None and str(parent_id).strip():
+                return parent_id
+    if required:
+        raise RuntimeError(
+            f"HCC request row {record.request_id} cannot be queued because both inherited Base Request aoc_id and id are empty."
+        )
+    return None
 
 
 def grouped_hcc_request_payload(records: list[HCCRequestRecord]) -> dict[str, Any]:
@@ -1063,7 +1070,10 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
     }
     if generate_aoc_id is None:
         raise RuntimeError("Import generate_aoc_id from fem.utils before creating HCC requests.")
-    fields["id"] = generate_aoc_id("HCCFix")
+    generated_id = generate_aoc_id("HCCFix")
+    fields["id"] = generated_id
+    if "aoc_id" in model_field_names:
+        fields["aoc_id"] = generated_id
     if "created_at" in model_field_names:
         fields["created_at"] = get_current_datetime()
     approval_field_name = next((name for name in ("approvals_required", "required_approvals") if name in model_field_names), None)
@@ -1323,7 +1333,7 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
             return serialize_deployment_queue_item(existing)
 
         for hcc_request in hcc_requests:
-            inherited_request_id(hcc_request)
+            inherited_request_id(hcc_request, required=True)
             setattr(hcc_request, "cr_ticket", cr_ticket)
             hcc_request.status = base_request_status("Queued")
             hcc_request.payload = {
@@ -1460,6 +1470,10 @@ def build_executor_device_payload(device: dict[str, Any], *, request_id: Any = N
     ]
     if not commands:
         return None
+    if request_id is None or not str(request_id).strip():
+        raise RuntimeError(
+            f"Deployment for {device.get('hostname') or device.get('managementIp') or 'unknown device'} cannot run because both Base Request aoc_id and id are empty."
+        )
     return {
         "id": request_id,
         "cr_number": cr_ticket,
