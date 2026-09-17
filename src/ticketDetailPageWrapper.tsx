@@ -4,7 +4,7 @@ import { Card } from "primereact/card";
 import DefaultLayout from "../layout/defaultLayout";
 import { TicketDetailPage } from "./ticketDetail";
 import { reconcileTicketWithLatestScan } from "./helpers";
-import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, navigateToPortalPath, portalRoutePaths, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
+import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import { styles } from "./styles";
 import type { Device, Ticket, TicketStatus } from "./types";
@@ -67,7 +67,6 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
           ticket={hydratedTicket}
           templates={templates}
           policySettings={policySettings}
-          onBack={props.onBack ?? (() => navigateToPortalPath(portalRoutePaths.dashboard))}
           onStatusChange={handleStatusChange}
         />
         {actionNotice && (

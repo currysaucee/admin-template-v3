@@ -1,5 +1,4 @@
 import React from "react";
-import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
@@ -8,7 +7,7 @@ import { findPolicySettingForFinding, formatDateTime, getDeploymentRunForTemplat
 import { FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
-export function TicketDetailPage({ ticket, templates, policySettings, onBack, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onBack: () => void; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void }) {
+export function TicketDetailPage({ ticket, templates, policySettings, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void }) {
   const completedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Successful").length;
   const failedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Failed").length;
   const pendingDevices = ticket.devices.length - completedDevices - failedDevices;
@@ -17,10 +16,9 @@ export function TicketDetailPage({ ticket, templates, policySettings, onBack, on
 
   return (
     <section className="page-content">
-      <div className="detail-header-row">
+      <div className="detail-header-row ticket-detail-action-row">
         <PageHeader title="HCC Request Details" subtitle="Review request scope, planned window, and finding-level remediation evidence." />
         <div className="detail-actions">
-          <Button label="Back to Dashboard" icon="pi pi-arrow-left" outlined onClick={onBack} />
           <TicketActions ticket={ticket} showView={false} onStatusChange={onStatusChange} />
         </div>
       </div>

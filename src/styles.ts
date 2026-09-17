@@ -244,8 +244,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .bulk-selection-info { font-weight: 700; color: #334155; }
 
 .detail-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.device-detail-action-row { width: 100%; justify-content: flex-end; }
+.device-detail-action-row { width: 100%; justify-content: flex-end; margin-bottom: 12px; }
 .device-detail-action-row .detail-actions { width: 100%; margin-left: auto; justify-content: flex-end; }
+.ticket-detail-action-row { width: 100%; justify-content: flex-end; margin-bottom: 12px; }
+.ticket-detail-action-row .detail-actions { width: 100%; margin-left: auto; justify-content: flex-end; }
 .detail-actions { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
 .device-detail-card, .finding-detail-card { margin-bottom: 18px; }
 .device-finding-category-panel { display: grid; gap: 16px; }

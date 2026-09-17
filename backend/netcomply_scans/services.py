@@ -946,6 +946,22 @@ def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
     }
 
 
+def inherited_request_id(record: HCCRequestRecord) -> Any:
+    direct_id = getattr(record, "id", None)
+    if direct_id is not None:
+        return direct_id
+    for parent_link in record._meta.parents.values():
+        if parent_link is None:
+            continue
+        parent_instance = getattr(record, parent_link.name, None)
+        parent_id = getattr(parent_instance, "id", None) or getattr(parent_instance, "pk", None)
+        if parent_id is not None:
+            return parent_id
+    if record.pk is not None:
+        return record.pk
+    raise RuntimeError(f"HCC request row {record.request_id} does not have an inherited Base Request id.")
+
+
 def grouped_hcc_request_payload(records: list[HCCRequestRecord]) -> dict[str, Any]:
     if not records:
         raise ValueError("At least one HCC request row is required.")
@@ -954,7 +970,7 @@ def grouped_hcc_request_payload(records: list[HCCRequestRecord]) -> dict[str, An
     for record in records:
         row_payload = hcc_request_payload(record)
         row_devices = row_payload.get("devices") if isinstance(row_payload.get("devices"), list) else []
-        parent_request_id = getattr(record, "id", None)
+        parent_request_id = inherited_request_id(record)
         grouped_devices.extend(
             {**device, "parentRequestId": parent_request_id}
             for device in row_devices
@@ -1045,10 +1061,9 @@ def hcc_request_fields(payload: dict[str, Any], fallback_id: str) -> dict[str, A
         "backout_plan": str(payload.get("backoutPlan") or ""),
         "payload": {**payload, "id": request_id},
     }
-    if "id" in model_field_names:
-        if generate_aoc_id is None:
-            raise RuntimeError("Import generate_aoc_id from fem.utils before creating HCC requests.")
-        fields["id"] = generate_aoc_id("HCCFix")
+    if generate_aoc_id is None:
+        raise RuntimeError("Import generate_aoc_id from fem.utils before creating HCC requests.")
+    fields["id"] = generate_aoc_id("HCCFix")
     if "created_at" in model_field_names:
         fields["created_at"] = get_current_datetime()
     approval_field_name = next((name for name in ("approvals_required", "required_approvals") if name in model_field_names), None)
@@ -1273,9 +1288,7 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
             return serialize_deployment_queue_item(existing)
 
         for hcc_request in hcc_requests:
-            parent_request_id = getattr(hcc_request, "id", None)
-            if parent_request_id is None:
-                raise RuntimeError("HCCRequestRecord must expose the inherited Request.id field before deployment can be queued.")
+            inherited_request_id(hcc_request)
             setattr(hcc_request, "cr_ticket", cr_ticket)
             hcc_request.status = base_request_status("Queued")
             hcc_request.payload = {

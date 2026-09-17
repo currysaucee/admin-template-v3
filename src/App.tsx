@@ -188,7 +188,7 @@ function NetComplyPrototype() {
           />
         )}
         {page === "deviceDetail" && selectedDeviceDetail && <DeviceDetailPageWrapper device={selectedDeviceDetail} templates={templates} policySettings={policySettings} onBack={() => setPage("inventory")} onCreateTicket={(device) => startCreateTicket(device, true)} />}
-        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={reconcileTicketWithLatestScan(selectedTicketDetail, devices)} templates={templates} policySettings={policySettings} onBack={() => setPage("dashboard")} />}
+        {page === "ticketDetail" && selectedTicketDetail && <TicketDetailPageWrapper ticket={reconcileTicketWithLatestScan(selectedTicketDetail, devices)} templates={templates} policySettings={policySettings} />}
         {page === "createTicket" && (
           <CreateTicketPageWrapper
             devices={selectableTicketDevices}
