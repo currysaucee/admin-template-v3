@@ -35,6 +35,9 @@ from .models import (
     TemplateRequestRecord,
 )
 
+
+EXECUTOR_PAYLOAD_SCHEMA = "hcc-parent-request-id-v2"
+
 EXECUTOR_RESPONSE_CACHE = FileBasedCache(
     str(Path(getattr(settings, "BASE_DIR", Path.cwd())) / "tmp" / "hcc-executor-response-cache"),
     {"TIMEOUT": None, "OPTIONS": {"MAX_ENTRIES": 10000}},
@@ -1492,6 +1495,7 @@ def build_executor_device_payload(device: dict[str, Any], *, request_id: Any = N
 def simulated_executor_response(payload: dict[str, Any]) -> dict[str, Any]:
     workflow_tasks = payload.get("workflow_tasks", [])
     return {
+        "executorPayloadSchema": EXECUTOR_PAYLOAD_SCHEMA,
         "requestPayload": payload,
         "success": True,
         "execution_time": 0,
@@ -1513,6 +1517,21 @@ def simulated_executor_response(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, Any]:
+    request_id = payload.get("id")
+    cr_number = str(payload.get("cr_number") or "").strip()
+    if request_id is None or not str(request_id).strip():
+        raise RuntimeError("Executor payload was rejected because parent Request id is empty.")
+    if cr_number and str(request_id).strip() == cr_number:
+        raise RuntimeError("Executor payload was rejected because parent Request id equals the CR number.")
+    # Rebuild the public contract at the final boundary. This prevents legacy
+    # internal fields such as aoc_id from leaking into either simulation or the
+    # real executor request.
+    payload = {
+        "id": request_id,
+        "cr_number": cr_number,
+        "device": payload.get("device"),
+        "workflow_tasks": payload.get("workflow_tasks", []),
+    }
     if bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)):
         return simulated_executor_response(payload)
 
@@ -1539,6 +1558,7 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
     except json.JSONDecodeError:
         response_payload = None
     return {
+        "executorPayloadSchema": EXECUTOR_PAYLOAD_SCHEMA,
         "executorUrl": executor_url,
         "requestPayload": payload,
         "httpStatus": http_status,
