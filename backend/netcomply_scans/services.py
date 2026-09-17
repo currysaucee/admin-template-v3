@@ -947,10 +947,22 @@ def hcc_request_payload(record: HCCRequestRecord) -> dict[str, Any]:
 
 
 def inherited_request_id(record: HCCRequestRecord, *, required: bool = False) -> Any:
-    for field_name in ("aoc_id", "id"):
-        direct_id = getattr(record, field_name, None)
-        if direct_id is not None and str(direct_id).strip():
-            return direct_id
+    cr_values = {
+        str(value).strip()
+        for value in (
+            getattr(record, "cr_ticket", None),
+            getattr(record, "external_change_id", None),
+        )
+        if value is not None and str(value).strip()
+    }
+
+    def valid_identifier(value: Any) -> bool:
+        normalized = str(value).strip() if value is not None else ""
+        return bool(normalized) and normalized not in cr_values
+
+    # HCCRequestRecord uses Django multi-table inheritance in the portal. Read
+    # the identifier from the concrete parent Request first so the shared HCC
+    # request_id and the CR number can never be mistaken for the executor ID.
     for parent_link in record._meta.parents.values():
         if parent_link is None:
             continue
@@ -958,13 +970,19 @@ def inherited_request_id(record: HCCRequestRecord, *, required: bool = False) ->
             parent_instance = getattr(record, parent_link.name, None)
         except Exception:
             parent_instance = None
-        for field_name in ("aoc_id", "id"):
+        for field_name in ("id", "aoc_id"):
             parent_id = getattr(parent_instance, field_name, None)
-            if parent_id is not None and str(parent_id).strip():
+            if valid_identifier(parent_id):
                 return parent_id
+    # This fallback supports deployments where the inherited fields are
+    # exposed directly on the child instance rather than through request_ptr.
+    for field_name in ("id", "aoc_id"):
+        direct_id = getattr(record, field_name, None)
+        if valid_identifier(direct_id):
+            return direct_id
     if required:
         raise RuntimeError(
-            f"HCC request row {record.request_id} cannot be queued because both inherited Base Request aoc_id and id are empty."
+            f"HCC request row {record.request_id} cannot be queued because its parent Request id/aoc_id is empty or equals the CR number."
         )
     return None
 
