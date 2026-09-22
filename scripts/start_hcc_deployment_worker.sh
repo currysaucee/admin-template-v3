@@ -1,11 +1,8 @@
 #!/bin/sh
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-RUNTIME_DIR="${HCC_WORKER_RUNTIME_DIR:-${PROJECT_DIR}/runtime}"
+RUNTIME_DIR="${HCC_WORKER_RUNTIME_DIR:-${BACKEND_PATH:-.}/runtime}"
 PID_FILE="${RUNTIME_DIR}/hcc-deployment-worker.pid"
 LOG_FILE="${RUNTIME_DIR}/hcc-deployment-worker.log"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
 WORKER_ID="${HCC_WORKER_ID:-hcc-deployment-worker}"
 POLL_INTERVAL="${HCC_WORKER_POLL_INTERVAL:-5}"
 STOP_TIMEOUT="${HCC_WORKER_STOP_TIMEOUT:-20}"
@@ -68,17 +65,21 @@ stop_hcc_workers() {
 run_hcc_worker_setup() (
   set -u
 
-  echo "[HCC worker] Project directory: ${PROJECT_DIR}"
-  echo "[HCC worker] Python command: ${PYTHON_BIN}"
-  echo "[HCC worker] Log file: ${LOG_FILE}"
-
-  if [ ! -f "${PROJECT_DIR}/manage.py" ]; then
-    echo "[HCC worker] ERROR: manage.py was not found at ${PROJECT_DIR}/manage.py"
+  if [ -z "${BACKEND_PATH:-}" ]; then
+    echo "[HCC worker] ERROR: BACKEND_PATH is not defined."
     return 1
   fi
 
-  if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
-    echo "[HCC worker] ERROR: Python command '${PYTHON_BIN}' was not found."
+  echo "[HCC worker] Backend directory: ${BACKEND_PATH}"
+  echo "[HCC worker] Log file: ${LOG_FILE}"
+
+  if [ ! -f "${BACKEND_PATH}/manage.py" ]; then
+    echo "[HCC worker] ERROR: manage.py was not found at ${BACKEND_PATH}/manage.py"
+    return 1
+  fi
+
+  if ! command -v python >/dev/null 2>&1; then
+    echo "[HCC worker] ERROR: the python command was not found."
     return 1
   fi
 
@@ -91,11 +92,11 @@ run_hcc_worker_setup() (
   rm -f "${PID_FILE}" || true
 
   echo "[HCC worker] Starting worker with a ${POLL_INTERVAL}-second polling interval..."
-  if ! cd "${PROJECT_DIR}"; then
-    echo "[HCC worker] ERROR: could not enter project directory ${PROJECT_DIR}."
+  if ! cd "${BACKEND_PATH}"; then
+    echo "[HCC worker] ERROR: could not enter backend directory ${BACKEND_PATH}."
     return 1
   fi
-  nohup "${PYTHON_BIN}" manage.py run_hcc_deployment_worker \
+  nohup python manage.py run_hcc_deployment_worker \
     --worker-id "${WORKER_ID}" \
     --poll-interval "${POLL_INTERVAL}" \
     >> "${LOG_FILE}" 2>&1 &
