@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -u
-
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 RUNTIME_DIR="${HCC_WORKER_RUNTIME_DIR:-${PROJECT_DIR}/runtime}"
@@ -67,47 +65,63 @@ stop_hcc_workers() {
   echo "[HCC worker] Existing worker processes stopped."
 }
 
-echo "[HCC worker] Project directory: ${PROJECT_DIR}"
-echo "[HCC worker] Python command: ${PYTHON_BIN}"
-echo "[HCC worker] Log file: ${LOG_FILE}"
+run_hcc_worker_setup() (
+  set -u
 
-if [ ! -f "${PROJECT_DIR}/manage.py" ]; then
-  echo "[HCC worker] ERROR: manage.py was not found at ${PROJECT_DIR}/manage.py"
-  echo "[HCC worker] Put this script in the project's scripts directory and try again."
-  exit 1
+  echo "[HCC worker] Project directory: ${PROJECT_DIR}"
+  echo "[HCC worker] Python command: ${PYTHON_BIN}"
+  echo "[HCC worker] Log file: ${LOG_FILE}"
+
+  if [ ! -f "${PROJECT_DIR}/manage.py" ]; then
+    echo "[HCC worker] ERROR: manage.py was not found at ${PROJECT_DIR}/manage.py"
+    return 1
+  fi
+
+  if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+    echo "[HCC worker] ERROR: Python command '${PYTHON_BIN}' was not found."
+    return 1
+  fi
+
+  if ! mkdir -p "${RUNTIME_DIR}"; then
+    echo "[HCC worker] ERROR: could not create runtime directory ${RUNTIME_DIR}."
+    return 1
+  fi
+
+  stop_hcc_workers
+  rm -f "${PID_FILE}" || true
+
+  echo "[HCC worker] Starting worker with a ${POLL_INTERVAL}-second polling interval..."
+  if ! cd "${PROJECT_DIR}"; then
+    echo "[HCC worker] ERROR: could not enter project directory ${PROJECT_DIR}."
+    return 1
+  fi
+  nohup "${PYTHON_BIN}" manage.py run_hcc_deployment_worker \
+    --worker-id "${WORKER_ID}" \
+    --poll-interval "${POLL_INTERVAL}" \
+    >> "${LOG_FILE}" 2>&1 &
+  WORKER_PID=$!
+  if ! printf '%s\n' "${WORKER_PID}" > "${PID_FILE}"; then
+    echo "[HCC worker] ERROR: could not write PID file ${PID_FILE}."
+    kill "${WORKER_PID}" 2>/dev/null || true
+    return 1
+  fi
+
+  sleep 2
+
+  if kill -0 "${WORKER_PID}" 2>/dev/null; then
+    echo "[HCC worker] SUCCESS: worker is running with PID ${WORKER_PID}."
+    echo "[HCC worker] Follow its output with: tail -f '${LOG_FILE}'"
+    echo "[HCC worker] Stop it with: kill ${WORKER_PID}"
+    return 0
+  fi
+
+  echo "[HCC worker] ERROR: worker exited during startup."
+  rm -f "${PID_FILE}" || true
+  echo "[HCC worker] Last log lines:"
+  tail -n 30 "${LOG_FILE}" 2>/dev/null || echo "[HCC worker] No log output was written."
+  return 1
+)
+
+if ! run_hcc_worker_setup; then
+  echo "[HCC worker] WARNING: worker setup failed; continuing with the remaining deployment steps."
 fi
-
-if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
-  echo "[HCC worker] ERROR: Python command '${PYTHON_BIN}' was not found."
-  echo "[HCC worker] Set PYTHON_BIN to the correct executable or virtual-environment Python path."
-  exit 1
-fi
-
-mkdir -p "${RUNTIME_DIR}"
-
-stop_hcc_workers
-rm -f "${PID_FILE}"
-
-echo "[HCC worker] Starting worker with a ${POLL_INTERVAL}-second polling interval..."
-cd "${PROJECT_DIR}" || exit 1
-nohup "${PYTHON_BIN}" manage.py run_hcc_deployment_worker \
-  --worker-id "${WORKER_ID}" \
-  --poll-interval "${POLL_INTERVAL}" \
-  >> "${LOG_FILE}" 2>&1 &
-WORKER_PID=$!
-printf '%s\n' "${WORKER_PID}" > "${PID_FILE}"
-
-sleep 2
-
-if kill -0 "${WORKER_PID}" 2>/dev/null; then
-  echo "[HCC worker] SUCCESS: worker is running with PID ${WORKER_PID}."
-  echo "[HCC worker] Follow its output with: tail -f '${LOG_FILE}'"
-  echo "[HCC worker] Stop it with: kill ${WORKER_PID}"
-  exit 0
-fi
-
-echo "[HCC worker] ERROR: worker exited during startup."
-rm -f "${PID_FILE}"
-echo "[HCC worker] Last log lines:"
-tail -n 30 "${LOG_FILE}" 2>/dev/null || echo "[HCC worker] No log output was written."
-exit 1
