@@ -8,6 +8,7 @@ from django.db import IntegrityError
 from django.views.decorators.csrf import csrf_exempt
 
 from .services import (
+    abort_ticket_deployment,
     delete_policy_settings,
     enqueue_ticket_for_deployment,
     extract_policy_settings_from_docx,
@@ -285,6 +286,15 @@ def deployment_queue(request):
             return JsonResponse({"queueItem": enqueue_ticket_for_deployment(ticket_id, cr_ticket=cr_ticket, actor=actor)})
         except Exception as exc:
             return JsonResponse({"detail": f"Unable to queue deployment: {exc}"}, status=400)
+    if request.method == "PATCH":
+        payload = read_json_body(request) or {}
+        ticket_id = str(payload.get("ticketId") or "").strip()
+        if not ticket_id:
+            return JsonResponse({"detail": "ticketId is required"}, status=400)
+        try:
+            return JsonResponse({"queueItem": abort_ticket_deployment(ticket_id)})
+        except Exception as exc:
+            return JsonResponse({"detail": f"Unable to abort deployment: {exc}"}, status=400)
     return JsonResponse({"detail": "Method not allowed"}, status=405)
 
 

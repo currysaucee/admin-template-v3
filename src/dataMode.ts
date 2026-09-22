@@ -205,3 +205,11 @@ export async function enqueueRealDeployment(ticketId: string, crTicket: string):
   if (!payload.queueItem) throw new Error("Backend did not return a queued deployment item.");
   return payload.queueItem;
 }
+
+export async function abortRealDeployment(ticketId: string): Promise<DeploymentQueueItem | undefined> {
+  const payload = await requestJson<{ queueItem?: DeploymentQueueItem }>(endpoint("deployment-queue/"), {
+    method: "PATCH",
+    body: JSON.stringify({ ticketId }),
+  });
+  return payload.queueItem;
+}

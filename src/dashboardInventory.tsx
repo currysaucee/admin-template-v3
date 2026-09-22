@@ -137,7 +137,7 @@ export function DeviceDetailPage({ device, templates, policySettings, onCreateTi
   const findingGroups = getFindingCategoryGroups(device, templates, policySettings);
   const findingCategoryTabs: Array<{ key: FindingCategoryKey; label: string; count: number }> = [
     { key: "fixable", label: "Fixable", count: findingGroups.fixable.length },
-    { key: "noFix", label: "No Fix", count: findingGroups.noFix.length },
+    { key: "noFix", label: "Non-fixable", count: findingGroups.noFix.length },
   ];
   const activeFindings = findingGroups[activeFindingCategory];
   const activeTabLabel = findingCategoryTabs.find((tab) => tab.key === activeFindingCategory)?.label ?? "findings";
@@ -233,7 +233,7 @@ function FindingFixCount({ device, templates, policySettings }: { device: Device
         </div>
         <div className="finding-summary-item blocked">
           <strong>{noFixCount}</strong>
-          <span>No Fix</span>
+          <span>Non-fixable</span>
         </div>
       </div>
     </div>

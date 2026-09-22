@@ -60,6 +60,13 @@ export type PolicySetting = {
   variantNumber?: number;
   supersedesPolicyId?: string;
   confirmNewVariant?: boolean;
+  proposedTemplate?: {
+    findingName: string;
+    hardwareTypes: string[];
+    implementationCommands: string[];
+    failureBehaviour: string;
+    submitterComment: string;
+  };
 };
 
 export type PolicyLookupResult = {
@@ -143,6 +150,7 @@ export type DeploymentQueueItem = {
   lockedBy?: string;
   startedAt?: string;
   completedAt?: string;
+  nextExecutionAt?: string;
   attemptCount: number;
   lastError?: string;
   ticket?: Ticket;

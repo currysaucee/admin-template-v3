@@ -5,7 +5,7 @@ import secrets
 import re
 import ssl
 import zipfile
-from datetime import datetime, timezone as datetime_timezone
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -753,13 +753,67 @@ def upsert_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any
                 "supersedesPolicyId": variants[-1].get("id") if variants else "",
             }
             PolicySettingRecord.objects.using(db_alias).create(**policy_setting_fields(variant_payload))
+            proposed_template = payload.get("proposedTemplate")
+            if not isinstance(proposed_template, dict):
+                raise ValueError(f"A proposed fix template is required when onboarding {base_id}.")
+            hardware_types = proposed_template.get("hardwareTypes")
+            commands = proposed_template.get("implementationCommands")
+            if not isinstance(hardware_types, list) or not any(str(value).strip() for value in hardware_types):
+                raise ValueError(f"Select at least one hardware type for the {base_id} proposed fix.")
+            if not isinstance(commands, list) or not any(str(value).strip() for value in commands):
+                raise ValueError(f"Add at least one implementation command for the {base_id} proposed fix.")
+
+            template_key = f"{variant_id}-fix-{secrets.token_hex(4)}"
+            template_data = {
+                "key": template_key,
+                "policySettingId": variant_id,
+                "findingName": str(proposed_template.get("findingName") or payload.get("title") or base_id),
+                "agreedSetting": expected_config,
+                "standard": str(payload.get("standard") or ""),
+                "hardwareTypes": [str(value).strip() for value in hardware_types if str(value).strip()],
+                "implementationCommands": [str(value).strip() for value in commands if str(value).strip()],
+                "failureBehaviour": str(proposed_template.get("failureBehaviour") or "Stop and escalate to the network SME."),
+                "approvalStatus": "Pending Approval",
+            }
+            RemediationTemplateRecord.objects.using(db_alias).create(**template_fields(template_data, template_key))
+            request_id = f"FTR-{secrets.token_hex(4).upper()}"
+            request_data = {
+                "id": request_id,
+                "templateKey": template_key,
+                "findingName": template_data["findingName"],
+                "hardwareType": ", ".join(template_data["hardwareTypes"]),
+                "policySettingTitle": f"{variant_id} - {variant_payload.get('title') or base_id}",
+                "requestor": str(payload.get("updatedBy") or "Developer"),
+                "submitterComment": str(proposed_template.get("submitterComment") or "Policy onboarding with proposed remediation."),
+                "status": "Pending Approval",
+                "submittedAt": api_datetime(timezone.now()),
+            }
+            TemplateRequestRecord.objects.using(db_alias).create(**template_request_fields(request_data, request_id))
     return list_policy_settings_for_frontend()
 
 
 def delete_policy_settings(setting_ids: list[str]) -> list[dict[str, Any]]:
-    normalized_ids = [str(setting_id).strip() for setting_id in setting_ids if str(setting_id).strip()]
-    if normalized_ids:
-        PolicySettingRecord.objects.using(scan_db_alias()).filter(Q(setting_number__in=normalized_ids) | Q(payload__id__in=normalized_ids) | Q(payload__settingNumber__in=normalized_ids)).delete()
+    base_ids = {normalize_policy_id(setting_id) for setting_id in setting_ids if normalize_policy_id(setting_id)}
+    db_alias = scan_db_alias()
+    if base_ids:
+        with transaction.atomic(using=db_alias):
+            policies = list(PolicySettingRecord.objects.using(db_alias).all())
+            policy_ids = {
+                record.setting_number
+                for record in policies
+                if normalize_policy_id((record.payload or {}).get("settingNumber") or record.setting_number) in base_ids
+            }
+            templates = list(RemediationTemplateRecord.objects.using(db_alias).all())
+            template_keys = {
+                record.template_key
+                for record in templates
+                if record.policy_setting_id in policy_ids or normalize_policy_id(record.policy_setting_id) in base_ids
+            }
+            if template_keys:
+                TemplateRequestRecord.objects.using(db_alias).filter(template_key__in=template_keys).delete()
+                RemediationTemplateRecord.objects.using(db_alias).filter(template_key__in=template_keys).delete()
+            if policy_ids:
+                PolicySettingRecord.objects.using(db_alias).filter(setting_number__in=policy_ids).delete()
     return list_policy_settings_for_frontend()
 
 
@@ -1204,7 +1258,23 @@ def set_ticket_status(ticket_id: str, status: str) -> dict[str, Any]:
             record.status = base_request_status(status)
             record.payload = {**record.payload, "status": status}
             record.save(using=db_alias)
+        if str(status).strip().lower() == "cancelled":
+            DeploymentQueueItem.objects.using(db_alias).filter(
+                ticket_id=ticket_id,
+                status__in=["Queued", "Waiting", "Processing"],
+            ).update(status="Aborted", completed_at=timezone.now(), last_error="Aborted by user.")
     return grouped_hcc_request_payload(records)
+
+
+def abort_ticket_deployment(ticket_id: str) -> dict[str, Any] | None:
+    set_ticket_status(ticket_id, "Cancelled")
+    item = (
+        DeploymentQueueItem.objects.using(scan_db_alias())
+        .filter(ticket_id=ticket_id)
+        .order_by("-queued_at", "-id")
+        .first()
+    )
+    return serialize_deployment_queue_item(item) if item else None
 
 
 def update_hcc_request_payload_status(request_id: str, payload: dict[str, Any], status: str) -> None:
@@ -1238,6 +1308,7 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
         "lockedBy": item.locked_by,
         "startedAt": api_datetime(item.started_at) if item.started_at else "",
         "completedAt": api_datetime(item.completed_at) if item.completed_at else "",
+        "nextExecutionAt": api_datetime(item.available_at) if item.status == "Waiting" else "",
         "attemptCount": item.attempt_count,
         "lastError": item.last_error,
         "ticket": item.ticket_payload,
@@ -1247,7 +1318,7 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
 
 
 def list_deployment_queue_for_frontend() -> list[dict[str, Any]]:
-    status_order = {"Queued": 0, "Processing": 1, "Failed": 2, "Skipped": 2, "Complete": 2}
+    status_order = {"Processing": 0, "Waiting": 1, "Queued": 2, "Failed": 3, "Aborted": 3, "Skipped": 3, "Complete": 3}
     items = [
         serialize_deployment_queue_item(item)
         for item in DeploymentQueueItem.objects.using(scan_db_alias()).order_by("priority", "queued_at", "id")[:200]
@@ -1332,7 +1403,7 @@ def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "
         except FieldDoesNotExist as exc:
             raise RuntimeError("HCCRequestRecord must inherit the Request.cr_ticket field before deployment can be queued.") from exc
 
-        existing = DeploymentQueueItem.objects.using(db_alias).filter(ticket_id=ticket_id, status__in=["Queued", "Processing"]).order_by("-queued_at").first()
+        existing = DeploymentQueueItem.objects.using(db_alias).filter(ticket_id=ticket_id, status__in=["Queued", "Waiting", "Processing"]).order_by("-queued_at").first()
         if existing:
             return serialize_deployment_queue_item(existing)
 
@@ -1565,6 +1636,8 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
         "responseHeaders": response_headers,
         "rawResponseBody": response_body,
         "responsePayload": response_payload,
+        "success": response_payload.get("success") is True if isinstance(response_payload, dict) else 200 <= http_status < 300,
+        "task_results": response_payload.get("task_results", []) if isinstance(response_payload, dict) else [],
     }
 
 
@@ -1716,7 +1789,7 @@ def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | No
     db_alias = scan_db_alias()
     with transaction.atomic(using=db_alias):
         queryset = DeploymentQueueItem.objects.using(db_alias).select_for_update(skip_locked=True).filter(
-            status="Queued",
+            status__in=["Queued", "Waiting"],
             available_at__lte=timezone.now(),
         ).order_by("priority", "queued_at", "id")
         item = queryset.first()
@@ -1725,7 +1798,8 @@ def claim_next_deployment_queue_item(worker_id: str) -> DeploymentQueueItem | No
         item.status = "Processing"
         item.locked_by = worker_id
         item.locked_at = timezone.now()
-        item.started_at = timezone.now()
+        if item.started_at is None:
+            item.started_at = timezone.now()
         item.attempt_count += 1
         item.save(using=db_alias)
         update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "In Progress")
@@ -1741,18 +1815,80 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
     try:
         plan = item.execution_plan or build_deployment_execution_plan(item.ticket_payload)
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
-        executable_count = sum(1 for finding in all_findings if finding["status"] == "Pending Execution")
-        result = call_deployment_executor(plan)
-        cache_executor_response(item.ticket_id, result)
-        # Temporary discovery behaviour: preserve the response for inspection and
-        # do not interpret its fields until the executor contract is confirmed.
-        item.status = "Skipped" if all_findings and executable_count == 0 else "Complete"
-        item.result_payload = result
-        item.completed_at = timezone.now()
+        next_step = next(
+            (
+                (device, finding)
+                for device in plan["devices"]
+                for finding in device["findings"]
+                if finding.get("status") == "Pending Execution"
+            ),
+            None,
+        )
+        if next_step is None:
+            item.status = "Skipped" if all_findings and all(finding.get("status") == "Skipped" for finding in all_findings) else "Complete"
+            item.completed_at = timezone.now()
+            item.execution_plan = plan
+            item.save(using=db_alias)
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Complete" if item.status == "Complete" else "Skipped")
+            return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
+
+        device, finding = next_step
+        step_plan = {
+            "ticketId": plan.get("ticketId"),
+            "cr_ticket": plan.get("cr_ticket"),
+            "devices": [{**device, "findings": [finding]}],
+        }
+        step_result = call_deployment_executor(step_plan)
+        validate_executor_result(step_result)
+        finding["status"] = "Executed"
+        finding["reason"] = "Execution completed successfully."
+
+        prior_result = item.result_payload if isinstance(item.result_payload, dict) else {}
+        steps = [*(prior_result.get("steps") or []), {
+            "device": device.get("hostname") or device.get("managementIp"),
+            "policyId": finding.get("policyId"),
+            "completedAt": api_datetime(timezone.now()),
+            "result": step_result,
+        }]
+        device_results = [
+            device_result
+            for step in steps
+            for device_result in ((step.get("result") or {}).get("device_results") or [])
+        ]
+        aggregate_result = {
+            "success": True,
+            "steps": steps,
+            "device_results": device_results,
+            "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
+        }
+        cache_executor_response(item.ticket_id, aggregate_result)
+
+        item.refresh_from_db(using=db_alias)
+        if item.status == "Aborted":
+            item.result_payload = aggregate_result
+            item.execution_plan = plan
+            item.save(using=db_alias, update_fields=["result_payload", "execution_plan", "updated_at"])
+            return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
+
+        remaining = any(
+            queued_finding.get("status") == "Pending Execution"
+            for queued_device in plan["devices"]
+            for queued_finding in queued_device["findings"]
+        )
+        item.execution_plan = plan
+        item.result_payload = aggregate_result
         item.last_error = ""
+        if remaining:
+            delay_seconds = max(0, int(getattr(settings, "HCC_DEPLOYMENT_STEP_DELAY_SECONDS", 600)))
+            item.status = "Waiting"
+            item.available_at = timezone.now() + timedelta(seconds=delay_seconds)
+            item.completed_at = None
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "In Progress")
+        else:
+            item.status = "Complete"
+            item.completed_at = timezone.now()
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Complete")
         item.save(using=db_alias)
-        final_status = "Complete" if item.status == "Complete" else "Skipped"
-        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
         item.status = "Failed"

@@ -459,6 +459,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .queue-chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .queue-meta-block strong { color: #0f172a; font-size: 13px; overflow-wrap: anywhere; }
 .queue-device-list { display: grid; gap: 0; padding: 0 18px 18px 74px; }
+.queue-abort-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 10px; background: #fff7f7; color: #7f1d1d; }
+.queue-abort-row span { font-size: 13px; line-height: 1.45; }
 .queue-device-row { display: grid; grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr); gap: 18px; padding: 14px 0; border-top: 1px solid #e5e7eb; }
 .queue-device-identity { display: grid; gap: 4px; align-content: start; }
 .queue-policy-list { display: grid; gap: 8px; }

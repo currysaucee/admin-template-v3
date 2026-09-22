@@ -19,6 +19,10 @@ type DraftPolicyRow = {
   settingNumber: string;
   title: string;
   expectedConfig: string;
+  hardwareTypes: string;
+  implementationCommands: string;
+  failureBehaviour: string;
+  submitterComment: string;
 };
 
 function createDraftRow(): DraftPolicyRow {
@@ -27,6 +31,10 @@ function createDraftRow(): DraftPolicyRow {
     settingNumber: "",
     title: "",
     expectedConfig: "",
+    hardwareTypes: "",
+    implementationCommands: "",
+    failureBehaviour: "Stop and escalate to the network SME.",
+    submitterComment: "",
   };
 }
 
@@ -71,6 +79,13 @@ function toPolicySetting(row: DraftPolicyRow): PolicySetting {
     createdAt: now,
     updatedAt: now,
     updatedBy: "Developer",
+    proposedTemplate: {
+      findingName: row.title.trim() || settingNumber,
+      hardwareTypes: row.hardwareTypes.split(",").map((value) => value.trim()).filter(Boolean),
+      implementationCommands: row.implementationCommands.split("\n").map((value) => value.trim()).filter(Boolean),
+      failureBehaviour: row.failureBehaviour.trim(),
+      submitterComment: row.submitterComment.trim(),
+    },
   };
 }
 
@@ -80,6 +95,10 @@ function toDraftRow(setting: PolicySetting): DraftPolicyRow {
     settingNumber: setting.settingNumber || setting.id,
     title: setting.title,
     expectedConfig: setting.settingPayload,
+    hardwareTypes: setting.proposedTemplate?.hardwareTypes.join(", ") ?? "",
+    implementationCommands: setting.proposedTemplate?.implementationCommands.join("\n") ?? "",
+    failureBehaviour: setting.proposedTemplate?.failureBehaviour ?? "Stop and escalate to the network SME.",
+    submitterComment: setting.proposedTemplate?.submitterComment ?? "",
   };
 }
 
@@ -137,7 +156,7 @@ export function DeveloperConsolePage({
   const [documentProcessing, setDocumentProcessing] = React.useState(false);
   const [documentError, setDocumentError] = React.useState("");
   const [activeSections, setActiveSections] = React.useState<number | number[]>([]);
-  const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim());
+  const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.trim() && row.implementationCommands.trim() && row.submitterComment.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
@@ -202,7 +221,7 @@ export function DeveloperConsolePage({
 
   const deletePolicy = async (policy: PolicySetting) => {
     const policyId = policy.id || policy.settingNumber;
-    if (!policyId || !window.confirm(`Delete policy setting ${policy.settingNumber || policy.id}?`)) return;
+    if (!policyId || !window.confirm(`Deboard ${policy.settingNumber || policy.id} and permanently remove all of its variants, linked fix templates, and template approval requests? Existing HCC tickets will be kept.`)) return;
     setDeletingId(policyId);
     try {
       if (onDeletePolicySetting) {
@@ -336,6 +355,22 @@ export function DeveloperConsolePage({
                           <span>Expected Config</span>
                           <InputTextarea value={row.expectedConfig} rows={3} autoResize placeholder="Paste the expected configuration rule or policy payload." onChange={(event) => updateDraftRow(row.rowId, { expectedConfig: event.target.value })} />
                         </label>
+                        <label className="field-block">
+                          <span>Hardware Types</span>
+                          <InputText value={row.hardwareTypes} placeholder="C9300, C9500" onChange={(event) => updateDraftRow(row.rowId, { hardwareTypes: event.target.value })} />
+                        </label>
+                        <label className="field-block full-span">
+                          <span>Implementation Commands</span>
+                          <InputTextarea value={row.implementationCommands} rows={4} autoResize placeholder="Enter one configuration command per line." onChange={(event) => updateDraftRow(row.rowId, { implementationCommands: event.target.value })} />
+                        </label>
+                        <label className="field-block full-span">
+                          <span>Failure Behaviour</span>
+                          <InputTextarea value={row.failureBehaviour} rows={2} autoResize onChange={(event) => updateDraftRow(row.rowId, { failureBehaviour: event.target.value })} />
+                        </label>
+                        <label className="field-block full-span">
+                          <span>Approval Request Comment</span>
+                          <InputTextarea value={row.submitterComment} rows={2} autoResize placeholder="Explain what the approver should verify." onChange={(event) => updateDraftRow(row.rowId, { submitterComment: event.target.value })} />
+                        </label>
                       </div>
                       {lookupLoading[row.rowId] && <div className="policy-lookup-state"><i className="pi pi-spin pi-spinner" /> Checking existing policy and templates…</div>}
                       {!lookupLoading[row.rowId] && policyLookups[row.rowId]?.exists && (
@@ -358,7 +393,7 @@ export function DeveloperConsolePage({
 
                 <div className="developer-submit-row">
                   <span>{submitError || `${validRows.length} ready to onboard`}</span>
-                  <Button label={editingPolicy ? "Create Variant" : "Submit Policy Settings"} icon="pi pi-check" disabled={cannotSubmit} loading={submitting} onClick={onboardPolicies} />
+                  <Button label={editingPolicy ? "Propose Variant & Fix" : "Submit Policy & Fix"} icon="pi pi-check" disabled={cannotSubmit} loading={submitting} onClick={onboardPolicies} />
                 </div>
               </div>
             </Dialog>
@@ -375,6 +410,7 @@ export function DeveloperConsolePage({
               </div>
               <div className="developer-heading-actions">
                 <Button label="Create New Variant" icon="pi pi-copy" outlined onClick={() => startEditPolicy(detailPolicy)} />
+                <Button label="Deboard" icon="pi pi-trash" severity="danger" outlined loading={deletingId === detailPolicy.id} onClick={() => deletePolicy(detailPolicy)} />
               </div>
             </div>
             <div className="developer-detail-grid">

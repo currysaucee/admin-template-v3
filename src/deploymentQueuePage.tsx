@@ -1,6 +1,7 @@
 import React from "react";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
+import { Button } from "primereact/button";
 
 import { formatDateTime, getStatusSeverity } from "./helpers";
 import { PageHeader } from "./sharedUi";
@@ -45,6 +46,14 @@ function heartbeatAgeLabel(value?: string) {
   return `${Math.round(ageMinutes / 60)}h ago`;
 }
 
+function countdownLabel(value: string | undefined, now: number) {
+  if (!value) return "";
+  const remaining = Math.max(0, Math.ceil((new Date(value).getTime() - now) / 1000));
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")} until next fix`;
+}
+
 function WorkerHealthStrip({ workers }: { workers: DeploymentWorkerHealth[] }) {
   return (
     <Card className="worker-health-card">
@@ -76,8 +85,14 @@ function WorkerHealthStrip({ workers }: { workers: DeploymentWorkerHealth[] }) {
   );
 }
 
-export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[] }) {
+export function DeploymentQueuePage({ queue, workerHealth = [], onAbort }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[]; onAbort?: (ticketId: string) => Promise<void> | void }) {
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
+  const [now, setNow] = React.useState(Date.now());
+  const [abortingId, setAbortingId] = React.useState("");
+  React.useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const toggleExpanded = (queueId: string) => {
     setExpandedIds((previous) => {
       const next = new Set(previous);
@@ -114,6 +129,7 @@ export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: Deplo
                       <Tag value={`${policyCount} polic${policyCount === 1 ? "y" : "ies"}`} severity="warning" rounded />
                       {pendingCount > 0 && <Tag value={`${pendingCount} ready`} severity="success" rounded />}
                       {skippedCount > 0 && <Tag value={`${skippedCount} skipped`} severity="secondary" rounded />}
+                      {item.status === "Waiting" && <Tag value={countdownLabel(item.nextExecutionAt, now)} severity="warning" rounded />}
                     </div>
                     <div className="queue-meta-block">
                       <span>Queued at</span>
@@ -124,6 +140,12 @@ export function DeploymentQueuePage({ queue, workerHealth = [] }: { queue: Deplo
                   </button>
                   {expanded && (
                     <div className="queue-device-list">
+                      {["Queued", "Waiting", "Processing"].includes(item.status) && onAbort && (
+                        <div className="queue-abort-row">
+                          <span>Abort prevents every fix that has not started yet. A command already being executed cannot be recalled.</span>
+                          <Button label="Abort Remaining Fixes" icon="pi pi-ban" severity="danger" outlined loading={abortingId === item.queueId} onClick={async () => { if (!window.confirm(`Abort remaining fixes for ${item.ticketId}?`)) return; setAbortingId(item.queueId); try { await onAbort(item.ticketId); } finally { setAbortingId(""); } }} />
+                        </div>
+                      )}
                       {(item.executionPlan?.devices ?? []).map((device, deviceIndex) => (
                         <div key={`${item.queueId}-${device.hostname || deviceIndex}`} className="queue-device-row">
                           <div className="queue-device-identity">

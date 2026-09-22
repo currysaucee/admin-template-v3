@@ -105,7 +105,7 @@ export function getFindingDisplayTitle(finding: Finding, policySettings: PolicyS
   const normalizedTitle = normalizePolicyReference(finding.title);
   const normalizedId = normalizePolicyReference(finding.id);
   if (policySetting?.title) return policySetting.title;
-  if (!policySetting) return "Unsupported policy";
+  if (!policySetting) return "Non-fixable policy";
   if (finding.title && normalizedTitle !== normalizedId) return finding.title;
   return finding.description || finding.id;
 }

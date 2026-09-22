@@ -5,6 +5,7 @@ import {
   enqueueRealDeployment,
   extractRealPolicySettingsFromDocument,
   loadRealDeploymentQueueState,
+  abortRealDeployment,
   loadRealDeploymentQueue,
   loadRealDevices,
   loadRealPolicySettings,
@@ -280,9 +281,7 @@ export function usePortalDeploymentQueueState(overrideQueue?: DeploymentQueueIte
     }
 
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    loadRealDeploymentQueueState()
+    const refresh = () => loadRealDeploymentQueueState()
       .then((state) => {
         if (!cancelled) {
           setQueue(state.queue);
@@ -300,12 +299,22 @@ export function usePortalDeploymentQueueState(overrideQueue?: DeploymentQueueIte
         if (!cancelled) setLoading(false);
       });
 
+    setLoading(true);
+    setError(null);
+    void refresh();
+    const refreshTimer = window.setInterval(() => void refresh(), 5000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(refreshTimer);
     };
   }, [overrideQueue]);
 
   return { queue, workerHealth, loading, error };
+}
+
+export async function abortRuntimeDeployment(ticketId: string) {
+  return abortRealDeployment(ticketId);
 }
 
 export async function enqueueRuntimeDeployment(ticket: Ticket, crTicket: string) {

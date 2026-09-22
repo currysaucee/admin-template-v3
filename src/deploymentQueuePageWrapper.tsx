@@ -2,7 +2,7 @@ import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
 import { DeploymentQueuePage } from "./deploymentQueuePage";
-import { usePortalDeploymentQueueState } from "./portalRouteState";
+import { abortRuntimeDeployment, usePortalDeploymentQueueState } from "./portalRouteState";
 import { styles } from "./styles";
 import type { DeploymentQueueItem, DeploymentWorkerHealth } from "./types";
 
@@ -18,7 +18,7 @@ export default function DeploymentQueuePageWrapper(props: DeploymentQueuePagePro
     <DefaultLayout>
       <style>{styles}</style>
       <div className="netcomply-page-wrapper netcomply-deployment-queue-wrapper">
-        <DeploymentQueuePage queue={props.queue ?? queue} workerHealth={props.workerHealth ?? workerHealth} />
+        <DeploymentQueuePage queue={props.queue ?? queue} workerHealth={props.workerHealth ?? workerHealth} onAbort={async (ticketId) => { await abortRuntimeDeployment(ticketId); }} />
       </div>
     </DefaultLayout>
   );

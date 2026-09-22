@@ -150,7 +150,7 @@ export function TicketActions({ ticket, onView, onStatusChange, showView = true 
         {canDecide && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}
         {canDecide && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}
         {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => setShowReleaseDialog(true)} />}
-        {canCancel && <Button label="Cancel" icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
+        {canCancel && <Button label={["Queued", "In Progress"].includes(ticket.status) ? "Abort" : "Cancel"} icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
       </div>
       <Dialog
         visible={showReleaseDialog}

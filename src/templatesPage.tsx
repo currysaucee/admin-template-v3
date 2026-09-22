@@ -247,14 +247,13 @@ export function TemplatePage({ templates, setTemplates, setTemplateRequests, pol
 
   return (
     <section className="page-content">
-      <PageHeader title="Fix Templates" subtitle="Templates are tied to an onboarded Policy Setting and hardware type during request creation." />
+      <PageHeader title="Fix Templates" subtitle="Approved fixes created through policy onboarding are available here." />
       <Card className="table-card template-directory">
         <div className="template-directory-toolbar">
           <span className="p-input-icon-left grow-input">
             <i className="pi pi-search" />
             <InputText value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search findings, Policy Settings, hardware types..." />
           </span>
-          <Button label="New Template" icon="pi pi-plus" onClick={startCreateTemplate} />
         </div>
         <div className="template-card-list">
           {filteredTemplates.map((template) => (
