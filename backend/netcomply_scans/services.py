@@ -758,10 +758,13 @@ def upsert_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any
                 raise ValueError(f"A proposed fix template is required when onboarding {base_id}.")
             hardware_types = proposed_template.get("hardwareTypes")
             commands = proposed_template.get("implementationCommands")
+            check_commands = proposed_template.get("prePostCheckCommands")
             if not isinstance(hardware_types, list) or not any(str(value).strip() for value in hardware_types):
                 raise ValueError(f"Select at least one hardware type for the {base_id} proposed fix.")
             if not isinstance(commands, list) or not any(str(value).strip() for value in commands):
                 raise ValueError(f"Add at least one implementation command for the {base_id} proposed fix.")
+            if not isinstance(check_commands, list) or not any(str(value).strip() for value in check_commands):
+                raise ValueError(f"Add at least one pre/post-check command for the {base_id} proposed fix.")
 
             template_key = f"{variant_id}-fix-{secrets.token_hex(4)}"
             template_data = {
@@ -772,6 +775,7 @@ def upsert_policy_settings(payloads: list[dict[str, Any]]) -> list[dict[str, Any
                 "standard": str(payload.get("standard") or ""),
                 "hardwareTypes": [str(value).strip() for value in hardware_types if str(value).strip()],
                 "implementationCommands": [str(value).strip() for value in commands if str(value).strip()],
+                "prePostCheckCommands": [str(value).strip() for value in check_commands if str(value).strip()],
                 "failureBehaviour": str(proposed_template.get("failureBehaviour") or "Stop and escalate to the network SME."),
                 "approvalStatus": "Pending Approval",
             }
@@ -890,6 +894,7 @@ def template_payload(record: RemediationTemplateRecord) -> dict[str, Any]:
         "standard": payload.get("standard") or record.standard,
         "hardwareTypes": payload.get("hardwareTypes") or record.hardware_types,
         "implementationCommands": payload.get("implementationCommands") or record.implementation_commands,
+        "prePostCheckCommands": payload.get("prePostCheckCommands") if isinstance(payload.get("prePostCheckCommands"), list) else [],
         "failureBehaviour": payload.get("failureBehaviour") or record.failure_behaviour,
         "approvalStatus": payload.get("approvalStatus") or record.approval_status,
         "updatedAt": payload.get("updatedAt") or api_datetime(record.updated_at),

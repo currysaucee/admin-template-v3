@@ -42,6 +42,7 @@ export type RemediationTemplate = {
   agreedSetting: string;
   standard: string;
   implementationCommands: string[];
+  prePostCheckCommands?: string[];
   failureBehaviour: string;
   approvalStatus: TemplateApprovalStatus;
   updatedAt: string;
@@ -64,6 +65,7 @@ export type PolicySetting = {
     findingName: string;
     hardwareTypes: string[];
     implementationCommands: string[];
+    prePostCheckCommands: string[];
     submitterComment: string;
   };
 };

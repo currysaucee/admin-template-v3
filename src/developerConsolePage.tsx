@@ -21,6 +21,7 @@ type DraftPolicyRow = {
   title: string;
   expectedConfig: string;
   hardwareTypes: string[];
+  prePostCheckCommands: string[];
   implementationCommands: string[];
   submitterComment: string;
 };
@@ -32,6 +33,7 @@ function createDraftRow(): DraftPolicyRow {
     title: "",
     expectedConfig: "",
     hardwareTypes: [],
+    prePostCheckCommands: [""],
     implementationCommands: [""],
     submitterComment: "",
   };
@@ -77,6 +79,7 @@ function toPolicySetting(row: DraftPolicyRow): PolicySetting {
     proposedTemplate: {
       findingName: row.title.trim() || settingNumber,
       hardwareTypes: row.hardwareTypes.map((value) => value.trim()).filter(Boolean),
+      prePostCheckCommands: row.prePostCheckCommands.map((value) => value.trim()).filter(Boolean),
       implementationCommands: row.implementationCommands.map((value) => value.trim()).filter(Boolean),
       submitterComment: row.submitterComment.trim(),
     },
@@ -90,6 +93,7 @@ function toDraftRow(setting: PolicySetting): DraftPolicyRow {
     title: setting.title,
     expectedConfig: setting.settingPayload,
     hardwareTypes: setting.proposedTemplate?.hardwareTypes ?? [],
+    prePostCheckCommands: setting.proposedTemplate?.prePostCheckCommands ?? [""],
     implementationCommands: setting.proposedTemplate?.implementationCommands ?? [""],
     submitterComment: setting.proposedTemplate?.submitterComment ?? "",
   };
@@ -110,17 +114,17 @@ function PolicyChip({ setting }: { setting: PolicySetting }) {
   );
 }
 
-function ImplementationCommandEditor({ commands, onChange }: { commands: string[]; onChange: (commands: string[]) => void }) {
+function CommandEditor({ title, commands, onChange }: { title: string; commands: string[]; onChange: (commands: string[]) => void }) {
   const safeCommands = commands.length ? commands : [""];
   return (
     <div className="field-block full-span command-row-editor">
       <div className="structured-section-header compact">
-        <span>Implementation Commands</span>
+        <span>{title}</span>
         <Button label="Add Command" icon="pi pi-plus" size="small" outlined onClick={() => onChange([...safeCommands, ""])} />
       </div>
       <div className="command-edit-row-list">
         {safeCommands.map((command, index) => (
-          <div className="command-edit-row" key={`implementation-command-${index}`}>
+          <div className="command-edit-row" key={`${title}-${index}`}>
             <span>{index + 1}</span>
             <InputText value={command} placeholder="Enter configuration command" onChange={(event) => onChange(safeCommands.map((value, commandIndex) => commandIndex === index ? event.target.value : value))} />
             <Button icon="pi pi-trash" rounded text severity="danger" aria-label={`Delete command ${index + 1}`} disabled={safeCommands.length === 1} onClick={() => onChange(safeCommands.filter((_, commandIndex) => commandIndex !== index))} />
@@ -172,12 +176,20 @@ export function DeveloperConsolePage({
   const [documentProcessing, setDocumentProcessing] = React.useState(false);
   const [documentError, setDocumentError] = React.useState("");
   const [hardwareSuggestions, setHardwareSuggestions] = React.useState<string[]>(hardwareTypeOptions);
+  const [detailLookup, setDetailLookup] = React.useState<PolicyLookupResult | null>(null);
+  const [detailCommandTab, setDetailCommandTab] = React.useState<"checks" | "implementation">("checks");
   const [activeSections, setActiveSections] = React.useState<number | number[]>([]);
-  const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.length > 0 && row.implementationCommands.some((command) => command.trim()) && row.submitterComment.trim());
+  const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.length > 0 && row.prePostCheckCommands.some((command) => command.trim()) && row.implementationCommands.some((command) => command.trim()) && row.submitterComment.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
   });
+  const detailTemplate = detailPolicy ? (
+    detailLookup?.templates.find((template) => template.policySettingId === detailPolicy.id)
+    ?? detailLookup?.templates[detailLookup.templates.length - 1]
+  ) : undefined;
+  const detailPrePostCommands = detailTemplate?.prePostCheckCommands ?? detailPolicy?.proposedTemplate?.prePostCheckCommands ?? [];
+  const detailImplementationCommands = detailTemplate?.implementationCommands ?? detailPolicy?.proposedTemplate?.implementationCommands ?? [];
   const rowHasDuplicateConfig = (row: DraftPolicyRow) => Boolean(policyLookups[row.rowId]?.variants.some((variant) => variant.settingPayload.trim() === row.expectedConfig.trim()));
   const cannotSubmit = validRows.length === 0 || validRows.some((row) => {
     const lookup = policyLookups[row.rowId];
@@ -200,6 +212,20 @@ export function DeveloperConsolePage({
     }, 600);
     return () => window.clearTimeout(timer);
   }, [draftRows.map((row) => row.settingNumber).join("|"), onLookupPolicySetting, showIntake]);
+
+  React.useEffect(() => {
+    if (!detailPolicy || !onLookupPolicySetting) {
+      setDetailLookup(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLookup(null);
+    setDetailCommandTab("checks");
+    onLookupPolicySetting(detailPolicy.settingNumber || detailPolicy.id)
+      .then((lookup) => { if (!cancelled) setDetailLookup(lookup); })
+      .catch(() => { if (!cancelled) setDetailLookup(null); });
+    return () => { cancelled = true; };
+  }, [detailPolicy, onLookupPolicySetting]);
 
   const updateDraftRow = (rowId: string, patch: Partial<DraftPolicyRow>) => {
     setDraftRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
@@ -386,7 +412,8 @@ export function DeveloperConsolePage({
                           <span>Hardware Types</span>
                           <AutoComplete value={row.hardwareTypes} suggestions={hardwareSuggestions} completeMethod={(event: AutoCompleteCompleteEvent) => { const query = event.query.trim().toLowerCase(); setHardwareSuggestions(query ? hardwareTypeOptions.filter((option) => option.toLowerCase().includes(query)) : hardwareTypeOptions); }} onChange={(event) => updateDraftRow(row.rowId, { hardwareTypes: event.value as string[] })} multiple dropdown forceSelection={false} placeholder="Search or enter hardware type" />
                         </label>
-                        <ImplementationCommandEditor commands={row.implementationCommands} onChange={(implementationCommands) => updateDraftRow(row.rowId, { implementationCommands })} />
+                        <CommandEditor title="Pre/Post-check Commands" commands={row.prePostCheckCommands} onChange={(prePostCheckCommands) => updateDraftRow(row.rowId, { prePostCheckCommands })} />
+                        <CommandEditor title="Implementation Commands" commands={row.implementationCommands} onChange={(implementationCommands) => updateDraftRow(row.rowId, { implementationCommands })} />
                         <label className="field-block full-span">
                           <span>Approval Request Comment</span>
                           <InputTextarea value={row.submitterComment} rows={2} autoResize placeholder="Explain what the approver should verify." onChange={(event) => updateDraftRow(row.rowId, { submitterComment: event.target.value })} />
@@ -424,6 +451,21 @@ export function DeveloperConsolePage({
             <div className="agreed-setting-box">
               <strong>Expected Config</strong>
               <pre>{detailPolicy.settingPayload || "No expected configuration captured."}</pre>
+            </div>
+            <div className="policy-command-inspector">
+              <div className="policy-command-tabs" role="tablist" aria-label="Policy commands">
+                <button type="button" role="tab" aria-selected={detailCommandTab === "checks"} className={detailCommandTab === "checks" ? "active" : ""} onClick={() => setDetailCommandTab("checks")}>Pre/Post-check</button>
+                <button type="button" role="tab" aria-selected={detailCommandTab === "implementation"} className={detailCommandTab === "implementation" ? "active" : ""} onClick={() => setDetailCommandTab("implementation")}>Implementation Commands</button>
+              </div>
+              <div className="command-list policy-command-view">
+                {(detailCommandTab === "checks" ? detailPrePostCommands : detailImplementationCommands).length > 0 ? (
+                  (detailCommandTab === "checks" ? detailPrePostCommands : detailImplementationCommands).map((command, index) => (
+                    <div className="command-line" key={`${detailCommandTab}-${command}-${index}`}><span>{index + 1}</span><code>{command}</code></div>
+                  ))
+                ) : (
+                  <div className="empty-pre"><strong>No commands configured.</strong><span>This is a legacy policy without {detailCommandTab === "checks" ? "pre/post-check commands" : "implementation commands"}.</span></div>
+                )}
+              </div>
             </div>
           </div>
         )}
