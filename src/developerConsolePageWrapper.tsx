@@ -26,6 +26,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
   };
 
   const lastScanAt = devices.find((device) => device.lastScanned)?.lastScanned ?? "";
+  const hardwareTypeOptions = Array.from(new Set(devices.map((device) => device.hardwareType).filter(Boolean))).sort();
 
   const runScanImport = async () => {
     setScanImportRunning(true);
@@ -58,6 +59,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
           scanImportRunning={props.scanImportRunning ?? scanImportRunning}
           scanImportMessage={props.scanImportMessage ?? scanImportMessage}
           lastScanAt={props.lastScanAt ?? lastScanAt}
+          hardwareTypeOptions={props.hardwareTypeOptions ?? hardwareTypeOptions}
         />
       </div>
     </DefaultLayout>

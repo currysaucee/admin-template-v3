@@ -6,18 +6,17 @@ import { Card } from "primereact/card";
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
 
-export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, policySupported, showPolicyModel = false, skipRemediationReason }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; policySupported?: boolean; showPolicyModel?: boolean; skipRemediationReason?: string }) {
+export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, showPolicyModel = false, skipRemediationReason }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; policySupported?: boolean; showPolicyModel?: boolean; skipRemediationReason?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const executionStatus = executionResult ? displayExecutionStatus(executionResult.status) : "";
   const executionFailed = executionStatus === "Validation Failed";
   const isSkippedByLatestScan = Boolean(skipRemediationReason);
-  const supported = policySupported ?? Boolean(policySetting);
   const displayTitle = getFindingDisplayTitle(finding, policySetting ? [policySetting] : []);
   const agreedSetting = policySetting?.settingPayload || finding.expectedValue || template?.agreedSetting || "";
   return (
     <Card className="finding-detail-card">
       <div className="finding-detail-header">
-        <div><div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity={supported ? "info" : "secondary"} rounded /><h3>{displayTitle}</h3></div><p>{formatDateTime(finding.detectedAt)}</p></div>
+        <div><div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><h3>{displayTitle}</h3></div><p>{formatDateTime(finding.detectedAt)}</p></div>
         <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
       {expanded && <>
@@ -70,14 +69,13 @@ export function DeviceFixGroup({ device, templates, policySettings = [], default
 
 function FindingFixAccordion({ finding, template, policySetting, defaultExpanded = false, showFailureBehaviour = false, showPolicyModel = false, implementationOnly = false }: { finding: Finding; template?: RemediationTemplate; policySetting?: PolicySetting; defaultExpanded?: boolean; showFailureBehaviour?: boolean; showPolicyModel?: boolean; implementationOnly?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const supported = Boolean(policySetting);
   const displayTitle = getFindingDisplayTitle(finding, policySetting ? [policySetting] : []);
   const agreedSetting = policySetting?.settingPayload || finding.expectedValue || template?.agreedSetting || "";
   return (
     <div className="command-block">
       <button className="collapsible-header command-header" type="button" onClick={() => setExpanded((prev) => !prev)} aria-expanded={expanded}>
         <div>
-          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity={supported ? "info" : "secondary"} rounded /><strong>{displayTitle}</strong></div>
+          <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{displayTitle}</strong></div>
           <span>{template ? `${getTemplateDisplayName(template)} - updated ${formatDateTime(template.updatedAt)}` : "No template configured yet"}</span>
         </div>
         <div className="collapse-meta">

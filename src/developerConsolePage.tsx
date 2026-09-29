@@ -8,6 +8,7 @@ import { DataTable } from "primereact/datatable";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
+import { AutoComplete, AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { Tag } from "primereact/tag";
 
 import { formatDate, formatDateTime } from "./helpers";
@@ -19,9 +20,8 @@ type DraftPolicyRow = {
   settingNumber: string;
   title: string;
   expectedConfig: string;
-  hardwareTypes: string;
-  implementationCommands: string;
-  failureBehaviour: string;
+  hardwareTypes: string[];
+  implementationCommands: string[];
   submitterComment: string;
 };
 
@@ -31,9 +31,8 @@ function createDraftRow(): DraftPolicyRow {
     settingNumber: "",
     title: "",
     expectedConfig: "",
-    hardwareTypes: "",
-    implementationCommands: "",
-    failureBehaviour: "Stop and escalate to the network SME.",
+    hardwareTypes: [],
+    implementationCommands: [""],
     submitterComment: "",
   };
 }
@@ -81,9 +80,8 @@ function toPolicySetting(row: DraftPolicyRow): PolicySetting {
     updatedBy: "Developer",
     proposedTemplate: {
       findingName: row.title.trim() || settingNumber,
-      hardwareTypes: row.hardwareTypes.split(",").map((value) => value.trim()).filter(Boolean),
-      implementationCommands: row.implementationCommands.split("\n").map((value) => value.trim()).filter(Boolean),
-      failureBehaviour: row.failureBehaviour.trim(),
+      hardwareTypes: row.hardwareTypes.map((value) => value.trim()).filter(Boolean),
+      implementationCommands: row.implementationCommands.map((value) => value.trim()).filter(Boolean),
       submitterComment: row.submitterComment.trim(),
     },
   };
@@ -95,9 +93,8 @@ function toDraftRow(setting: PolicySetting): DraftPolicyRow {
     settingNumber: setting.settingNumber || setting.id,
     title: setting.title,
     expectedConfig: setting.settingPayload,
-    hardwareTypes: setting.proposedTemplate?.hardwareTypes.join(", ") ?? "",
-    implementationCommands: setting.proposedTemplate?.implementationCommands.join("\n") ?? "",
-    failureBehaviour: setting.proposedTemplate?.failureBehaviour ?? "Stop and escalate to the network SME.",
+    hardwareTypes: setting.proposedTemplate?.hardwareTypes ?? [],
+    implementationCommands: setting.proposedTemplate?.implementationCommands ?? [""],
     submitterComment: setting.proposedTemplate?.submitterComment ?? "",
   };
 }
@@ -117,6 +114,27 @@ function PolicyChip({ setting }: { setting: PolicySetting }) {
   );
 }
 
+function ImplementationCommandEditor({ commands, onChange }: { commands: string[]; onChange: (commands: string[]) => void }) {
+  const safeCommands = commands.length ? commands : [""];
+  return (
+    <div className="field-block full-span command-row-editor">
+      <div className="structured-section-header compact">
+        <span>Implementation Commands</span>
+        <Button label="Add Command" icon="pi pi-plus" size="small" outlined onClick={() => onChange([...safeCommands, ""])} />
+      </div>
+      <div className="command-edit-row-list">
+        {safeCommands.map((command, index) => (
+          <div className="command-edit-row" key={`implementation-command-${index}`}>
+            <span>{index + 1}</span>
+            <InputText value={command} placeholder="Enter configuration command" onChange={(event) => onChange(safeCommands.map((value, commandIndex) => commandIndex === index ? event.target.value : value))} />
+            <Button icon="pi pi-trash" rounded text severity="danger" aria-label={`Delete command ${index + 1}`} disabled={safeCommands.length === 1} onClick={() => onChange(safeCommands.filter((_, commandIndex) => commandIndex !== index))} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DeveloperConsolePage({
   policySettings,
   setPolicySettings,
@@ -128,6 +146,7 @@ export function DeveloperConsolePage({
   scanImportRunning = false,
   scanImportMessage = "",
   lastScanAt = "",
+  hardwareTypeOptions = [],
 }: {
   policySettings: PolicySetting[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
@@ -139,6 +158,7 @@ export function DeveloperConsolePage({
   scanImportRunning?: boolean;
   scanImportMessage?: string;
   lastScanAt?: string;
+  hardwareTypeOptions?: string[];
 }) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
@@ -155,8 +175,9 @@ export function DeveloperConsolePage({
   const [documentFile, setDocumentFile] = React.useState<File | null>(null);
   const [documentProcessing, setDocumentProcessing] = React.useState(false);
   const [documentError, setDocumentError] = React.useState("");
+  const [hardwareSuggestions, setHardwareSuggestions] = React.useState<string[]>(hardwareTypeOptions);
   const [activeSections, setActiveSections] = React.useState<number | number[]>([]);
-  const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.trim() && row.implementationCommands.trim() && row.submitterComment.trim());
+  const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.length > 0 && row.implementationCommands.some((command) => command.trim()) && row.submitterComment.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
@@ -186,10 +207,6 @@ export function DeveloperConsolePage({
 
   const updateDraftRow = (rowId: string, patch: Partial<DraftPolicyRow>) => {
     setDraftRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
-  };
-
-  const removeDraftRow = (rowId: string) => {
-    setDraftRows((rows) => (rows.length === 1 ? rows : rows.filter((row) => row.rowId !== rowId)));
   };
 
   const onboardPolicies = async () => {
@@ -329,19 +346,11 @@ export function DeveloperConsolePage({
                     <h2>{editingPolicy ? "Create a new policy variant" : "Policy details"}</h2>
                     <p>Existing policies are preserved. Reusing a policy number creates a separately auditable variant.</p>
                   </div>
-                  <div className="developer-heading-actions">
-                    <Button label="Add Row" icon="pi pi-plus" outlined onClick={() => setDraftRows((rows) => [...rows, createDraftRow()])} />
-                    <Button label="Close" icon="pi pi-times" outlined severity="secondary" onClick={() => setShowIntake(false)} />
-                  </div>
                 </div>
 
                 <div className="developer-row-stack">
-                  {draftRows.map((row, index) => (
+                  {draftRows.map((row) => (
                     <div className="developer-policy-row" key={row.rowId}>
-                      <div className="developer-policy-row-header">
-                        <strong>Policy Row {index + 1}</strong>
-                        <Button icon="pi pi-trash" rounded text severity="danger" aria-label="Remove policy row" disabled={draftRows.length === 1} onClick={() => removeDraftRow(row.rowId)} />
-                      </div>
                       <div className="developer-policy-grid">
                         <label className="field-block">
                           <span>Policy Number</span>
@@ -351,42 +360,37 @@ export function DeveloperConsolePage({
                           <span>Policy Title</span>
                           <InputText value={row.title} placeholder="Console idle timeout" onChange={(event) => updateDraftRow(row.rowId, { title: event.target.value })} />
                         </label>
+                        <div className="full-span">
+                          {lookupLoading[row.rowId] && <div className="policy-lookup-state"><i className="pi pi-spin pi-spinner" /> Checking existing policy and templates…</div>}
+                          {!lookupLoading[row.rowId] && policyLookups[row.rowId]?.exists && (
+                            <div className="policy-variant-warning">
+                              <div><strong>{policyLookups[row.rowId]?.settingNumber} already exists</strong><span>Submitting will create variant {policyLookups[row.rowId]?.nextVariant}; previous variants and their ticket history will remain unchanged.</span></div>
+                              <div className="policy-existing-summary">
+                                <span>Current expected configuration</span>
+                                <pre>{policyLookups[row.rowId]?.currentPolicy?.settingPayload}</pre>
+                                <span>Related fix templates</span>
+                                <strong>{policyLookups[row.rowId]?.templates.length ? policyLookups[row.rowId]?.templates.map((template) => template.findingName || template.key).join(", ") : "No related fix template"}</strong>
+                              </div>
+                              {rowHasDuplicateConfig(row) ? <div className="policy-duplicate-error">Expected configuration must differ from every existing variant.</div> : (
+                                <label className="variant-confirmation"><Checkbox checked={Boolean(variantAcknowledged[row.rowId])} onChange={(event) => setVariantAcknowledged((current) => ({ ...current, [row.rowId]: Boolean(event.checked) }))} /><span>I understand this creates a new policy variant and does not replace the existing policy.</span></label>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <label className="field-block full-span">
                           <span>Expected Config</span>
                           <InputTextarea value={row.expectedConfig} rows={3} autoResize placeholder="Paste the expected configuration rule or policy payload." onChange={(event) => updateDraftRow(row.rowId, { expectedConfig: event.target.value })} />
                         </label>
                         <label className="field-block">
                           <span>Hardware Types</span>
-                          <InputText value={row.hardwareTypes} placeholder="C9300, C9500" onChange={(event) => updateDraftRow(row.rowId, { hardwareTypes: event.target.value })} />
+                          <AutoComplete value={row.hardwareTypes} suggestions={hardwareSuggestions} completeMethod={(event: AutoCompleteCompleteEvent) => { const query = event.query.trim().toLowerCase(); setHardwareSuggestions(query ? hardwareTypeOptions.filter((option) => option.toLowerCase().includes(query)) : hardwareTypeOptions); }} onChange={(event) => updateDraftRow(row.rowId, { hardwareTypes: event.value as string[] })} multiple dropdown forceSelection={false} placeholder="Search or enter hardware type" />
                         </label>
-                        <label className="field-block full-span">
-                          <span>Implementation Commands</span>
-                          <InputTextarea value={row.implementationCommands} rows={4} autoResize placeholder="Enter one configuration command per line." onChange={(event) => updateDraftRow(row.rowId, { implementationCommands: event.target.value })} />
-                        </label>
-                        <label className="field-block full-span">
-                          <span>Failure Behaviour</span>
-                          <InputTextarea value={row.failureBehaviour} rows={2} autoResize onChange={(event) => updateDraftRow(row.rowId, { failureBehaviour: event.target.value })} />
-                        </label>
+                        <ImplementationCommandEditor commands={row.implementationCommands} onChange={(implementationCommands) => updateDraftRow(row.rowId, { implementationCommands })} />
                         <label className="field-block full-span">
                           <span>Approval Request Comment</span>
                           <InputTextarea value={row.submitterComment} rows={2} autoResize placeholder="Explain what the approver should verify." onChange={(event) => updateDraftRow(row.rowId, { submitterComment: event.target.value })} />
                         </label>
                       </div>
-                      {lookupLoading[row.rowId] && <div className="policy-lookup-state"><i className="pi pi-spin pi-spinner" /> Checking existing policy and templates…</div>}
-                      {!lookupLoading[row.rowId] && policyLookups[row.rowId]?.exists && (
-                        <div className="policy-variant-warning">
-                          <div><strong>{policyLookups[row.rowId]?.settingNumber} already exists</strong><span>Submitting will create variant {policyLookups[row.rowId]?.nextVariant}; previous variants and their ticket history will remain unchanged.</span></div>
-                          <div className="policy-existing-summary">
-                            <span>Current expected configuration</span>
-                            <pre>{policyLookups[row.rowId]?.currentPolicy?.settingPayload}</pre>
-                            <span>Related fix templates</span>
-                            <strong>{policyLookups[row.rowId]?.templates.length ? policyLookups[row.rowId]?.templates.map((template) => template.findingName || template.key).join(", ") : "No related fix template"}</strong>
-                          </div>
-                          {rowHasDuplicateConfig(row) ? <div className="policy-duplicate-error">Expected configuration must differ from every existing variant.</div> : (
-                            <label className="variant-confirmation"><Checkbox checked={Boolean(variantAcknowledged[row.rowId])} onChange={(event) => setVariantAcknowledged((current) => ({ ...current, [row.rowId]: Boolean(event.checked) }))} /><span>I understand this creates a new policy variant and does not replace the existing policy.</span></label>
-                          )}
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

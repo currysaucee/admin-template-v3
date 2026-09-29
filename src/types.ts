@@ -64,7 +64,6 @@ export type PolicySetting = {
     findingName: string;
     hardwareTypes: string[];
     implementationCommands: string[];
-    failureBehaviour: string;
     submitterComment: string;
   };
 };

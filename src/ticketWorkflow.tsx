@@ -9,7 +9,7 @@ import { Message } from "primereact/message";
 import { Tooltip } from "primereact/tooltip";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findFindingKey, getFindingDisplayTitle, getFixAvailability, isSupportedPolicyFinding, resolveTemplateForDevice } from "./helpers";
+import { findFindingKey, getFindingDisplayTitle, getFixAvailability, resolveTemplateForDevice } from "./helpers";
 import { PageHeader } from "./sharedUi";
 
 export function CreateTicketPage(props: {
@@ -131,7 +131,6 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                     const checked = selectedFindingKeys.includes(key);
                     const availability = getFixAvailability(device, finding, templates, policySettings);
                     const hasTemplateFix = availability.executable;
-                    const supported = isSupportedPolicyFinding(finding, policySettings);
                     const implementationCommands = availability.template?.implementationCommands ?? [];
                     return (
                       <div key={key} className={`finding-list-row ${hasTemplateFix ? "" : "finding-list-row-disabled"}`}>
@@ -153,7 +152,7 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                         />
                         <div className="finding-request-content">
                           <div className="finding-rule-cell">
-                            <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity={supported ? "info" : "secondary"} rounded /><strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
+                            <div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
                             <p className="finding-problem-description">{finding.description || finding.reason || "The latest scan detected a policy mismatch on this device."}</p>
                           </div>
                           <div className="finding-setting-comparison">

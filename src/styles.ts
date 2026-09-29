@@ -149,8 +149,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-summary-item span { color: #64748b; font-size: 11px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
 .finding-summary-item.ready { background: #f0fdf4; border-color: #bbf7d0; }
 .finding-summary-item.ready strong { color: #15803d; }
-.finding-summary-item.unsupported { background: #f8fafc; border-color: #cbd5e1; }
-.finding-summary-item.unsupported strong { color: #475569; }
 .finding-summary-item.blocked { background: #fffbeb; border-color: #fde68a; }
 .finding-summary-item.blocked strong { color: #b45309; }
 .inventory-actions-column { position: sticky; right: 0; z-index: 2; background: #fff; box-shadow: -8px 0 12px -12px rgba(15, 23, 42, .45); }
@@ -158,7 +156,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-coverage-list { display: grid; gap: 6px; min-width: min(360px, 100%); }
 .finding-coverage-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; color: #334155; font-size: 12px; line-height: 1.35; }
 .finding-coverage-row .policy-code { border: 1px solid #e5e7eb; background: #ffffff; color: #334155; border-radius: 999px; padding: 3px 7px; font-weight: 900; }
-.finding-coverage-row .policy-code.unsupported, .policy-id-tag.unsupported-policy-tag, .p-tag.policy-id-tag.unsupported-policy-tag { background: #f1f5f9 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
 .finding-coverage-row strong { white-space: nowrap; font-size: 11px; }
 .finding-coverage-row strong.ready { color: #15803d; }
 .finding-coverage-row strong.blocked { color: #b45309; }
@@ -260,8 +257,6 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-category-tab.active.fixable strong { background: #dcfce7; color: #166534; }
 .finding-category-tab.active.noFix { border-color: #fde68a; background: #fffbeb; color: #92400e; }
 .finding-category-tab.active.noFix strong { background: #fef3c7; color: #92400e; }
-.finding-category-tab.active.unsupported { border-color: #cbd5e1; background: #f8fafc; color: #475569; }
-.finding-category-tab.active.unsupported strong { background: #e2e8f0; color: #334155; }
 .finding-category-tab.active.noTemplate { border-color: #fde68a; background: #fffbeb; color: #92400e; }
 .finding-category-tab.active.noTemplate strong { background: #fef3c7; color: #92400e; }
 .device-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
