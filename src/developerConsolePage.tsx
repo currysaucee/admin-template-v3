@@ -61,10 +61,6 @@ function policyUpdatedAt(setting: PolicySetting) {
   return formatDateTime(setting.updatedAt || setting.createdAt);
 }
 
-function policyUpdatedBy(setting: PolicySetting) {
-  return setting.updatedBy || "Developer";
-}
-
 function toPolicySetting(row: DraftPolicyRow): PolicySetting {
   const settingNumber = normalizePolicyNumber(row.settingNumber);
   const now = formatDate(new Date());
@@ -179,7 +175,7 @@ export function DeveloperConsolePage({
   const [activeSections, setActiveSections] = React.useState<number | number[]>([]);
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.length > 0 && row.implementationCommands.some((command) => command.trim()) && row.submitterComment.trim());
   const filteredPolicies = policySettings.filter((setting) => {
-    const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload, policyUpdatedBy(setting)].join(" ").toLowerCase();
+    const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload].join(" ").toLowerCase();
     return haystack.includes(filter.trim().toLowerCase());
   });
   const rowHasDuplicateConfig = (row: DraftPolicyRow) => Boolean(policyLookups[row.rowId]?.variants.some((variant) => variant.settingPayload.trim() === row.expectedConfig.trim()));
@@ -308,7 +304,7 @@ export function DeveloperConsolePage({
           </div>
         </AccordionTab>
 
-        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-shield" /> Policy Onboarding</span>}>
+        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-shield" /> Policies</span>}>
           <div className="developer-section-body">
             <Card className="table-card developer-policy-table">
               <div className="developer-table-header">
@@ -335,7 +331,12 @@ export function DeveloperConsolePage({
               >
                 <Column header="Policy" body={(row: PolicySetting) => <PolicyChip setting={row} />} sortable sortField="settingNumber" />
                 <Column header="Updated" body={(row: PolicySetting) => policyUpdatedAt(row)} sortable sortField="updatedAt" />
-                <Column header="By" body={(row: PolicySetting) => policyUpdatedBy(row)} sortable sortField="updatedBy" />
+                <Column header="Actions" body={(row: PolicySetting) => (
+                  <div className="action-row" onClick={(event) => event.stopPropagation()}>
+                    <Button label="New Variant" icon="pi pi-copy" size="small" outlined onClick={() => startEditPolicy(row)} />
+                    <Button icon="pi pi-trash" size="small" rounded text severity="danger" aria-label={`Deboard ${row.settingNumber || row.id}`} tooltip="Deboard policy" tooltipOptions={{ position: "left" }} loading={deletingId === row.id} onClick={() => deletePolicy(row)} />
+                  </div>
+                )} />
               </DataTable>
             </Card>
 
@@ -419,7 +420,6 @@ export function DeveloperConsolePage({
             </div>
             <div className="developer-detail-grid">
               <div className="meta-tile"><span>Updated</span><strong>{policyUpdatedAt(detailPolicy)}</strong></div>
-              <div className="meta-tile"><span>By</span><strong>{policyUpdatedBy(detailPolicy)}</strong></div>
             </div>
             <div className="agreed-setting-box">
               <strong>Expected Config</strong>
