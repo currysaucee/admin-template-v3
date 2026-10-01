@@ -5,9 +5,9 @@ Place this script beside ``before.txt`` and ``after.txt``, then run:
 
     python slb_tmos_config_compare.py
 
-The comparison is lossless: it checks the complete file and reports every
-added, removed, or modified top-level TMOS object. Modified objects include a
-unified line diff so unexpected changes are visible to the reviewer.
+The comparison checks the complete file, but separates F5-generated fields
+such as ``vs-index`` from meaningful configuration changes. Use
+``--show-generated`` when the generated-field details are needed for audit.
 """
 
 from __future__ import annotations
@@ -15,10 +15,14 @@ from __future__ import annotations
 import argparse
 import difflib
 import hashlib
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+
+
+GENERATED_FIELD_PATTERN = re.compile(r"^(?P<indent>\s*)vs-index\s+(?P<value>\S+)\s*$")
 
 
 @dataclass(frozen=True)
@@ -123,7 +127,22 @@ def sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def compare(before_text: str, after_text: str) -> tuple[bool, list[str]]:
+def meaningful_lines(lines: tuple[str, ...]) -> tuple[str, ...]:
+    """Remove device-generated properties that are not operator configuration."""
+    return tuple(line for line in lines if not GENERATED_FIELD_PATTERN.match(line))
+
+
+def generated_fields(lines: tuple[str, ...]) -> tuple[str, ...]:
+    """Return generated properties in a stable, human-readable form."""
+    return tuple(line.strip() for line in lines if GENERATED_FIELD_PATTERN.match(line))
+
+
+def compare(
+    before_text: str,
+    after_text: str,
+    *,
+    show_generated: bool = False,
+) -> tuple[bool, list[str]]:
     before_objects, before_outside = parse_tmos_objects(before_text)
     after_objects, after_outside = parse_tmos_objects(after_text)
     before_index = indexed_objects(before_objects)
@@ -134,7 +153,17 @@ def compare(before_text: str, after_text: str) -> tuple[bool, list[str]]:
     added_keys = sorted(after_keys - before_keys)
     removed_keys = sorted(before_keys - after_keys)
     common_keys = sorted(before_keys & after_keys)
-    modified_keys = [key for key in common_keys if before_index[key].lines != after_index[key].lines]
+    raw_modified_keys = [key for key in common_keys if before_index[key].lines != after_index[key].lines]
+    modified_keys = [
+        key
+        for key in raw_modified_keys
+        if meaningful_lines(before_index[key].lines) != meaningful_lines(after_index[key].lines)
+    ]
+    generated_modified_keys = [
+        key
+        for key in raw_modified_keys
+        if generated_fields(before_index[key].lines) != generated_fields(after_index[key].lines)
+    ]
     outside_changed = before_outside != after_outside
     exact_change = before_text != after_text
 
@@ -148,7 +177,8 @@ def compare(before_text: str, after_text: str) -> tuple[bool, list[str]]:
         "",
         f"Added objects:    {len(added_keys)}",
         f"Removed objects:  {len(removed_keys)}",
-        f"Modified objects: {len(modified_keys)}",
+        f"Meaningfully modified objects: {len(modified_keys)}",
+        f"Generated-field changes:      {len(generated_modified_keys)}",
         f"Other text changed: {'yes' if outside_changed else 'no'}",
     ]
 
@@ -171,12 +201,35 @@ def compare(before_text: str, after_text: str) -> tuple[bool, list[str]]:
             report.extend(f"  {line}" for line in item.lines)
 
     if modified_keys:
-        report.extend(["", "MODIFIED OBJECTS", "----------------"])
+        report.extend(["", "MEANINGFUL MODIFICATIONS", "------------------------"])
         for key in modified_keys:
             before_item = before_index[key]
             after_item = after_index[key]
             report.extend(["", f"~ {before_item.display_name}"])
-            report.extend(unified_diff(before_item.lines, after_item.lines, before_item.display_name))
+            report.extend(
+                unified_diff(
+                    meaningful_lines(before_item.lines),
+                    meaningful_lines(after_item.lines),
+                    before_item.display_name,
+                )
+            )
+
+    if generated_modified_keys:
+        report.extend([
+            "",
+            "F5-GENERATED CHANGES (NOT CONFIGURATION CHANGES)",
+            "------------------------------------------------",
+            f"{len(generated_modified_keys)} object(s) had generated fields such as vs-index reassigned.",
+        ])
+        if show_generated:
+            for key in generated_modified_keys:
+                before_item = before_index[key]
+                after_item = after_index[key]
+                before_values = ", ".join(generated_fields(before_item.lines)) or "not present"
+                after_values = ", ".join(generated_fields(after_item.lines)) or "not present"
+                report.append(f"~ {before_item.display_name}: {before_values} -> {after_values}")
+        else:
+            report.append("Details hidden. Run with --show-generated to display every reassigned value.")
 
     if outside_changed:
         report.extend(["", "CHANGES OUTSIDE PARSED OBJECTS", "------------------------------"])
@@ -190,7 +243,11 @@ def compare(before_text: str, after_text: str) -> tuple[bool, list[str]]:
             "The parsed content is equal, but the raw files differ (for example, newline encoding).",
         ])
 
-    report.extend(["", "RESULT: Changes detected. Review every section above."])
+    meaningful_change = bool(added_keys or removed_keys or modified_keys or outside_changed)
+    if meaningful_change:
+        report.extend(["", "RESULT: Meaningful configuration changes detected. Review the sections above."])
+    else:
+        report.extend(["", "RESULT: No meaningful configuration changes detected; only generated/raw differences were found."])
     return True, report
 
 
@@ -207,6 +264,11 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--before", type=Path, default=script_dir / "before.txt", help="Before dump (default: before.txt beside this script).")
     parser.add_argument("--after", type=Path, default=script_dir / "after.txt", help="After dump (default: after.txt beside this script).")
     parser.add_argument("--report", type=Path, help="Optionally save the printed report to this file.")
+    parser.add_argument(
+        "--show-generated",
+        action="store_true",
+        help="Show every F5-generated field change (hidden by default to reduce noise).",
+    )
     return parser.parse_args()
 
 
@@ -218,7 +280,11 @@ def main() -> int:
         return 2
 
     try:
-        changed, report_lines = compare(read_text(args.before), read_text(args.after))
+        changed, report_lines = compare(
+            read_text(args.before),
+            read_text(args.after),
+            show_generated=args.show_generated,
+        )
     except (OSError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
