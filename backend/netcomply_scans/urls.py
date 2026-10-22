@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import config_snapshot_download, deployment_queue, deployment_queue_process_next, executor_response, hcc_database_cleanup, latest_scan_devices, policy_settings, policy_settings_extract_document, run_mock_scan_import_view, run_scan_import, template_requests, templates, tickets
+from .views import ad_hoc_executor, config_snapshot_download, deployment_queue, deployment_queue_process_next, executor_response, hcc_database_cleanup, latest_scan_devices, policy_settings, policy_settings_extract_document, run_mock_scan_import_view, run_scan_import, template_requests, templates, tickets
 
 urlpatterns = [
     path("api/netcomply/scan/devices/", latest_scan_devices, name="netcomply_latest_scan_devices"),
@@ -31,4 +31,6 @@ urlpatterns = [
     path("api/HCCFix/deployment-queue/process-next/", deployment_queue_process_next, name="hccfix_deployment_queue_process_next"),
     path("api/HCCFix/executor-response/", executor_response, name="hccfix_executor_response"),
     path("api/hcc/executor-response/", executor_response, name="hcc_executor_response"),
+    path("api/HCCFix/ad-hoc-executor/", ad_hoc_executor, name="hccfix_ad_hoc_executor"),
+    path("api/hcc/ad-hoc-executor/", ad_hoc_executor, name="hcc_ad_hoc_executor"),
 ]

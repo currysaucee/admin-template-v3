@@ -13,7 +13,7 @@ import { Tag } from "primereact/tag";
 
 import { formatDate, formatDateTime } from "./helpers";
 import { PageHeader } from "./sharedUi";
-import type { PolicyLookupResult, PolicySetting } from "./types";
+import type { AdHocExecutorResult, Device, PolicyLookupResult, PolicySetting } from "./types";
 
 type DraftPolicyRow = {
   rowId: string;
@@ -147,6 +147,8 @@ export function DeveloperConsolePage({
   scanImportMessage = "",
   lastScanAt = "",
   hardwareTypeOptions = [],
+  devices = [],
+  onExecuteAdHoc,
 }: {
   policySettings: PolicySetting[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
@@ -159,6 +161,8 @@ export function DeveloperConsolePage({
   scanImportMessage?: string;
   lastScanAt?: string;
   hardwareTypeOptions?: string[];
+  devices?: Device[];
+  onExecuteAdHoc?: (device: string, crNumber: string, commands: string[]) => Promise<AdHocExecutorResult>;
 }) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
@@ -179,6 +183,25 @@ export function DeveloperConsolePage({
   const [detailLookup, setDetailLookup] = React.useState<PolicyLookupResult | null>(null);
   const [detailCommandTab, setDetailCommandTab] = React.useState<"checks" | "implementation">("checks");
   const [activeSections, setActiveSections] = React.useState<number | number[]>([]);
+  const [adHocDevice, setAdHocDevice] = React.useState("");
+  const [adHocCrNumber, setAdHocCrNumber] = React.useState("");
+  const [adHocCommands, setAdHocCommands] = React.useState<string[]>([""]);
+  const [adHocDeviceSuggestions, setAdHocDeviceSuggestions] = React.useState<string[]>([]);
+  const [adHocConfirmOpen, setAdHocConfirmOpen] = React.useState(false);
+  const [adHocExecuting, setAdHocExecuting] = React.useState(false);
+  const [adHocError, setAdHocError] = React.useState("");
+  const [adHocResult, setAdHocResult] = React.useState<AdHocExecutorResult | null>(null);
+  const adHocCleanCommands = adHocCommands.map((command) => command.trim()).filter(Boolean);
+  const adHocReady = Boolean(adHocDevice.trim() && adHocCrNumber.trim() && adHocCleanCommands.length > 0 && onExecuteAdHoc);
+  const adHocPayloadPreview = {
+    cr_number: adHocCrNumber.trim(),
+    device: adHocDevice.trim(),
+    workflow_tasks: [{
+      command: adHocCleanCommands,
+      type: "config",
+      description: "Developer console ad-hoc configuration commands",
+    }],
+  };
   const validRows = draftRows.filter((row) => normalizePolicyNumber(row.settingNumber) && row.expectedConfig.trim() && row.hardwareTypes.length > 0 && row.prePostCheckCommands.some((command) => command.trim()) && row.implementationCommands.some((command) => command.trim()) && row.submitterComment.trim());
   const filteredPolicies = policySettings.filter((setting) => {
     const haystack = [setting.id, setting.settingNumber, setting.title, setting.settingPayload].join(" ").toLowerCase();
@@ -309,6 +332,23 @@ export function DeveloperConsolePage({
     setShowIntake(true);
   };
 
+  const executeAdHoc = async () => {
+    if (!onExecuteAdHoc || !adHocReady) return;
+    setAdHocExecuting(true);
+    setAdHocError("");
+    setAdHocResult(null);
+    try {
+      const result = await onExecuteAdHoc(adHocDevice.trim(), adHocCrNumber.trim(), adHocCleanCommands);
+      setAdHocResult(result);
+      setAdHocConfirmOpen(false);
+    } catch (error) {
+      setAdHocError(error instanceof Error ? error.message : "Unable to execute the ad-hoc commands.");
+      setAdHocConfirmOpen(false);
+    } finally {
+      setAdHocExecuting(false);
+    }
+  };
+
   return (
     <section className="page-content developer-console-page">
       <PageHeader title="Developer Console" subtitle="Manage supported policy IDs before fixes are exposed to engineers." />
@@ -327,6 +367,66 @@ export function DeveloperConsolePage({
               </div>
             </div>
             {scanImportMessage ? <div className="inline-info-row">{scanImportMessage}</div> : null}
+          </div>
+        </AccordionTab>
+
+        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-terminal" /> Ad-hoc Executor</span>}>
+          <div className="developer-section-body ad-hoc-executor">
+            <div className="developer-operation-row">
+              <div>
+                <h2>Execute configuration commands now</h2>
+                <p className="section-subtitle">Use this only on approved test devices. Commands bypass tickets and approvals, but a valid CR number is always required.</p>
+              </div>
+              <Tag value="Immediate execution" severity="warning" rounded />
+            </div>
+
+            <div className="ad-hoc-form-grid">
+              <label className="field-block">
+                <span>Device</span>
+                <AutoComplete
+                  value={adHocDevice}
+                  suggestions={adHocDeviceSuggestions}
+                  completeMethod={(event: AutoCompleteCompleteEvent) => {
+                    const query = event.query.trim().toLowerCase();
+                    const hostnames = devices.map((device) => device.hostname).filter(Boolean);
+                    setAdHocDeviceSuggestions(hostnames.filter((hostname) => !query || hostname.toLowerCase().includes(query)));
+                  }}
+                  onChange={(event) => setAdHocDevice(String(event.value || ""))}
+                  dropdown
+                  forceSelection
+                  placeholder="Select a scanned device"
+                />
+              </label>
+              <label className="field-block">
+                <span>CR Number</span>
+                <InputText value={adHocCrNumber} placeholder="CR12345678" onChange={(event) => setAdHocCrNumber(event.target.value)} />
+              </label>
+            </div>
+
+            <CommandEditor title="Commands to Execute" commands={adHocCommands} onChange={setAdHocCommands} />
+
+            <div className="ad-hoc-preview">
+              <div className="structured-section-header compact">
+                <div><strong>Outgoing payload preview</strong><p>The backend adds a unique execution ID before sending this payload to the configured executor URL.</p></div>
+              </div>
+              <pre>{JSON.stringify(adHocPayloadPreview, null, 2)}</pre>
+            </div>
+
+            {adHocError ? <div className="document-process-error"><i className="pi pi-exclamation-triangle" /><span>{adHocError}</span></div> : null}
+            {adHocResult ? (
+              <div className={`ad-hoc-result ${adHocResult.success ? "success" : "failed"}`}>
+                <div className="ad-hoc-result-heading">
+                  <div><strong>{adHocResult.success ? "Executor accepted the request" : "Executor reported a failure"}</strong><span>{adHocResult.executionId} · {adHocResult.simulated ? "Simulated" : "Live"}</span></div>
+                  <Tag value={adHocResult.success ? "Success" : "Failed"} severity={adHocResult.success ? "success" : "danger"} rounded />
+                </div>
+                <pre>{JSON.stringify(adHocResult, null, 2)}</pre>
+              </div>
+            ) : null}
+
+            <div className="developer-submit-row ad-hoc-submit-row">
+              <span>{adHocReady ? `${adHocCleanCommands.length} command${adHocCleanCommands.length === 1 ? "" : "s"} ready` : "Select a device, enter a CR number, and add commands."}</span>
+              <Button label="Review & Execute Now" icon="pi pi-send" severity="warning" disabled={!adHocReady} loading={adHocExecuting} onClick={() => setAdHocConfirmOpen(true)} />
+            </div>
           </div>
         </AccordionTab>
 
@@ -432,6 +532,22 @@ export function DeveloperConsolePage({
           </div>
         </AccordionTab>
       </Accordion>
+
+      <Dialog header="Confirm Immediate Execution" visible={adHocConfirmOpen} modal style={{ width: "min(680px, calc(100vw - 32px))" }} closable={!adHocExecuting} onHide={() => !adHocExecuting && setAdHocConfirmOpen(false)}>
+        <div className="ad-hoc-confirmation">
+          <div className="document-process-error"><i className="pi pi-exclamation-triangle" /><span>These commands bypass the normal ticket approval and deployment queue and may change the selected device immediately.</span></div>
+          <div className="ad-hoc-confirmation-summary">
+            <span>Device<strong>{adHocDevice || "Not selected"}</strong></span>
+            <span>CR Number<strong>{adHocCrNumber || "Not provided"}</strong></span>
+            <span>Commands<strong>{adHocCleanCommands.length}</strong></span>
+          </div>
+          <pre>{adHocCleanCommands.join("\n")}</pre>
+          <div className="developer-submit-row">
+            <Button label="Cancel" outlined severity="secondary" disabled={adHocExecuting} onClick={() => setAdHocConfirmOpen(false)} />
+            <Button label="Execute Now" icon="pi pi-send" severity="warning" loading={adHocExecuting} disabled={!adHocReady} onClick={executeAdHoc} />
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog header="Policy Details" visible={Boolean(detailPolicy)} modal style={{ width: "min(760px, calc(100vw - 32px))" }} onHide={() => setDetailPolicy(null)}>
         {detailPolicy && (

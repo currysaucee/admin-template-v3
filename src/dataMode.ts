@@ -1,4 +1,4 @@
-import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicyLookupResult, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
+import type { AdHocExecutorResult, DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicyLookupResult, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
 const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || "/api/HCCFix";
 
@@ -81,6 +81,13 @@ export async function loadRealDevices(reachability?: ReachabilityFilter): Promis
 
 export async function runRealScanImport(): Promise<{ scan?: unknown }> {
   return requestJson<{ scan?: unknown }>(endpoint("scan/import/"), { method: "POST" });
+}
+
+export async function executeRealAdHocCommands(device: string, crNumber: string, commands: string[]): Promise<AdHocExecutorResult> {
+  return requestJson<AdHocExecutorResult>(endpoint("ad-hoc-executor/"), {
+    method: "POST",
+    body: JSON.stringify({ device, crNumber, commands }),
+  });
 }
 
 export async function loadRealPolicySettings(): Promise<PolicySetting[]> {

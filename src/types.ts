@@ -168,6 +168,25 @@ export type DeploymentWorkerHealth = {
   lastQueueId?: string;
 };
 
+export type AdHocExecutorResult = {
+  executionId: string;
+  executedAt: string;
+  executedBy: string;
+  simulated: boolean;
+  success: boolean;
+  requestPayload: {
+    id: string;
+    cr_number: string;
+    device: string;
+    workflow_tasks: Array<{
+      command: string[];
+      type: string;
+      description: string;
+    }>;
+  };
+  response: unknown;
+};
+
 export type DeploymentExecutionPlan = {
   ticketId?: string;
   devices: Array<{

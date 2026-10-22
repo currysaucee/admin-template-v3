@@ -386,6 +386,21 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .developer-section-body { display: grid; gap: 16px; padding: 18px; }
 .developer-operation-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .developer-operation-row h2 { margin: 0; font-size: 18px; letter-spacing: 0; color: #0f172a; }
+.ad-hoc-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.ad-hoc-form-grid .p-inputtext, .ad-hoc-form-grid .p-autocomplete { width: 100%; }
+.ad-hoc-preview, .ad-hoc-result { display: grid; gap: 12px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; }
+.ad-hoc-preview p { margin: 4px 0 0; color: #64748b; font-size: 13px; line-height: 1.45; }
+.ad-hoc-preview pre, .ad-hoc-result pre, .ad-hoc-confirmation pre { max-height: 320px; overflow: auto; margin: 0; padding: 12px; border-radius: 9px; background: #0f172a; color: #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; font-size: 12px; }
+.ad-hoc-result.success { border-color: #bbf7d0; background: #f0fdf4; }
+.ad-hoc-result.failed { border-color: #fecaca; background: #fef2f2; }
+.ad-hoc-result-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.ad-hoc-result-heading > div { display: grid; gap: 4px; }
+.ad-hoc-result-heading span { color: #64748b; font-size: 13px; font-weight: 700; }
+.ad-hoc-submit-row { margin-top: 0; }
+.ad-hoc-confirmation { display: grid; gap: 16px; }
+.ad-hoc-confirmation-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+.ad-hoc-confirmation-summary span { display: grid; gap: 5px; padding: 12px; color: #64748b; font-size: 12px; }
+.ad-hoc-confirmation-summary strong { color: #0f172a; font-size: 14px; overflow-wrap: anywhere; }
 .developer-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .developer-card-heading h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
 .developer-card-heading p { margin: 6px 0 0; color: #64748b; line-height: 1.5; }
@@ -476,7 +491,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .top-bar { align-items: flex-start; height: auto; padding: 18px; flex-direction: column; }
   .top-search { width: 100%; }
   .top-actions { flex-wrap: wrap; }
-  .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row, .review-command-row, .review-finding-row, .developer-console-layout, .developer-policy-grid, .developer-detail-grid { grid-template-columns: 1fr; }
+  .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row, .review-command-row, .review-finding-row, .developer-console-layout, .developer-policy-grid, .developer-detail-grid, .ad-hoc-form-grid, .ad-hoc-confirmation-summary { grid-template-columns: 1fr; }
   .review-command-header { display: none; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }

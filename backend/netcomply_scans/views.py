@@ -11,6 +11,7 @@ from .services import (
     abort_ticket_deployment,
     delete_policy_settings,
     enqueue_ticket_for_deployment,
+    execute_ad_hoc_commands,
     extract_policy_settings_from_docx,
     get_cached_executor_response,
     clear_hcc_tables,
@@ -308,6 +309,37 @@ def executor_response(request):
     if cached_result is None:
         return JsonResponse({"detail": f"No cached executor response was found for {ticket_id}."}, status=404)
     return JsonResponse(cached_result)
+
+
+@csrf_exempt
+def ad_hoc_executor(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    try:
+        payload = read_json_body(request) or {}
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return api_error("The request body is not valid JSON.", code="INVALID_JSON", status=400, details={"reason": str(exc)})
+    if not isinstance(payload, dict):
+        return api_error("The ad-hoc executor payload must be a JSON object.", code="INVALID_PAYLOAD", status=400)
+    try:
+        actor = unverified_requester_from_x_auth(request)
+    except JwtAuthenticationError as exc:
+        return api_error(str(exc), code="AUTHENTICATION_FAILED", status=401)
+    commands = payload.get("commands")
+    if not isinstance(commands, list):
+        return api_error("commands must be a list.", code="AD_HOC_VALIDATION_FAILED", status=400)
+    try:
+        result = execute_ad_hoc_commands(
+            device=str(payload.get("device") or ""),
+            cr_number=str(payload.get("crNumber") or payload.get("cr_number") or ""),
+            commands=commands,
+            actor=actor,
+        )
+    except ValueError as exc:
+        return api_error(str(exc), code="AD_HOC_VALIDATION_FAILED", status=400)
+    except Exception as exc:
+        return api_error("The ad-hoc executor call failed.", code="AD_HOC_EXECUTOR_FAILED", status=502, details={"reason": str(exc)})
+    return JsonResponse(result)
 
 
 @csrf_exempt

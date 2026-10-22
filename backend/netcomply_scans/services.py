@@ -1646,6 +1646,69 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
     }
 
 
+def execute_ad_hoc_commands(
+    *,
+    device: str,
+    cr_number: str,
+    commands: list[Any],
+    actor: str,
+) -> dict[str, Any]:
+    """Immediately send developer-console commands through the normal executor boundary."""
+    device = str(device or "").strip()
+    cr_number = str(cr_number or "").strip()
+    clean_commands = [str(command).strip() for command in commands if str(command).strip()]
+    if not device:
+        raise ValueError("Select a device.")
+    if not cr_number:
+        raise ValueError("Enter a CR number before executing ad-hoc commands.")
+    if not clean_commands:
+        raise ValueError("Add at least one command.")
+
+    latest_batch = ComplianceScanBatch.objects.using(scan_db_alias()).order_by("-consumed_at", "-id").first()
+    matched_device = None
+    if latest_batch is not None:
+        matched_device = (
+            ComplianceScanDevice.objects.using(scan_db_alias())
+            .filter(batch=latest_batch)
+            .filter(Q(hostname__iexact=device) | Q(management_ip__iexact=device))
+            .first()
+        )
+    if matched_device is None:
+        raise ValueError("The selected device is not present in the latest imported scan.")
+
+    execution_id = f"HCC-ADHOC-{secrets.token_hex(6).upper()}"
+    executor_payload = {
+        "id": execution_id,
+        "cr_number": cr_number,
+        "device": matched_device.hostname or matched_device.management_ip,
+        "workflow_tasks": [
+            {
+                "command": clean_commands,
+                "type": "config",
+                "description": "Developer console ad-hoc configuration commands",
+            }
+        ],
+    }
+    executor_result = call_deployment_executor_for_device(executor_payload)
+    result = {
+        **executor_result,
+        "executionId": execution_id,
+        "executedAt": api_datetime(timezone.now()),
+        "executedBy": actor,
+        "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
+    }
+    cached = cache_executor_response(execution_id, result)
+    return {
+        "executionId": execution_id,
+        "executedAt": result["executedAt"],
+        "executedBy": actor,
+        "simulated": result["simulated"],
+        "success": result.get("success") is True,
+        "requestPayload": cached.get("requestPayload"),
+        "response": executor_result,
+    }
+
+
 def call_deployment_executor(plan: dict[str, Any]) -> dict[str, Any]:
     device_payloads = [
         payload
