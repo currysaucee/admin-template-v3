@@ -11,9 +11,10 @@ from .services import (
     abort_ticket_deployment,
     delete_policy_settings,
     enqueue_ticket_for_deployment,
-    execute_ad_hoc_commands,
+    create_and_release_ad_hoc_ticket,
     extract_policy_settings_from_docx,
     get_cached_executor_response,
+    get_ad_hoc_ticket_status,
     clear_hcc_tables,
     latest_devices_for_frontend,
     list_hcc_cleanup_tables,
@@ -313,6 +314,12 @@ def executor_response(request):
 
 @csrf_exempt
 def ad_hoc_executor(request):
+    if request.method == "GET":
+        ticket_id = str(request.GET.get("ticketId") or "").strip()
+        try:
+            return JsonResponse(get_ad_hoc_ticket_status(ticket_id))
+        except ValueError as exc:
+            return api_error(str(exc), code="AD_HOC_NOT_FOUND", status=404)
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
     try:
@@ -329,7 +336,7 @@ def ad_hoc_executor(request):
     if not isinstance(commands, list):
         return api_error("commands must be a list.", code="AD_HOC_VALIDATION_FAILED", status=400)
     try:
-        result = execute_ad_hoc_commands(
+        result = create_and_release_ad_hoc_ticket(
             device=str(payload.get("device") or ""),
             cr_number=str(payload.get("crNumber") or payload.get("cr_number") or ""),
             commands=commands,

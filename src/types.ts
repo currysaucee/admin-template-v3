@@ -169,11 +169,12 @@ export type DeploymentWorkerHealth = {
 };
 
 export type AdHocExecutorResult = {
-  executionId: string;
-  executedAt: string;
+  ticketId: string;
+  queueId: string;
+  status: string;
+  crNumber: string;
   executedBy: string;
   simulated: boolean;
-  success: boolean;
   requestPayload: {
     id: string;
     cr_number: string;
@@ -184,7 +185,22 @@ export type AdHocExecutorResult = {
       description: string;
     }>;
   };
-  response: unknown;
+  ticket: Ticket;
+  queueItem: DeploymentQueueItem;
+};
+
+export type AdHocExecutionStatus = {
+  ticketId: string;
+  queueId: string;
+  status: string;
+  queueItem: DeploymentQueueItem;
+  result?: {
+    ticketId: string;
+    capturedAt: string;
+    crNumber: string;
+    requestPayload: unknown;
+    response: unknown;
+  } | null;
 };
 
 export type DeploymentExecutionPlan = {

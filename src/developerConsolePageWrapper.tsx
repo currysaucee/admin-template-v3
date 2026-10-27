@@ -1,7 +1,7 @@
 import React from "react";
 
 import DefaultLayout from "../layout/defaultLayout";
-import { executeRealAdHocCommands, runRealScanImport } from "./dataMode";
+import { executeRealAdHocCommands, loadRealAdHocExecutionStatus, runRealScanImport } from "./dataMode";
 import { DeveloperConsolePage } from "./developerConsolePage";
 import { formatDateTime } from "./helpers";
 import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
@@ -62,6 +62,7 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
           hardwareTypeOptions={props.hardwareTypeOptions ?? hardwareTypeOptions}
           devices={props.devices ?? devices}
           onExecuteAdHoc={props.onExecuteAdHoc ?? executeRealAdHocCommands}
+          onLoadAdHocStatus={props.onLoadAdHocStatus ?? loadRealAdHocExecutionStatus}
         />
       </div>
     </DefaultLayout>

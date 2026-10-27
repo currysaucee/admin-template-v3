@@ -396,6 +396,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ad-hoc-result-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .ad-hoc-result-heading > div { display: grid; gap: 4px; }
 .ad-hoc-result-heading span { color: #64748b; font-size: 13px; font-weight: 700; }
+.ad-hoc-lifecycle { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ad-hoc-lifecycle span { position: relative; padding: 8px 10px; border-radius: 8px; background: #e2e8f0; color: #64748b; text-align: center; font-size: 12px; font-weight: 850; }
+.ad-hoc-lifecycle span.complete { background: #dcfce7; color: #166534; }
+.ad-hoc-lifecycle span.active { background: #dbeafe; color: #1d4ed8; }
 .ad-hoc-submit-row { margin-top: 0; }
 .ad-hoc-confirmation { display: grid; gap: 16px; }
 .ad-hoc-confirmation-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
@@ -492,6 +496,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .top-search { width: 100%; }
   .top-actions { flex-wrap: wrap; }
   .form-grid, .review-grid, .template-layout, .device-meta-grid, .finding-detail-grid, .validation-grid, .script-check-columns, .template-list-row, .template-detail-meta, .template-detail-meta.compact-meta, .template-request-row, .review-command-row, .review-finding-row, .developer-console-layout, .developer-policy-grid, .developer-detail-grid, .ad-hoc-form-grid, .ad-hoc-confirmation-summary { grid-template-columns: 1fr; }
+  .ad-hoc-lifecycle { grid-template-columns: 1fr; }
   .review-command-header { display: none; }
   .device-info-split { grid-template-columns: 1fr; }
   .device-info-column + .device-info-column { border-left: 0; border-top: 1px solid #e5e7eb; padding-left: 0; margin-left: 0; margin-top: 4px; padding-top: 4px; }

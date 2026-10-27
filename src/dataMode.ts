@@ -1,4 +1,4 @@
-import type { AdHocExecutorResult, DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicyLookupResult, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
+import type { AdHocExecutionStatus, AdHocExecutorResult, DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicyLookupResult, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketStatus } from "./types";
 
 const realApiBase = import.meta.env.VITE_HCC_REAL_API_BASE || "/api/HCCFix";
 
@@ -88,6 +88,10 @@ export async function executeRealAdHocCommands(device: string, crNumber: string,
     method: "POST",
     body: JSON.stringify({ device, crNumber, commands }),
   });
+}
+
+export async function loadRealAdHocExecutionStatus(ticketId: string): Promise<AdHocExecutionStatus> {
+  return requestJson<AdHocExecutionStatus>(`${endpoint("ad-hoc-executor/")}?ticketId=${encodeURIComponent(ticketId)}`);
 }
 
 export async function loadRealPolicySettings(): Promise<PolicySetting[]> {

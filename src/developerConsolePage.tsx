@@ -13,7 +13,7 @@ import { Tag } from "primereact/tag";
 
 import { formatDate, formatDateTime } from "./helpers";
 import { PageHeader } from "./sharedUi";
-import type { AdHocExecutorResult, Device, PolicyLookupResult, PolicySetting } from "./types";
+import type { AdHocExecutionStatus, AdHocExecutorResult, Device, PolicyLookupResult, PolicySetting } from "./types";
 
 type DraftPolicyRow = {
   rowId: string;
@@ -149,6 +149,7 @@ export function DeveloperConsolePage({
   hardwareTypeOptions = [],
   devices = [],
   onExecuteAdHoc,
+  onLoadAdHocStatus,
 }: {
   policySettings: PolicySetting[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
@@ -163,6 +164,7 @@ export function DeveloperConsolePage({
   hardwareTypeOptions?: string[];
   devices?: Device[];
   onExecuteAdHoc?: (device: string, crNumber: string, commands: string[]) => Promise<AdHocExecutorResult>;
+  onLoadAdHocStatus?: (ticketId: string) => Promise<AdHocExecutionStatus>;
 }) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
@@ -191,9 +193,11 @@ export function DeveloperConsolePage({
   const [adHocExecuting, setAdHocExecuting] = React.useState(false);
   const [adHocError, setAdHocError] = React.useState("");
   const [adHocResult, setAdHocResult] = React.useState<AdHocExecutorResult | null>(null);
+  const [adHocStatus, setAdHocStatus] = React.useState<AdHocExecutionStatus | null>(null);
   const adHocCleanCommands = adHocCommands.map((command) => command.trim()).filter(Boolean);
   const adHocReady = Boolean(adHocDevice.trim() && adHocCrNumber.trim() && adHocCleanCommands.length > 0 && onExecuteAdHoc);
   const adHocPayloadPreview = {
+    id: "<generated parent request ID>",
     cr_number: adHocCrNumber.trim(),
     device: adHocDevice.trim(),
     workflow_tasks: [{
@@ -249,6 +253,31 @@ export function DeveloperConsolePage({
       .catch(() => { if (!cancelled) setDetailLookup(null); });
     return () => { cancelled = true; };
   }, [detailPolicy, onLookupPolicySetting]);
+
+  React.useEffect(() => {
+    if (!adHocResult?.ticketId || !onLoadAdHocStatus) return;
+    let cancelled = false;
+    let timer = 0;
+    const terminalStatuses = new Set(["Complete", "Skipped", "Failed", "Aborted"]);
+    const refresh = async () => {
+      try {
+        const nextStatus = await onLoadAdHocStatus(adHocResult.ticketId);
+        if (cancelled) return;
+        setAdHocStatus(nextStatus);
+        if (!terminalStatuses.has(nextStatus.status)) timer = window.setTimeout(refresh, 3000);
+      } catch (error) {
+        if (!cancelled) {
+          setAdHocError(error instanceof Error ? error.message : "Unable to refresh the ad-hoc deployment status.");
+          timer = window.setTimeout(refresh, 5000);
+        }
+      }
+    };
+    void refresh();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [adHocResult?.ticketId, onLoadAdHocStatus]);
 
   const updateDraftRow = (rowId: string, patch: Partial<DraftPolicyRow>) => {
     setDraftRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
@@ -337,6 +366,7 @@ export function DeveloperConsolePage({
     setAdHocExecuting(true);
     setAdHocError("");
     setAdHocResult(null);
+    setAdHocStatus(null);
     try {
       const result = await onExecuteAdHoc(adHocDevice.trim(), adHocCrNumber.trim(), adHocCleanCommands);
       setAdHocResult(result);
@@ -375,7 +405,7 @@ export function DeveloperConsolePage({
             <div className="developer-operation-row">
               <div>
                 <h2>Execute configuration commands now</h2>
-                <p className="section-subtitle">Use this only on approved test devices. Commands bypass tickets and approvals, but a valid CR number is always required.</p>
+                <p className="section-subtitle">Use this only on approved test devices. One confirmation creates a real request, approves it, and releases it with the required CR number.</p>
               </div>
               <Tag value="Immediate execution" severity="warning" rounded />
             </div>
@@ -407,19 +437,22 @@ export function DeveloperConsolePage({
 
             <div className="ad-hoc-preview">
               <div className="structured-section-header compact">
-                <div><strong>Outgoing payload preview</strong><p>The backend adds a unique execution ID before sending this payload to the configured executor URL.</p></div>
+                <div><strong>Executor payload preview</strong><p>The backend first creates the HCC request. Its generated parent request ID replaces the preview ID when the worker calls the executor.</p></div>
               </div>
               <pre>{JSON.stringify(adHocPayloadPreview, null, 2)}</pre>
             </div>
 
             {adHocError ? <div className="document-process-error"><i className="pi pi-exclamation-triangle" /><span>{adHocError}</span></div> : null}
             {adHocResult ? (
-              <div className={`ad-hoc-result ${adHocResult.success ? "success" : "failed"}`}>
+              <div className={`ad-hoc-result ${adHocStatus?.status === "Complete" ? "success" : adHocStatus?.status === "Failed" || adHocStatus?.status === "Aborted" ? "failed" : ""}`}>
                 <div className="ad-hoc-result-heading">
-                  <div><strong>{adHocResult.success ? "Executor accepted the request" : "Executor reported a failure"}</strong><span>{adHocResult.executionId} · {adHocResult.simulated ? "Simulated" : "Live"}</span></div>
-                  <Tag value={adHocResult.success ? "Success" : "Failed"} severity={adHocResult.success ? "success" : "danger"} rounded />
+                  <div><strong>Request created and released</strong><span>{adHocResult.ticketId} · {adHocResult.queueId} · {adHocResult.simulated ? "Simulated executor" : "Live executor"}</span></div>
+                  <Tag value={adHocStatus?.status || adHocResult.status} severity={adHocStatus?.status === "Complete" ? "success" : adHocStatus?.status === "Failed" || adHocStatus?.status === "Aborted" ? "danger" : "info"} rounded />
                 </div>
-                <pre>{JSON.stringify(adHocResult, null, 2)}</pre>
+                <div className="ad-hoc-lifecycle" aria-label="Ad-hoc request lifecycle">
+                  <span className="complete">Created</span><span className="complete">Approved</span><span className="complete">Released</span><span className={adHocStatus?.status === "Processing" ? "active" : adHocStatus?.status === "Complete" || adHocStatus?.status === "Failed" ? "complete" : ""}>Worker</span><span className={adHocStatus?.result ? "complete" : ""}>Result</span>
+                </div>
+                <pre>{JSON.stringify(adHocStatus?.result ?? adHocStatus ?? adHocResult, null, 2)}</pre>
               </div>
             ) : null}
 
@@ -535,7 +568,7 @@ export function DeveloperConsolePage({
 
       <Dialog header="Confirm Immediate Execution" visible={adHocConfirmOpen} modal style={{ width: "min(680px, calc(100vw - 32px))" }} closable={!adHocExecuting} onHide={() => !adHocExecuting && setAdHocConfirmOpen(false)}>
         <div className="ad-hoc-confirmation">
-          <div className="document-process-error"><i className="pi pi-exclamation-triangle" /><span>These commands bypass the normal ticket approval and deployment queue and may change the selected device immediately.</span></div>
+          <div className="document-process-error"><i className="pi pi-exclamation-triangle" /><span>This creates a real HCC request, automatically approves it, and releases it to the normal deployment queue. The worker may change the selected device as soon as it claims the request.</span></div>
           <div className="ad-hoc-confirmation-summary">
             <span>Device<strong>{adHocDevice || "Not selected"}</strong></span>
             <span>CR Number<strong>{adHocCrNumber || "Not provided"}</strong></span>

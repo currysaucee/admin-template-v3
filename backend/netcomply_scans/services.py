@@ -1492,6 +1492,7 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
     latest_devices = latest_devices_for_frontend()
     templates = list_approved_templates()
     planned_devices: list[dict[str, Any]] = []
+    is_ad_hoc = ticket_payload.get("executionMode") == "developer-ad-hoc"
 
     for ticket_device in ticket_payload.get("devices", []):
         latest_device = find_latest_device_for_ticket(ticket_device, latest_devices)
@@ -1504,9 +1505,15 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
         planned_findings: list[dict[str, Any]] = []
         for finding in ticket_device.get("findings", []):
             finding_ref = normalize_policy_id(finding.get("id") or finding.get("templateKey"))
-            template = resolve_queue_template(ticket_device, finding, templates)
-            commands = template.get("implementationCommands", []) if template else []
-            if not latest_device:
+            template = None if is_ad_hoc else resolve_queue_template(ticket_device, finding, templates)
+            commands = finding.get("implementationCommands", []) if is_ad_hoc else (template.get("implementationCommands", []) if template else [])
+            if is_ad_hoc and commands:
+                status = "Pending Execution"
+                reason = "Approved ad-hoc commands are ready for the normal deployment worker."
+            elif is_ad_hoc:
+                status = "Skipped"
+                reason = "No ad-hoc implementation commands were supplied."
+            elif not latest_device:
                 status = "Skipped"
                 reason = "Device is not present in the latest non-compliance scan."
             elif finding_ref not in latest_finding_refs:
@@ -1646,14 +1653,14 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
     }
 
 
-def execute_ad_hoc_commands(
+def create_and_release_ad_hoc_ticket(
     *,
     device: str,
     cr_number: str,
     commands: list[Any],
     actor: str,
 ) -> dict[str, Any]:
-    """Immediately send developer-console commands through the normal executor boundary."""
+    """Create, approve, and release a real HCC request for developer-console commands."""
     device = str(device or "").strip()
     cr_number = str(cr_number or "").strip()
     clean_commands = [str(command).strip() for command in commands if str(command).strip()]
@@ -1676,36 +1683,94 @@ def execute_ad_hoc_commands(
     if matched_device is None:
         raise ValueError("The selected device is not present in the latest imported scan.")
 
-    execution_id = f"HCC-ADHOC-{secrets.token_hex(6).upper()}"
-    executor_payload = {
-        "id": execution_id,
-        "cr_number": cr_number,
-        "device": matched_device.hostname or matched_device.management_ip,
-        "workflow_tasks": [
-            {
-                "command": clean_commands,
-                "type": "config",
-                "description": "Developer console ad-hoc configuration commands",
-            }
-        ],
+    ad_hoc_finding_id = f"ADHOC-{secrets.token_hex(4).upper()}"
+    ticket_payload = {
+        "crNumber": "",
+        "requestor": actor,
+        "requestorRole": "Network Engineer",
+        "devices": [{
+            "deviceId": str(matched_device.id),
+            "hostname": matched_device.hostname,
+            "role": matched_device.role,
+            "hardwareType": matched_device.hardware_type,
+            "managementIp": matched_device.management_ip,
+            "findings": [{
+                "id": ad_hoc_finding_id,
+                "templateKey": ad_hoc_finding_id,
+                "title": "Developer console ad-hoc configuration",
+                "standard": "Developer Test",
+                "reason": "Explicit ad-hoc command execution from the Developer Console.",
+                "currentValue": "Not applicable",
+                "expectedValue": "Commands supplied by the developer",
+                "detectedAt": api_datetime(timezone.now()),
+                "implementationCommands": clean_commands,
+            }],
+        }],
+        "plannedStart": api_datetime(timezone.now()),
+        "plannedEnd": "",
+        "status": "Pending Approval",
+        "implementationPlan": "\n".join(clean_commands),
+        "backoutPlan": "Developer-managed test change; no automated rollback configured.",
+        "createdAt": api_datetime(timezone.now()),
+        "executionMode": "developer-ad-hoc",
     }
-    executor_result = call_deployment_executor_for_device(executor_payload)
-    result = {
-        **executor_result,
-        "executionId": execution_id,
-        "executedAt": api_datetime(timezone.now()),
+    with transaction.atomic(using=scan_db_alias()):
+        ticket = upsert_ticket(ticket_payload)
+        ticket = set_ticket_status(str(ticket["id"]), "Approved")
+        queue_item = enqueue_ticket_for_deployment(str(ticket["id"]), cr_ticket=cr_number, actor=actor)
+    execution_plan = queue_item.get("executionPlan") if isinstance(queue_item.get("executionPlan"), dict) else {}
+    planned_payloads = [
+        payload
+        for planned_device in execution_plan.get("devices", [])
+        if (
+            payload := build_executor_device_payload(
+                planned_device,
+                request_id=planned_device.get("id"),
+                cr_ticket=cr_number,
+            )
+        ) is not None
+    ]
+    return {
+        "ticketId": ticket["id"],
+        "queueId": queue_item.get("queueId"),
+        "status": queue_item.get("status") or "Queued",
+        "crNumber": cr_number,
         "executedBy": actor,
         "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
+        "requestPayload": planned_payloads[0] if len(planned_payloads) == 1 else planned_payloads,
+        "ticket": ticket,
+        "queueItem": queue_item,
     }
-    cached = cache_executor_response(execution_id, result)
+
+
+def get_ad_hoc_ticket_status(ticket_id: str) -> dict[str, Any]:
+    ticket_id = str(ticket_id or "").strip()
+    if not ticket_id:
+        raise ValueError("ticketId is required.")
+    record = (
+        HCCRequestRecord.objects.using(scan_db_alias())
+        .filter(request_id=ticket_id)
+        .order_by("id")
+        .first()
+    )
+    if record is None or (record.payload or {}).get("executionMode") != "developer-ad-hoc":
+        raise ValueError(f"Ad-hoc request {ticket_id} was not found.")
+    queue_item = (
+        DeploymentQueueItem.objects.using(scan_db_alias())
+        .filter(ticket_id=ticket_id)
+        .order_by("-queued_at", "-id")
+        .first()
+    )
+    if queue_item is None:
+        raise ValueError(f"Ad-hoc request {ticket_id} has no deployment queue item.")
+    serialized_queue = serialize_deployment_queue_item(queue_item)
+    terminal = queue_item.status in {"Complete", "Skipped", "Failed", "Aborted"}
     return {
-        "executionId": execution_id,
-        "executedAt": result["executedAt"],
-        "executedBy": actor,
-        "simulated": result["simulated"],
-        "success": result.get("success") is True,
-        "requestPayload": cached.get("requestPayload"),
-        "response": executor_result,
+        "ticketId": ticket_id,
+        "queueId": queue_item.queue_id,
+        "status": queue_item.status,
+        "queueItem": serialized_queue,
+        "result": get_cached_executor_response(ticket_id) if terminal else None,
     }
 
 
