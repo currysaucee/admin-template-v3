@@ -3,13 +3,16 @@ from __future__ import annotations
 import json
 import secrets
 import re
+import socket
 import ssl
+import time
 import zipfile
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from django.conf import settings
@@ -47,6 +50,30 @@ EXECUTOR_RESPONSE_CACHE = FileBasedCache(
 FALSE_STRINGS = {"false", "non-compliant", "non compliant", "failed", "fail", "no", "0"}
 UNREACHABLE_POLICY_ID = "0000"
 TRUE_STRINGS = {"true", "compliant", "passed", "pass", "yes", "1"}
+
+
+class ExecutorCallError(RuntimeError):
+    def __init__(self, message: str, *, diagnostics: dict[str, Any], request_payload: dict[str, Any]):
+        super().__init__(message)
+        self.diagnostics = diagnostics
+        self.request_payload = request_payload
+
+
+def safe_executor_url(value: str) -> str:
+    parsed = urlsplit(value)
+    if not parsed.scheme or not parsed.netloc:
+        return value
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path or '/'}"
+
+
+def safe_executor_headers(headers: dict[str, Any]) -> dict[str, Any]:
+    sensitive_names = {"authorization", "cookie", "set-cookie", "proxy-authorization", "x-api-key", "api-key"}
+    return {
+        name: "[REDACTED]"
+        if str(name).lower() in sensitive_names or any(fragment in str(name).lower() for fragment in ("token", "secret"))
+        else value
+        for name, value in headers.items()
+    }
 
 
 HCC_CLEANUP_TABLES = [
@@ -1600,12 +1627,37 @@ def simulated_executor_response(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, Any]:
+    started_at = time.perf_counter()
+    diagnostics: dict[str, Any] = {
+        "startedAt": api_datetime(timezone.now()),
+        "stages": [],
+    }
+
+    def trace(stage: str, status: str, detail: str, **values: Any) -> None:
+        diagnostics["stages"].append({
+            "stage": stage,
+            "status": status,
+            "detail": detail,
+            "elapsedMs": round((time.perf_counter() - started_at) * 1000, 2),
+            **values,
+        })
+
     request_id = payload.get("id")
     cr_number = str(payload.get("cr_number") or "").strip()
     if request_id is None or not str(request_id).strip():
-        raise RuntimeError("Executor payload was rejected because parent Request id is empty.")
+        trace("payload_validation", "failed", "Parent Request ID is empty.")
+        raise ExecutorCallError(
+            "Executor payload was rejected because parent Request id is empty.",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        )
     if cr_number and str(request_id).strip() == cr_number:
-        raise RuntimeError("Executor payload was rejected because parent Request id equals the CR number.")
+        trace("payload_validation", "failed", "Parent Request ID equals the CR number.")
+        raise ExecutorCallError(
+            "Executor payload was rejected because parent Request id equals the CR number.",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        )
     # Rebuild the public contract at the final boundary. This prevents legacy
     # internal fields such as aoc_id from leaking into either simulation or the
     # real executor request.
@@ -1615,41 +1667,142 @@ def call_deployment_executor_for_device(payload: dict[str, Any]) -> dict[str, An
         "device": payload.get("device"),
         "workflow_tasks": payload.get("workflow_tasks", []),
     }
-    if bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)):
-        return simulated_executor_response(payload)
+    trace(
+        "payload_validation",
+        "complete",
+        "Executor payload passed boundary validation.",
+        requestId=str(request_id),
+        crNumber=cr_number,
+        device=str(payload.get("device") or ""),
+        taskCount=len(payload.get("workflow_tasks", [])),
+    )
+    simulate = bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True))
+    timeout_seconds = getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)
+    if simulate:
+        trace("executor_mode", "complete", "Simulation is enabled; no network request was sent.")
+        response = simulated_executor_response(payload)
+        return {**response, "diagnostics": diagnostics}
 
     executor_url = str(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_URL", "")).strip()
     if not executor_url:
-        raise RuntimeError("HCC_DEPLOYMENT_EXECUTOR_URL is not configured.")
+        trace("executor_configuration", "failed", "HCC_DEPLOYMENT_EXECUTOR_URL is empty.")
+        raise ExecutorCallError(
+            "HCC_DEPLOYMENT_EXECUTOR_URL is not configured.",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        )
+
+    parsed_url = urlsplit(executor_url)
+    diagnostics.update({
+        "method": "POST",
+        "executorUrl": safe_executor_url(executor_url),
+        "timeoutSeconds": timeout_seconds,
+        "simulated": False,
+    })
+    trace("executor_configuration", "complete", "Executor URL and timeout were loaded.")
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname:
+        trace("url_validation", "failed", "Executor URL must contain an HTTP(S) scheme and hostname.")
+        raise ExecutorCallError(
+            "HCC_DEPLOYMENT_EXECUTOR_URL is not a valid HTTP(S) URL.",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        )
+    try:
+        endpoint_port = parsed_url.port or (443 if parsed_url.scheme == "https" else 80)
+    except ValueError as exc:
+        trace("url_validation", "failed", str(exc), exceptionType=type(exc).__name__)
+        raise ExecutorCallError(
+            f"HCC_DEPLOYMENT_EXECUTOR_URL contains an invalid port: {exc}",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        ) from exc
+    trace(
+        "url_validation",
+        "complete",
+        "Executor URL structure is valid.",
+        scheme=parsed_url.scheme,
+        hostname=parsed_url.hostname,
+        port=endpoint_port,
+        path=parsed_url.path or "/",
+    )
+
+    try:
+        address_rows = socket.getaddrinfo(
+            parsed_url.hostname,
+            endpoint_port,
+            type=socket.SOCK_STREAM,
+        )
+        addresses = sorted({str(row[4][0]) for row in address_rows if row[4]})
+        trace("dns_resolution", "complete", "Executor hostname resolved.", addresses=addresses)
+    except Exception as exc:
+        trace("dns_resolution", "failed", str(exc), exceptionType=type(exc).__name__)
+        raise ExecutorCallError(
+            f"Executor hostname resolution failed: {exc}",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        ) from exc
 
     body = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     headers.update(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_HEADERS", {}))
+    trace(
+        "request_preparation",
+        "complete",
+        "JSON POST request was prepared.",
+        bodyBytes=len(body),
+        headers=safe_executor_headers(headers),
+    )
     request = Request(executor_url, data=body, headers=headers, method="POST")
+    trace("connection", "started", "Opening the connection and waiting for an HTTP response.")
     try:
-        with urlopen(request, timeout=getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_TIMEOUT", 60)) as response:
+        with urlopen(request, timeout=timeout_seconds) as response:
             http_status = response.status
             response_headers = dict(response.headers.items())
+            trace("http_response", "complete", "Executor returned HTTP response headers.", httpStatus=http_status)
             response_body = response.read().decode("utf-8", errors="replace")
+            trace("response_body", "complete", "Executor response body was read.", responseBytes=len(response_body.encode("utf-8")))
     except HTTPError as exc:
         http_status = exc.code
         response_headers = dict(exc.headers.items()) if exc.headers else {}
+        trace("http_response", "failed", "Executor returned an HTTP error response.", httpStatus=http_status)
         response_body = exc.read().decode("utf-8", errors="replace")
+        trace("response_body", "complete", "Executor error response body was read.", responseBytes=len(response_body.encode("utf-8")))
+    except Exception as exc:
+        trace(
+            "connection",
+            "failed",
+            str(exc) or "The remote endpoint closed the connection without a response.",
+            exceptionType=type(exc).__name__,
+        )
+        diagnostics["finishedAt"] = api_datetime(timezone.now())
+        diagnostics["durationMs"] = round((time.perf_counter() - started_at) * 1000, 2)
+        raise ExecutorCallError(
+            f"Executor connection failed during POST: {type(exc).__name__}: {exc}",
+            diagnostics=diagnostics,
+            request_payload=payload,
+        ) from exc
 
     try:
         response_payload = json.loads(response_body) if response_body else None
-    except json.JSONDecodeError:
+        trace("response_parsing", "complete", "Executor response body was parsed as JSON." if response_body else "Executor returned an empty body.")
+    except json.JSONDecodeError as exc:
         response_payload = None
+        trace("response_parsing", "failed", f"Response body is not valid JSON: {exc}")
+    success = response_payload.get("success") is True if isinstance(response_payload, dict) else 200 <= http_status < 300
+    trace("success_evaluation", "complete" if success else "failed", f"Executor success evaluated to {success}.")
+    diagnostics["finishedAt"] = api_datetime(timezone.now())
+    diagnostics["durationMs"] = round((time.perf_counter() - started_at) * 1000, 2)
     return {
         "executorPayloadSchema": EXECUTOR_PAYLOAD_SCHEMA,
         "executorUrl": executor_url,
         "requestPayload": payload,
         "httpStatus": http_status,
-        "responseHeaders": response_headers,
+        "responseHeaders": safe_executor_headers(response_headers),
         "rawResponseBody": response_body,
         "responsePayload": response_payload,
-        "success": response_payload.get("success") is True if isinstance(response_payload, dict) else 200 <= http_status < 300,
+        "success": success,
         "task_results": response_payload.get("task_results", []) if isinstance(response_payload, dict) else [],
+        "diagnostics": diagnostics,
     }
 
 
@@ -1811,7 +1964,11 @@ def validate_executor_result(result: dict[str, Any]) -> None:
         ),
         None,
     )
-    raise RuntimeError(str(failure_detail or "Deployment executor returned success=false."))
+    raise ExecutorCallError(
+        str(failure_detail or "Deployment executor returned success=false."),
+        diagnostics=result.get("diagnostics") if isinstance(result.get("diagnostics"), dict) else {},
+        request_payload=result.get("requestPayload") if isinstance(result.get("requestPayload"), dict) else {},
+    )
 
 
 def executor_response_cache_key(ticket_id: str) -> str:
@@ -2024,9 +2181,19 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         item.save(using=db_alias)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
+        failure_result = {
+            "success": False,
+            "error": str(exc),
+            "exceptionType": type(exc).__name__,
+            "requestPayload": getattr(exc, "request_payload", None),
+            "diagnostics": getattr(exc, "diagnostics", None),
+            "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
+        }
         item.status = "Failed"
         item.last_error = str(exc)
+        item.result_payload = failure_result
         item.completed_at = timezone.now()
         item.save(using=db_alias)
+        cache_executor_response(item.ticket_id, failure_result)
         update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed")
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}

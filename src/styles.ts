@@ -400,6 +400,17 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .ad-hoc-lifecycle span { position: relative; padding: 8px 10px; border-radius: 8px; background: #e2e8f0; color: #64748b; text-align: center; font-size: 12px; font-weight: 850; }
 .ad-hoc-lifecycle span.complete { background: #dcfce7; color: #166534; }
 .ad-hoc-lifecycle span.active { background: #dbeafe; color: #1d4ed8; }
+.executor-diagnostic-trace { display: grid; gap: 10px; padding-top: 4px; }
+.executor-diagnostic-list { display: grid; border-top: 1px solid #dbe3ee; }
+.executor-diagnostic-stage { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 2px; border-bottom: 1px solid #dbe3ee; color: #334155; }
+.executor-diagnostic-stage i { margin-top: 2px; color: #16a34a; }
+.executor-diagnostic-stage.started i { color: #2563eb; }
+.executor-diagnostic-stage.failed i { color: #dc2626; }
+.executor-diagnostic-stage > div { display: grid; gap: 3px; }
+.executor-diagnostic-stage strong { text-transform: capitalize; color: #0f172a; font-size: 13px; }
+.executor-diagnostic-stage span { color: #475569; font-size: 13px; line-height: 1.4; }
+.executor-diagnostic-stage code { width: fit-content; padding: 2px 6px; border-radius: 5px; background: #fee2e2; color: #991b1b; font-size: 11px; }
+.executor-diagnostic-stage small { color: #64748b; font-size: 11px; white-space: nowrap; }
 .ad-hoc-submit-row { margin-top: 0; }
 .ad-hoc-confirmation { display: grid; gap: 16px; }
 .ad-hoc-confirmation-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
