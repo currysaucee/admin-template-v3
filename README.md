@@ -83,6 +83,17 @@ HCC_DEPLOYMENT_EXECUTOR_TIMEOUT = 60
 # Keep True while testing. Set False to call HCC_DEPLOYMENT_EXECUTOR_URL.
 HCC_DEPLOYMENT_EXECUTOR_SIMULATE = True
 
+# The same policy-check endpoint is used after the executor captures both the
+# pre-change and post-change device configuration.
+HCC_POLICY_CHECK_API_URL = "https://scanner.example/api/latest/key/governation/hardening/precheck/"
+HCC_POLICY_CHECK_API_HEADERS = {
+    "Api-Key": "replace-me",
+}
+HCC_POLICY_CHECK_API_TIMEOUT = 60
+HCC_POLICY_CHECK_API_VERIFY_SSL = True
+# Defaults to HCC_DEPLOYMENT_EXECUTOR_SIMULATE when omitted.
+HCC_POLICY_CHECK_SIMULATE = True
+
 CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
 CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/1"
 CELERY_TIMEZONE = "Asia/Singapore"

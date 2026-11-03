@@ -160,7 +160,7 @@ export function DeploymentQueuePage({ queue, workerHealth = [], onAbort }: { que
                                   <strong>{finding.title || finding.policyId}</strong>
                                   <span>{finding.reason || "Ready for executor."}</span>
                                 </div>
-                                <Tag value={finding.status} severity={finding.status === "Skipped" ? "secondary" : "success"} rounded />
+                                <Tag value={finding.status} severity={finding.status === "Reversion Required" ? "danger" : finding.status === "Skipped" ? "secondary" : finding.status === "Pending Execution" ? "info" : "success"} rounded />
                               </div>
                             ))}
                           </div>

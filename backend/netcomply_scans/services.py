@@ -1554,10 +1554,12 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
                 reason = "Policy is still non-compliant and commands are ready for the executor."
             planned_findings.append({
                 "policyId": finding_ref,
+                "policyUuid": re.sub(r"-V\d+$", "", str(finding.get("policyVariantId") or (template or {}).get("policySettingId") or finding_ref), flags=re.IGNORECASE),
                 "title": finding.get("title") or finding_ref,
                 "status": status,
                 "reason": reason,
                 "implementationCommands": commands,
+                "prePostCheckCommands": template.get("prePostCheckCommands", []) if template else [],
             })
         planned_devices.append({
             "id": ticket_device.get("parentRequestId"),
@@ -1570,6 +1572,7 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
     return {
         "ticketId": ticket_payload.get("id"),
         "cr_ticket": ticket_payload.get("cr_ticket") or ticket_payload.get("crNumber"),
+        "executionMode": ticket_payload.get("executionMode") or "normal",
         "devices": planned_devices,
     }
 
@@ -1599,6 +1602,133 @@ def build_executor_device_payload(device: dict[str, Any], *, request_id: Any = N
                 "description": "HCC remediation implementation commands",
             }
         ],
+    }
+
+
+def build_executor_check_payload(
+    device: dict[str, Any],
+    finding: dict[str, Any],
+    *,
+    request_id: Any,
+    cr_ticket: str,
+    stage: str,
+) -> dict[str, Any] | None:
+    commands = [str(command).strip() for command in finding.get("prePostCheckCommands", []) if str(command).strip()]
+    if not commands:
+        return None
+    if request_id is None or not str(request_id).strip():
+        raise RuntimeError(f"{stage.title()}-check cannot run because the parent Request id is empty.")
+    return {
+        "id": request_id,
+        "cr_number": cr_ticket,
+        "device": device.get("hostname") or device.get("managementIp"),
+        "workflow_tasks": [{
+            "command": commands,
+            "type": "command",
+            "description": f"HCC remediation {stage}-check configuration capture",
+        }],
+    }
+
+
+def executor_captured_config(result: dict[str, Any]) -> str:
+    task_results = result.get("task_results") if isinstance(result.get("task_results"), list) else []
+    if not task_results:
+        task_results = [
+            task
+            for device_result in (result.get("device_results") or [])
+            if isinstance(device_result, dict)
+            for task in (device_result.get("task_results") or [])
+            if isinstance(task, dict)
+        ]
+    outputs = [
+        payload_text(pick(task, "output", "stdout", "result", "response", default="")).strip()
+        for task in task_results
+        if isinstance(task, dict)
+    ]
+    captured = "\n".join(output for output in outputs if output)
+    if not captured:
+        raise RuntimeError("The executor completed the check command but returned no configuration output.")
+    return captured
+
+
+def call_policy_compliance_check(*, policy_uuid: str, hostname: str, config: str, stage: str) -> dict[str, Any]:
+    simulate = bool(getattr(
+        settings,
+        "HCC_POLICY_CHECK_SIMULATE",
+        getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True),
+    ))
+    request_payload = {
+        "policy_uuid": str(policy_uuid or "").strip(),
+        "hostname": str(hostname or "").strip(),
+        "config": config,
+    }
+    if not request_payload["policy_uuid"]:
+        raise RuntimeError(f"{stage.title()}-check cannot run because policy_uuid is empty.")
+    if not request_payload["hostname"]:
+        raise RuntimeError(f"{stage.title()}-check cannot run because hostname is empty.")
+    if simulate:
+        comply = stage == "post"
+        return {
+            "stage": stage,
+            "simulated": True,
+            "comply": comply,
+            "reason": f"Simulated {stage}-check returned comply={str(comply).lower()}.",
+            "request": {
+                "policy_uuid": request_payload["policy_uuid"],
+                "hostname": request_payload["hostname"],
+                "configBytes": len(config.encode("utf-8")),
+            },
+        }
+
+    api_url = str(getattr(settings, "HCC_POLICY_CHECK_API_URL", "")).strip()
+    if not api_url:
+        raise RuntimeError("HCC_POLICY_CHECK_API_URL is not configured.")
+    timeout = int(getattr(settings, "HCC_POLICY_CHECK_API_TIMEOUT", 60))
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        **getattr(settings, "HCC_SCAN_API_HEADERS", {}),
+        **getattr(settings, "HCC_POLICY_CHECK_API_HEADERS", {}),
+    }
+    body = json.dumps(request_payload).encode("utf-8")
+    request = Request(api_url, data=body, headers=headers, method="POST")
+    context = None
+    if not bool(getattr(settings, "HCC_POLICY_CHECK_API_VERIFY_SSL", True)):
+        context = ssl._create_unverified_context()
+    try:
+        with urlopen(request, timeout=timeout, context=context) as response:
+            http_status = response.status
+            response_body = response.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        response_body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"{stage.title()}-check API returned HTTP {exc.code}: {response_body}") from exc
+    except (URLError, OSError) as exc:
+        raise RuntimeError(f"{stage.title()}-check API connection failed: {exc}") from exc
+
+    try:
+        response_payload = json.loads(response_body) if response_body else {}
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{stage.title()}-check API returned invalid JSON: {response_body}") from exc
+    if not isinstance(response_payload, dict):
+        raise RuntimeError(f"{stage.title()}-check API response must be a JSON object.")
+    comply = response_payload.get("comply", response_payload.get("comply_status"))
+    if not isinstance(comply, bool):
+        raise RuntimeError(f"{stage.title()}-check API response must contain boolean 'comply'.")
+    return {
+        "stage": stage,
+        "simulated": False,
+        "httpStatus": http_status,
+        "comply": comply,
+        "reason": str(response_payload.get("reason") or ""),
+        "response": response_payload,
+        "request": {
+            "url": safe_executor_url(api_url),
+            "method": "POST",
+            "headers": safe_executor_headers(headers),
+            "policy_uuid": request_payload["policy_uuid"],
+            "hostname": request_payload["hostname"],
+            "configBytes": len(config.encode("utf-8")),
+        },
     }
 
 
@@ -2128,10 +2258,78 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             "cr_ticket": plan.get("cr_ticket"),
             "devices": [{**device, "findings": [finding]}],
         }
-        step_result = call_deployment_executor(step_plan)
-        validate_executor_result(step_result)
-        finding["status"] = "Executed"
-        finding["reason"] = "Execution completed successfully."
+        executor_results: list[dict[str, Any]] = []
+        pre_check: dict[str, Any] | None = None
+        post_check: dict[str, Any] | None = None
+        step_result: dict[str, Any] | None = None
+        reversion_required = False
+        check_payload = None
+        if plan.get("executionMode") != "developer-ad-hoc":
+            check_payload = build_executor_check_payload(
+                device,
+                finding,
+                request_id=device.get("id"),
+                cr_ticket=str(plan.get("cr_ticket") or ""),
+                stage="pre",
+            )
+
+        if check_payload is not None:
+            pre_executor_result = call_deployment_executor_for_device(check_payload)
+            validate_executor_result(pre_executor_result)
+            executor_results.append(pre_executor_result)
+            pre_config = executor_captured_config(pre_executor_result)
+            pre_check = {
+                "executor": pre_executor_result,
+                "assessment": call_policy_compliance_check(
+                    policy_uuid=str(finding.get("policyUuid") or finding.get("policyId") or ""),
+                    hostname=str(device.get("hostname") or device.get("managementIp") or ""),
+                    config=pre_config,
+                    stage="pre",
+                ),
+            }
+
+        if pre_check is not None and pre_check["assessment"].get("comply") is True:
+            finding["status"] = "Skipped"
+            finding["reason"] = pre_check["assessment"].get("reason") or "Pre-check confirmed the policy is already compliant."
+        else:
+            step_result = call_deployment_executor(step_plan)
+            validate_executor_result(step_result)
+            executor_results.extend(step_result.get("device_results") or [step_result])
+
+            if check_payload is not None:
+                post_payload = build_executor_check_payload(
+                    device,
+                    finding,
+                    request_id=device.get("id"),
+                    cr_ticket=str(plan.get("cr_ticket") or ""),
+                    stage="post",
+                )
+                if post_payload is not None:
+                    post_executor_result = call_deployment_executor_for_device(post_payload)
+                    validate_executor_result(post_executor_result)
+                    executor_results.append(post_executor_result)
+                    post_config = executor_captured_config(post_executor_result)
+                    post_check = {
+                        "executor": post_executor_result,
+                        "assessment": call_policy_compliance_check(
+                            policy_uuid=str(finding.get("policyUuid") or finding.get("policyId") or ""),
+                            hostname=str(device.get("hostname") or device.get("managementIp") or ""),
+                            config=post_config,
+                            stage="post",
+                        ),
+                    }
+                    reversion_required = post_check["assessment"].get("comply") is not True
+
+            if reversion_required:
+                finding["status"] = "Reversion Required"
+                finding["reason"] = post_check["assessment"].get("reason") or "Post-check remains non-compliant; manual reversion is required."
+            else:
+                finding["status"] = "Executed"
+                finding["reason"] = (
+                    post_check["assessment"].get("reason")
+                    if post_check is not None
+                    else "Execution completed successfully."
+                ) or "Post-check confirmed compliance."
 
         prior_result = item.result_payload if isinstance(item.result_payload, dict) else {}
         steps = [*(prior_result.get("steps") or []), {
@@ -2139,16 +2337,23 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             "policyId": finding.get("policyId"),
             "completedAt": api_datetime(timezone.now()),
             "result": step_result,
+            "preCheck": pre_check,
+            "postCheck": post_check,
+            "reversionRequired": reversion_required,
+            "status": finding.get("status"),
+            "reason": finding.get("reason"),
+            "executorResults": executor_results,
         }]
         device_results = [
             device_result
             for step in steps
-            for device_result in ((step.get("result") or {}).get("device_results") or [])
+            for device_result in (step.get("executorResults") or ((step.get("result") or {}).get("device_results") or []))
         ]
         aggregate_result = {
-            "success": True,
+            "success": not reversion_required,
             "steps": steps,
             "device_results": device_results,
+            "reversionRequired": reversion_required,
             "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
         }
         cache_executor_response(item.ticket_id, aggregate_result)
@@ -2168,16 +2373,22 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         item.execution_plan = plan
         item.result_payload = aggregate_result
         item.last_error = ""
-        if remaining:
+        if reversion_required:
+            item.status = "Failed"
+            item.completed_at = timezone.now()
+            item.last_error = finding.get("reason") or "Post-check failed; manual reversion is required."
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed")
+        elif remaining:
             delay_seconds = max(0, int(getattr(settings, "HCC_DEPLOYMENT_STEP_DELAY_SECONDS", 600)))
             item.status = "Waiting"
             item.available_at = timezone.now() + timedelta(seconds=delay_seconds)
             item.completed_at = None
             update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "In Progress")
         else:
-            item.status = "Complete"
+            final_findings = [queued_finding for queued_device in plan["devices"] for queued_finding in queued_device["findings"]]
+            item.status = "Skipped" if final_findings and all(queued_finding.get("status") == "Skipped" for queued_finding in final_findings) else "Complete"
             item.completed_at = timezone.now()
-            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Complete")
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, item.status)
         item.save(using=db_alias)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
