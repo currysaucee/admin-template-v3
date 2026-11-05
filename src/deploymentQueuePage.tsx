@@ -27,17 +27,83 @@ function skippedPolicyCount(item: DeploymentQueueItem) {
   return item.executionPlan?.devices.reduce((total, device) => total + device.findings.filter((finding) => finding.status === "Skipped").length, 0) ?? 0;
 }
 
-function deploymentLogText(item: DeploymentQueueItem) {
-  if (item.lastError) return item.lastError;
-  if (item.result && (typeof item.result !== "object" || Object.keys(item.result as object).length > 0)) {
-    return JSON.stringify(item.result, null, 2);
-  }
-  return "No execution result has been recorded yet.";
+type DeploymentPhase = "preCheck" | "implementation" | "postCheck";
+
+type PhaseLogEntry = {
+  device?: string;
+  policyId?: string;
+  data: unknown;
+};
+
+const phaseDetails: Record<DeploymentPhase, { number: string; title: string; description: string }> = {
+  preCheck: { number: "1", title: "Pre-check", description: "Capture device configuration and assess current compliance." },
+  implementation: { number: "2", title: "Implementation", description: "Run the remediation commands for policies that still require a fix." },
+  postCheck: { number: "3", title: "Post-check", description: "Capture configuration again and confirm the policy is now compliant." },
+};
+
+function objectValue(value: unknown): Record<string, any> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : undefined;
 }
 
-function executorResponseText(item: DeploymentQueueItem) {
-  if (!item.executorResponse) return "No executor request or response has been captured for this ticket yet.";
-  return JSON.stringify(item.executorResponse, null, 2);
+function deploymentResult(item: DeploymentQueueItem) {
+  return objectValue(item.executorResponse?.response) ?? objectValue(item.result);
+}
+
+function failedResultPhase(result: Record<string, any>): DeploymentPhase {
+  const diagnosticStage = String(objectValue(result.diagnostics)?.stage ?? "").toLowerCase();
+  if (diagnosticStage === "pre") return "preCheck";
+  if (diagnosticStage === "post") return "postCheck";
+  const payloadText = JSON.stringify(result.requestPayload ?? "").toLowerCase();
+  if (payloadText.includes("pre-check")) return "preCheck";
+  if (payloadText.includes("post-check")) return "postCheck";
+  return "implementation";
+}
+
+function phaseLogEntries(item: DeploymentQueueItem, phase: DeploymentPhase): PhaseLogEntry[] {
+  const result = deploymentResult(item);
+  if (!result) return [];
+  const entries = (Array.isArray(result.steps) ? result.steps : []).flatMap((rawStep: unknown) => {
+    const step = objectValue(rawStep);
+    if (!step) return [];
+    const data = phase === "implementation" ? step.result : step[phase];
+    if (data === null || data === undefined) return [];
+    return [{ device: String(step.device ?? ""), policyId: String(step.policyId ?? ""), data }];
+  });
+  if (entries.length > 0) return entries;
+  if (result.success === false && failedResultPhase(result) === phase) {
+    return [{ data: result }];
+  }
+  return [];
+}
+
+function DeploymentPhaseLog({ item, phase }: { item: DeploymentQueueItem; phase: DeploymentPhase }) {
+  const details = phaseDetails[phase];
+  const entries = phaseLogEntries(item, phase);
+  return (
+    <section className={`queue-phase-log ${phase}`}>
+      <header>
+        <span className="queue-phase-number">{details.number}</span>
+        <div>
+          <strong>{details.title}</strong>
+          <small>{details.description}</small>
+        </div>
+        <Tag value={entries.length > 0 ? `${entries.length} log${entries.length === 1 ? "" : "s"}` : "Not recorded"} severity={entries.length > 0 ? "info" : "secondary"} rounded />
+      </header>
+      {entries.length === 0 ? (
+        <p>No {details.title.toLowerCase()} result has been recorded for this ticket.</p>
+      ) : entries.map((entry, index) => (
+        <div className="queue-phase-entry" key={`${phase}-${entry.device}-${entry.policyId}-${index}`}>
+          {(entry.device || entry.policyId) && (
+            <div className="queue-phase-context">
+              {entry.device && <span>{entry.device}</span>}
+              {entry.policyId && <span>{entry.policyId}</span>}
+            </div>
+          )}
+          <pre>{JSON.stringify(entry.data, null, 2)}</pre>
+        </div>
+      ))}
+    </section>
+  );
 }
 
 function heartbeatAgeLabel(value?: string) {
@@ -171,14 +237,10 @@ export function DeploymentQueuePage({ queue, workerHealth = [], onAbort, onViewT
                           </div>
                         </div>
                       ))}
-                      <div className="queue-execution-log">
-                        <strong>Deployment log</strong>
-                        <pre>{deploymentLogText(item)}</pre>
-                      </div>
-                      <div className="queue-executor-response">
-                        <strong>Executor request and response</strong>
-                        <span>Includes implementation execution and any pre/post compliance-check diagnostics captured for this ticket.</span>
-                        <pre>{executorResponseText(item)}</pre>
+                      <div className="queue-phase-logs">
+                        <DeploymentPhaseLog item={item} phase="preCheck" />
+                        <DeploymentPhaseLog item={item} phase="implementation" />
+                        <DeploymentPhaseLog item={item} phase="postCheck" />
                       </div>
                     </div>
                   )}
