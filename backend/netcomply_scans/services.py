@@ -59,6 +59,21 @@ class ExecutorCallError(RuntimeError):
         self.request_payload = request_payload
 
 
+class PolicyComplianceCheckError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        diagnostics: dict[str, Any],
+        request_payload: dict[str, Any],
+        response_payload: Any = None,
+    ):
+        super().__init__(message)
+        self.diagnostics = diagnostics
+        self.request_payload = request_payload
+        self.response_payload = response_payload
+
+
 def safe_executor_url(value: str) -> str:
     parsed = urlsplit(value)
     if not parsed.scheme or not parsed.netloc:
@@ -1326,6 +1341,7 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
         for device in item.execution_plan.get("devices", [])
         if isinstance(device, dict)
     ) if isinstance(item.execution_plan, dict) else 0
+    executor_response = get_cached_executor_response(item.ticket_id) if item.result_payload else None
     return {
         "queueId": item.queue_id,
         "ticketId": item.ticket_id,
@@ -1346,6 +1362,7 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
         "ticket": item.ticket_payload,
         "executionPlan": item.execution_plan,
         "result": item.result_payload,
+        "executorResponse": executor_response,
     }
 
 
@@ -1652,6 +1669,7 @@ def executor_captured_config(result: dict[str, Any]) -> str:
 
 
 def call_policy_compliance_check(*, policy_uuid: str, hostname: str, config: str, stage: str) -> dict[str, Any]:
+    started_at = time.perf_counter()
     simulate = bool(getattr(
         settings,
         "HCC_POLICY_CHECK_SIMULATE",
@@ -1662,27 +1680,59 @@ def call_policy_compliance_check(*, policy_uuid: str, hostname: str, config: str
         "hostname": str(hostname or "").strip(),
         "config": config,
     }
+    diagnostics: dict[str, Any] = {
+        "stage": stage,
+        "startedAt": api_datetime(timezone.now()),
+        "simulated": simulate,
+        "requestPayload": request_payload,
+        "stages": [],
+    }
+
+    def trace(checkpoint: str, status: str, detail: str, **values: Any) -> None:
+        diagnostics["stages"].append({
+            "stage": checkpoint,
+            "status": status,
+            "detail": detail,
+            "elapsedMs": round((time.perf_counter() - started_at) * 1000, 2),
+            **values,
+        })
+
+    def fail(message: str, *, response_payload: Any = None) -> None:
+        raise PolicyComplianceCheckError(
+            message,
+            diagnostics=diagnostics,
+            request_payload=request_payload,
+            response_payload=response_payload,
+        )
+
     if not request_payload["policy_uuid"]:
-        raise RuntimeError(f"{stage.title()}-check cannot run because policy_uuid is empty.")
+        trace("payload_validation", "failed", "policy_uuid is empty.")
+        fail(f"{stage.title()}-check cannot run because policy_uuid is empty.")
     if not request_payload["hostname"]:
-        raise RuntimeError(f"{stage.title()}-check cannot run because hostname is empty.")
+        trace("payload_validation", "failed", "hostname is empty.")
+        fail(f"{stage.title()}-check cannot run because hostname is empty.")
+    trace("payload_validation", "complete", "Compliance-check payload is valid.", configBytes=len(config.encode("utf-8")))
     if simulate:
         comply = stage == "post"
+        response_payload = {
+            "comply": comply,
+            "reason": f"Simulated {stage}-check returned comply={str(comply).lower()}.",
+        }
+        trace("simulation", "complete", "Compliance-check response was simulated.")
         return {
             "stage": stage,
             "simulated": True,
             "comply": comply,
-            "reason": f"Simulated {stage}-check returned comply={str(comply).lower()}.",
-            "request": {
-                "policy_uuid": request_payload["policy_uuid"],
-                "hostname": request_payload["hostname"],
-                "configBytes": len(config.encode("utf-8")),
-            },
+            "reason": response_payload["reason"],
+            "requestPayload": request_payload,
+            "responsePayload": response_payload,
+            "diagnostics": diagnostics,
         }
 
     api_url = str(getattr(settings, "HCC_POLICY_CHECK_API_URL", "")).strip()
     if not api_url:
-        raise RuntimeError("HCC_POLICY_CHECK_API_URL is not configured.")
+        trace("configuration", "failed", "HCC_POLICY_CHECK_API_URL is empty.")
+        fail("HCC_POLICY_CHECK_API_URL is not configured.")
     timeout = int(getattr(settings, "HCC_POLICY_CHECK_API_TIMEOUT", 60))
     headers = {
         "Content-Type": "application/json",
@@ -1690,45 +1740,62 @@ def call_policy_compliance_check(*, policy_uuid: str, hostname: str, config: str
         **getattr(settings, "HCC_SCAN_API_HEADERS", {}),
         **getattr(settings, "HCC_POLICY_CHECK_API_HEADERS", {}),
     }
+    diagnostics.update({
+        "url": safe_executor_url(api_url),
+        "method": "POST",
+        "headers": safe_executor_headers(headers),
+        "timeoutSeconds": timeout,
+    })
+    trace("configuration", "complete", "Compliance-check endpoint and headers were loaded.")
     body = json.dumps(request_payload).encode("utf-8")
     request = Request(api_url, data=body, headers=headers, method="POST")
     context = None
     if not bool(getattr(settings, "HCC_POLICY_CHECK_API_VERIFY_SSL", True)):
         context = ssl._create_unverified_context()
+    trace("request_prepared", "complete", "Compliance-check POST request was prepared.", requestBytes=len(body))
     try:
         with urlopen(request, timeout=timeout, context=context) as response:
             http_status = response.status
             response_body = response.read().decode("utf-8", errors="replace")
+            response_headers = dict(response.headers.items())
+        diagnostics["httpStatus"] = http_status
+        diagnostics["responseHeaders"] = safe_executor_headers(response_headers)
+        diagnostics["rawResponseBody"] = response_body
+        trace("http_response", "complete", "Compliance-check API returned an HTTP response.", httpStatus=http_status, responseBytes=len(response_body.encode("utf-8")))
     except HTTPError as exc:
         response_body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"{stage.title()}-check API returned HTTP {exc.code}: {response_body}") from exc
+        diagnostics["httpStatus"] = exc.code
+        diagnostics["rawResponseBody"] = response_body
+        trace("http_response", "failed", "Compliance-check API returned an HTTP error.", httpStatus=exc.code)
+        fail(f"{stage.title()}-check API returned HTTP {exc.code}: {response_body}", response_payload=response_body)
     except (URLError, OSError) as exc:
-        raise RuntimeError(f"{stage.title()}-check API connection failed: {exc}") from exc
+        trace("connection", "failed", f"Compliance-check API connection failed: {exc}")
+        fail(f"{stage.title()}-check API connection failed: {exc}")
 
     try:
         response_payload = json.loads(response_body) if response_body else {}
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{stage.title()}-check API returned invalid JSON: {response_body}") from exc
+        trace("response_parsing", "failed", "Compliance-check API returned invalid JSON.")
+        fail(f"{stage.title()}-check API returned invalid JSON: {response_body}", response_payload=response_body)
+    diagnostics["responsePayload"] = response_payload
+    trace("response_parsing", "complete", "Compliance-check response JSON was parsed.")
     if not isinstance(response_payload, dict):
-        raise RuntimeError(f"{stage.title()}-check API response must be a JSON object.")
+        trace("response_validation", "failed", "Response JSON is not an object.")
+        fail(f"{stage.title()}-check API response must be a JSON object.", response_payload=response_payload)
     comply = response_payload.get("comply", response_payload.get("comply_status"))
     if not isinstance(comply, bool):
-        raise RuntimeError(f"{stage.title()}-check API response must contain boolean 'comply'.")
+        trace("response_validation", "failed", "Response does not contain a boolean comply value.", receivedType=type(comply).__name__)
+        fail(f"{stage.title()}-check API response must contain boolean 'comply'.", response_payload=response_payload)
+    trace("response_validation", "complete", "Compliance-check response contains a boolean comply value.", comply=comply)
     return {
         "stage": stage,
         "simulated": False,
         "httpStatus": http_status,
         "comply": comply,
         "reason": str(response_payload.get("reason") or ""),
-        "response": response_payload,
-        "request": {
-            "url": safe_executor_url(api_url),
-            "method": "POST",
-            "headers": safe_executor_headers(headers),
-            "policy_uuid": request_payload["policy_uuid"],
-            "hostname": request_payload["hostname"],
-            "configBytes": len(config.encode("utf-8")),
-        },
+        "requestPayload": request_payload,
+        "responsePayload": response_payload,
+        "diagnostics": diagnostics,
     }
 
 
@@ -2397,6 +2464,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             "error": str(exc),
             "exceptionType": type(exc).__name__,
             "requestPayload": getattr(exc, "request_payload", None),
+            "responsePayload": getattr(exc, "response_payload", None),
             "diagnostics": getattr(exc, "diagnostics", None),
             "simulated": bool(getattr(settings, "HCC_DEPLOYMENT_EXECUTOR_SIMULATE", True)),
         }

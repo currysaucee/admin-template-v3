@@ -35,6 +35,11 @@ function deploymentLogText(item: DeploymentQueueItem) {
   return "No execution result has been recorded yet.";
 }
 
+function executorResponseText(item: DeploymentQueueItem) {
+  if (!item.executorResponse) return "No executor request or response has been captured for this ticket yet.";
+  return JSON.stringify(item.executorResponse, null, 2);
+}
+
 function heartbeatAgeLabel(value?: string) {
   if (!value) return "No heartbeat";
   const date = new Date(value);
@@ -169,6 +174,11 @@ export function DeploymentQueuePage({ queue, workerHealth = [], onAbort, onViewT
                       <div className="queue-execution-log">
                         <strong>Deployment log</strong>
                         <pre>{deploymentLogText(item)}</pre>
+                      </div>
+                      <div className="queue-executor-response">
+                        <strong>Executor request and response</strong>
+                        <span>Includes implementation execution and any pre/post compliance-check diagnostics captured for this ticket.</span>
+                        <pre>{executorResponseText(item)}</pre>
                       </div>
                     </div>
                   )}

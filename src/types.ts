@@ -157,6 +157,13 @@ export type DeploymentQueueItem = {
   ticket?: Ticket;
   executionPlan?: DeploymentExecutionPlan;
   result?: unknown;
+  executorResponse?: {
+    ticketId: string;
+    capturedAt: string;
+    crNumber: string;
+    requestPayload: unknown;
+    response: unknown;
+  } | null;
 };
 
 export type DeploymentWorkerHealth = {

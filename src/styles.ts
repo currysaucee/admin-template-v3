@@ -499,6 +499,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .queue-execution-log { display: grid; gap: 8px; padding: 14px 0 0; border-top: 1px solid #e5e7eb; }
 .queue-execution-log > strong { color: #0f172a; font-size: 13px; }
 .queue-execution-log pre { max-height: 320px; overflow: auto; margin: 0; padding: 12px 14px; border-radius: 10px; background: #0f172a; color: #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.queue-executor-response { display: grid; gap: 7px; margin-top: 14px; padding: 14px; border: 1px solid #dbeafe; border-radius: 10px; background: #f8fbff; }
+.queue-executor-response > strong { color: #0f172a; font-size: 13px; }
+.queue-executor-response > span { color: #64748b; font-size: 12px; font-weight: 700; }
+.queue-executor-response pre { max-height: 440px; overflow: auto; margin: 0; padding: 12px 14px; border-radius: 10px; background: #0f172a; color: #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .queue-policy-row strong { overflow-wrap: anywhere; }
 @media (max-width: 1100px) {
   .side-menu { width: 220px; }
