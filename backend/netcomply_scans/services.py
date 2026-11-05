@@ -1729,15 +1729,15 @@ def call_policy_compliance_check(*, policy_uuid: str, hostname: str, config: str
     if simulate:
         comply = stage == "post"
         response_payload = {
-            "comply": comply,
-            "reason": f"Simulated {stage}-check returned comply={str(comply).lower()}.",
+            "Comply": comply,
+            "Reason": f"Simulated {stage}-check returned Comply={str(comply).lower()}.",
         }
         trace("simulation", "complete", "Compliance-check response was simulated.")
         return {
             "stage": stage,
             "simulated": True,
             "comply": comply,
-            "reason": response_payload["reason"],
+            "reason": response_payload["Reason"],
             "requestPayload": request_payload,
             "responsePayload": response_payload,
             "diagnostics": diagnostics,
@@ -1796,17 +1796,20 @@ def call_policy_compliance_check(*, policy_uuid: str, hostname: str, config: str
     if not isinstance(response_payload, dict):
         trace("response_validation", "failed", "Response JSON is not an object.")
         fail(f"{stage.title()}-check API response must be a JSON object.", response_payload=response_payload)
-    comply = response_payload.get("comply", response_payload.get("comply_status"))
+    comply = response_payload.get(
+        "Comply",
+        response_payload.get("comply", response_payload.get("comply_status")),
+    )
     if not isinstance(comply, bool):
         trace("response_validation", "failed", "Response does not contain a boolean comply value.", receivedType=type(comply).__name__)
-        fail(f"{stage.title()}-check API response must contain boolean 'comply'.", response_payload=response_payload)
+        fail(f"{stage.title()}-check API response must contain boolean 'Comply'.", response_payload=response_payload)
     trace("response_validation", "complete", "Compliance-check response contains a boolean comply value.", comply=comply)
     return {
         "stage": stage,
         "simulated": False,
         "httpStatus": http_status,
         "comply": comply,
-        "reason": str(response_payload.get("reason") or ""),
+        "reason": str(response_payload.get("Reason", response_payload.get("reason")) or ""),
         "requestPayload": request_payload,
         "responsePayload": response_payload,
         "diagnostics": diagnostics,
