@@ -1,10 +1,10 @@
 import React from "react";
 
 import DefaultLayout from "../../layout/DefaultLayout";
-import { DeploymentQueuePage } from "../deploymentQueuePage";
-import { abortRuntimeDeployment, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDeploymentQueueState } from "../portalRouteState";
-import { styles } from "../styles";
-import type { DeploymentQueueItem, DeploymentWorkerHealth } from "../types";
+import { DeploymentQueuePage } from "./deploymentQueuePage";
+import { abortRuntimeDeployment, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDeploymentQueueState } from "./portalRouteState";
+import { styles } from "./styles";
+import type { DeploymentQueueItem, DeploymentWorkerHealth } from "./types";
 
 type DeploymentQueuePageProps = Partial<React.ComponentProps<typeof DeploymentQueuePage>> & {
   queue?: DeploymentQueueItem[];

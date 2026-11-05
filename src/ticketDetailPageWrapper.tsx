@@ -2,12 +2,12 @@ import React from "react";
 import { Card } from "primereact/card";
 
 import DefaultLayout from "../../layout/DefaultLayout";
-import { TicketDetailPage } from "../ticketDetail";
-import { reconcileTicketWithLatestScan } from "../helpers";
-import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "../portalRouteState";
-import { PageHeader } from "../sharedUi";
-import { styles } from "../styles";
-import type { Device, Ticket, TicketStatus } from "../types";
+import { TicketDetailPage } from "./ticketDetail";
+import { reconcileTicketWithLatestScan } from "./helpers";
+import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
+import { PageHeader } from "./sharedUi";
+import { styles } from "./styles";
+import type { Device, Ticket, TicketStatus } from "./types";
 
 type TicketDetailPageProps = Partial<React.ComponentProps<typeof TicketDetailPage>> & { devices?: Device[] };
 

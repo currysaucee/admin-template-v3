@@ -1,11 +1,11 @@
 import React from "react";
 
 import DefaultLayout from "../../layout/DefaultLayout";
-import { CreateTicketPage } from "../ticketWorkflow";
-import { hasConfigSnapshot } from "../helpers";
-import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "../portalRouteState";
-import { styles } from "../styles";
-import type { Ticket } from "../types";
+import { CreateTicketPage } from "./ticketWorkflow";
+import { hasConfigSnapshot } from "./helpers";
+import { addRuntimeTicket, createInitialTicketState, createPendingTicket, getRouteValue, getSelectedCommandCount, getSelectedTicketDevices, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
+import { styles } from "./styles";
+import type { Ticket } from "./types";
 
 type CreateTicketPageProps = Partial<React.ComponentProps<typeof CreateTicketPage>>;
 

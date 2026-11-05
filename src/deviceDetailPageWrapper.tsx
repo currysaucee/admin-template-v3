@@ -2,10 +2,10 @@ import React from "react";
 import { Card } from "primereact/card";
 
 import DefaultLayout from "../../layout/DefaultLayout";
-import { DeviceDetailPage } from "../dashboardInventory";
-import { getPreselectedFindingKeys, getRouteValue, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "../portalRouteState";
-import { PageHeader } from "../sharedUi";
-import { styles } from "../styles";
+import { DeviceDetailPage } from "./dashboardInventory";
+import { getPreselectedFindingKeys, getRouteValue, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
+import { PageHeader } from "./sharedUi";
+import { styles } from "./styles";
 
 type DeviceDetailPageProps = Partial<React.ComponentProps<typeof DeviceDetailPage>>;
 

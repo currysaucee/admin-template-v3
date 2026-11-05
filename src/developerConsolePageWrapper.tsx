@@ -1,12 +1,12 @@
 import React from "react";
 
 import DefaultLayout from "../../layout/DefaultLayout";
-import { executeRealAdHocCommands, loadRealAdHocExecutionStatus, runRealScanImport } from "../dataMode";
-import { DeveloperConsolePage } from "../developerConsolePage";
-import { formatDateTime } from "../helpers";
-import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "../portalRouteState";
-import { styles } from "../styles";
-import type { PolicySetting } from "../types";
+import { executeRealAdHocCommands, loadRealAdHocExecutionStatus, runRealScanImport } from "./dataMode";
+import { DeveloperConsolePage } from "./developerConsolePage";
+import { formatDateTime } from "./helpers";
+import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
+import { styles } from "./styles";
+import type { PolicySetting } from "./types";
 
 type DeveloperConsolePageProps = Partial<React.ComponentProps<typeof DeveloperConsolePage>>;
 

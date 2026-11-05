@@ -1,11 +1,11 @@
 import React from "react";
 
 import DefaultLayout from "../../layout/DefaultLayout";
-import { DashboardPage } from "../dashboardInventory";
-import { reconcileTicketWithLatestScan } from "../helpers";
-import { enqueueRuntimeDeployment, navigateToPortalPath, portalRoutePaths, setRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalTickets } from "../portalRouteState";
-import { styles } from "../styles";
-import type { Ticket, TicketStatus } from "../types";
+import { DashboardPage } from "./dashboardInventory";
+import { reconcileTicketWithLatestScan } from "./helpers";
+import { enqueueRuntimeDeployment, navigateToPortalPath, portalRoutePaths, setRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalTickets } from "./portalRouteState";
+import { styles } from "./styles";
+import type { Ticket, TicketStatus } from "./types";
 
 type DashboardPageProps = Partial<React.ComponentProps<typeof DashboardPage>>;
 
