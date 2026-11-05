@@ -85,7 +85,7 @@ function WorkerHealthStrip({ workers }: { workers: DeploymentWorkerHealth[] }) {
   );
 }
 
-export function DeploymentQueuePage({ queue, workerHealth = [], onAbort }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[]; onAbort?: (ticketId: string) => Promise<void> | void }) {
+export function DeploymentQueuePage({ queue, workerHealth = [], onAbort, onViewTicket }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[]; onAbort?: (ticketId: string) => Promise<void> | void; onViewTicket?: (ticketId: string) => void }) {
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
   const [now, setNow] = React.useState(Date.now());
   const [abortingId, setAbortingId] = React.useState("");
@@ -119,10 +119,10 @@ export function DeploymentQueuePage({ queue, workerHealth = [], onAbort }: { que
               const skippedCount = skippedPolicyCount(item);
               return (
                 <div key={item.queueId} className={`queue-item ${expanded ? "expanded" : ""}`}>
-                  <button className="queue-item-header" type="button" onClick={() => toggleExpanded(item.queueId)} aria-expanded={expanded}>
+                  <div className="queue-item-header" role="button" tabIndex={0} onClick={() => toggleExpanded(item.queueId)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleExpanded(item.queueId); } }} aria-expanded={expanded}>
                     <div className="queue-rank">{index + 1}</div>
                     <div className="queue-ticket-main">
-                      <strong>{item.ticketId}</strong>
+                      <button className="queue-ticket-link" type="button" onClick={(event) => { event.stopPropagation(); onViewTicket?.(item.ticketId); }}>{item.ticketId}</button>
                     </div>
                     <div className="queue-chip-row">
                       <Tag value={`${deviceCount} device${deviceCount === 1 ? "" : "s"}`} severity="info" rounded />
@@ -137,7 +137,7 @@ export function DeploymentQueuePage({ queue, workerHealth = [], onAbort }: { que
                     </div>
                     <Tag value={item.status} severity={getStatusSeverity(item.status as any) as any} rounded />
                     <i className={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} />
-                  </button>
+                  </div>
                   {expanded && (
                     <div className="queue-device-list">
                       {["Queued", "Waiting", "Processing"].includes(item.status) && onAbort && (

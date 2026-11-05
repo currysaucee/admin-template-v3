@@ -1,18 +1,17 @@
 import React from "react";
 
-import DefaultLayout from "../layout/defaultLayout";
-import { DashboardPage } from "./dashboardInventory";
-import { reconcileTicketWithLatestScan } from "./helpers";
-import { enqueueRuntimeDeployment, navigateToPortalPath, portalRoutePaths, setRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalTickets } from "./portalRouteState";
-import { styles } from "./styles";
-import type { Ticket, TicketStatus } from "./types";
+import DefaultLayout from "../../layout/DefaultLayout";
+import { DashboardPage } from "../dashboardInventory";
+import { reconcileTicketWithLatestScan } from "../helpers";
+import { enqueueRuntimeDeployment, navigateToPortalPath, portalRoutePaths, setRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalTickets } from "../portalRouteState";
+import { styles } from "../styles";
+import type { Ticket, TicketStatus } from "../types";
 
 type DashboardPageProps = Partial<React.ComponentProps<typeof DashboardPage>>;
 
 export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
   const { items: loadedTickets } = usePortalTickets(props.tickets);
   const [tickets, setTicketsState] = React.useState(loadedTickets);
-  const [queueNotice, setQueueNotice] = React.useState("");
   React.useEffect(() => setTicketsState(loadedTickets), [loadedTickets]);
   const { devices, loading: devicesLoading } = usePortalDevices();
   const reconciledTickets = React.useMemo(() => {
@@ -26,21 +25,19 @@ export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
     if (!ticket) return;
     if (status === "Queued") {
       if (!crTicket) {
-        setQueueNotice("Enter a CR number before releasing this request.");
         return;
       }
       enqueueRuntimeDeployment(ticket, crTicket)
         .then((queueItem) => {
           if (queueItem.ticket) applyConfirmedTicket(queueItem.ticket);
           else applyConfirmedTicket({ ...ticket, status: "Queued" });
-          setQueueNotice(`${ticket.id} queued for deployment as ${queueItem.queueId}.`);
         })
-        .catch((error: unknown) => setQueueNotice(error instanceof Error ? error.message : "Unable to queue deployment."));
+        .catch((error: unknown) => console.error("Unable to queue deployment.", error));
       return;
     }
     updateRuntimeTicketStatus(id, status)
       .then(applyConfirmedTicket)
-      .catch((error: unknown) => setQueueNotice(error instanceof Error ? error.message : "Unable to update ticket."));
+      .catch((error: unknown) => console.error("Unable to update ticket.", error));
   }, [applyConfirmedTicket, reconciledTickets]);
 
   return (
@@ -55,13 +52,6 @@ export default function DashboardPageWrapper(props: DashboardPageProps = {}) {
           })}
           onStatusChange={handleStatusChange}
         />
-        {queueNotice && (
-          <div className="netcomply-toast" role="status">
-            <i className="pi pi-check-circle" />
-            <span>{queueNotice}</span>
-            <button type="button" aria-label="Dismiss queue notification" onClick={() => setQueueNotice("")}>x</button>
-          </div>
-        )}
       </div>
     </DefaultLayout>
   );

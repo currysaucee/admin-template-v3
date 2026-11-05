@@ -1,10 +1,10 @@
 import React from "react";
 
-import DefaultLayout from "../layout/defaultLayout";
-import { TemplatePage } from "./templatesPage";
-import { navigateToPortalPath, portalRoutePaths, saveRuntimeTemplateRequests, saveRuntimeTemplates, usePortalPolicySettings, usePortalTemplateRequests, usePortalTemplates } from "./portalRouteState";
-import { styles } from "./styles";
-import type { RemediationTemplate, TemplateRequest } from "./types";
+import DefaultLayout from "../../layout/DefaultLayout";
+import { TemplatePage } from "../templatesPage";
+import { navigateToPortalPath, portalRoutePaths, saveRuntimeTemplateRequests, saveRuntimeTemplates, usePortalPolicySettings, usePortalTemplateRequests, usePortalTemplates } from "../portalRouteState";
+import { styles } from "../styles";
+import type { RemediationTemplate, TemplateRequest } from "../types";
 
 type TemplatePageProps = Partial<React.ComponentProps<typeof TemplatePage>>;
 

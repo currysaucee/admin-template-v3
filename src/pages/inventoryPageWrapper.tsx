@@ -1,11 +1,11 @@
 import React from "react";
 
-import DefaultLayout from "../layout/defaultLayout";
-import { InventoryPage } from "./dashboardInventory";
-import { findFindingKey, getExecutableFindings, normalizePolicyReference } from "./helpers";
-import { navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
-import { styles } from "./styles";
-import type { Device, ReachabilityFilter } from "./types";
+import DefaultLayout from "../../layout/DefaultLayout";
+import { InventoryPage } from "../dashboardInventory";
+import { findFindingKey, getExecutableFindings, normalizePolicyReference } from "../helpers";
+import { navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "../portalRouteState";
+import { styles } from "../styles";
+import type { Device, ReachabilityFilter } from "../types";
 
 type InventoryPageProps = Partial<React.ComponentProps<typeof InventoryPage>>;
 

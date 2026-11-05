@@ -1,13 +1,13 @@
 import React from "react";
 import { Card } from "primereact/card";
 
-import DefaultLayout from "../layout/defaultLayout";
-import { TicketDetailPage } from "./ticketDetail";
-import { reconcileTicketWithLatestScan } from "./helpers";
-import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
-import { PageHeader } from "./sharedUi";
-import { styles } from "./styles";
-import type { Device, Ticket, TicketStatus } from "./types";
+import DefaultLayout from "../../layout/DefaultLayout";
+import { TicketDetailPage } from "../ticketDetail";
+import { reconcileTicketWithLatestScan } from "../helpers";
+import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "../portalRouteState";
+import { PageHeader } from "../sharedUi";
+import { styles } from "../styles";
+import type { Device, Ticket, TicketStatus } from "../types";
 
 type TicketDetailPageProps = Partial<React.ComponentProps<typeof TicketDetailPage>> & { devices?: Device[] };
 
@@ -15,7 +15,6 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
   const overrideTickets = React.useMemo(() => props.ticket ? [props.ticket] : undefined, [props.ticket]);
   const { items: loadedTickets } = usePortalTickets(overrideTickets);
   const [tickets, setTicketsState] = React.useState(loadedTickets);
-  const [actionNotice, setActionNotice] = React.useState("");
   React.useEffect(() => setTicketsState(loadedTickets), [loadedTickets]);
   const ticketId = getRouteValue("ticketId", "netcomply:selectedTicketId") || getLatestRuntimeTicketId();
   const ticket = tickets.find((item) => item.id === ticketId) ?? props.ticket ?? tickets[0];
@@ -31,21 +30,19 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
     if (!currentTicket) return;
     if (status === "Queued") {
       if (!crTicket) {
-        setActionNotice("Enter a CR number before releasing this request.");
         return;
       }
       enqueueRuntimeDeployment(currentTicket, crTicket)
         .then((queueItem) => {
           if (queueItem.ticket) applyConfirmedTicket(queueItem.ticket);
           else applyConfirmedTicket({ ...currentTicket, status: "Queued" });
-          setActionNotice(`${currentTicket.id} queued for deployment as ${queueItem.queueId}.`);
         })
-        .catch((error: unknown) => setActionNotice(error instanceof Error ? error.message : "Unable to queue deployment."));
+        .catch((error: unknown) => console.error("Unable to queue deployment.", error));
       return;
     }
     updateRuntimeTicketStatus(id, status)
       .then(applyConfirmedTicket)
-      .catch((error: unknown) => setActionNotice(error instanceof Error ? error.message : "Unable to update ticket."));
+      .catch((error: unknown) => console.error("Unable to update ticket.", error));
   }, [applyConfirmedTicket, hydratedTicket, tickets]);
 
   if (!hydratedTicket) {
@@ -69,13 +66,6 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
           policySettings={policySettings}
           onStatusChange={handleStatusChange}
         />
-        {actionNotice && (
-          <div className="netcomply-toast" role="status">
-            <i className="pi pi-check-circle" />
-            <span>{actionNotice}</span>
-            <button type="button" aria-label="Dismiss ticket action notification" onClick={() => setActionNotice("")}>x</button>
-          </div>
-        )}
       </div>
     </DefaultLayout>
   );

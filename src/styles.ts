@@ -460,9 +460,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .policy-command-tabs button { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: #64748b; font-size: 13px; font-weight: 850; cursor: pointer; }
 .policy-command-tabs button.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
 .policy-command-view { min-height: 72px; }
-.netcomply-toast { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid #bbf7d0; border-radius: 12px; background: #f0fdf4; color: #166534; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16); font-weight: 800; }
-.netcomply-toast i { color: #16a34a; }
-.netcomply-toast button { border: 0; background: transparent; color: #166534; cursor: pointer; font: inherit; font-size: 18px; line-height: 1; padding: 0 2px; }
+.queue-ticket-link { appearance: none; border: 0; padding: 0; background: transparent; color: #2563eb; cursor: pointer; font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.queue-ticket-link:hover { color: #1d4ed8; }
+.queue-ticket-link:focus-visible { border-radius: 3px; outline: 2px solid #93c5fd; outline-offset: 3px; }
 .queue-board-card .p-card-body { padding: 0; }
 .worker-health-card { margin-bottom: 18px; }
 .worker-health-card .p-card-body { padding: 18px; }
