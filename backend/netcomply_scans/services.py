@@ -1622,14 +1622,11 @@ def build_executor_check_payload(
         "id": request_id,
         "cr_number": cr_ticket,
         "device": device.get("hostname") or device.get("managementIp"),
-        "workflow_tasks": [
-            {
-                "command": command,
-                "type": "command",
-                "description": f"HCC remediation {stage}-check configuration capture",
-            }
-            for command in commands
-        ],
+        "workflow_tasks": [{
+            "command": commands,
+            "type": "config",
+            "description": f"HCC remediation {stage}-check configuration capture",
+        }],
     }
 
 
