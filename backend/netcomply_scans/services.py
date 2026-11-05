@@ -1341,7 +1341,21 @@ def serialize_deployment_queue_item(item: DeploymentQueueItem) -> dict[str, Any]
         for device in item.execution_plan.get("devices", [])
         if isinstance(device, dict)
     ) if isinstance(item.execution_plan, dict) else 0
-    executor_response = get_cached_executor_response(item.ticket_id) if item.result_payload else None
+    executor_response = None
+    if item.result_payload:
+        try:
+            executor_response = get_cached_executor_response(item.ticket_id)
+        except Exception as exc:
+            # Queue history must remain readable even when an older record does
+            # not contain enough parent-request data to reconstruct its payload.
+            executor_response = {
+                "ticketId": item.ticket_id,
+                "capturedAt": api_datetime(item.completed_at or item.started_at or item.queued_at),
+                "crNumber": str(item.ticket_payload.get("cr_ticket") or item.ticket_payload.get("crNumber") or ""),
+                "requestPayload": None,
+                "response": item.result_payload,
+                "retrievalError": str(exc),
+            }
     return {
         "queueId": item.queue_id,
         "ticketId": item.ticket_id,
@@ -2201,7 +2215,7 @@ def cache_executor_response(ticket_id: str, result: dict[str, Any]) -> dict[str,
 
 def get_cached_executor_response(ticket_id: str) -> dict[str, Any] | None:
     cached_result = EXECUTOR_RESPONSE_CACHE.get(executor_response_cache_key(ticket_id))
-    if cached_result is not None and cached_result.get("requestPayload") is not None and cached_result.get("crNumber"):
+    if isinstance(cached_result, dict) and cached_result.get("requestPayload") is not None and cached_result.get("crNumber"):
         return cached_result
 
     queue_item = (
