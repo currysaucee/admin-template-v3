@@ -7,7 +7,7 @@ import { findPolicySettingForFinding, formatDateTime, getDeploymentRunForTemplat
 import { FindingDetailCard } from "./remediationViews";
 import { MetaTile, PageHeader, TicketActions } from "./sharedUi";
 
-export function TicketDetailPage({ ticket, templates, policySettings, onStatusChange }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void }) {
+export function TicketDetailPage({ ticket, templates, policySettings, onStatusChange, onRollback }: { ticket: Ticket; templates: RemediationTemplate[]; policySettings: PolicySetting[]; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void; onRollback?: (ticket: Ticket, crTicket: string) => Promise<void> | void }) {
   const completedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Successful").length;
   const failedDevices = ticket.devices.filter((device) => device.deploymentRun?.status === "Failed").length;
   const pendingDevices = ticket.devices.length - completedDevices - failedDevices;
@@ -19,7 +19,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onStatusCh
       <div className="detail-header-row ticket-detail-action-row">
         <PageHeader title="HCC Request Details" subtitle="Review request scope, planned window, and finding-level remediation evidence." />
         <div className="detail-actions">
-          <TicketActions ticket={ticket} showView={false} onStatusChange={onStatusChange} />
+          <TicketActions ticket={ticket} showView={false} onStatusChange={onStatusChange} onRollback={onRollback} />
         </div>
       </div>
       <Card className="device-detail-card">
@@ -41,6 +41,7 @@ export function TicketDetailPage({ ticket, templates, policySettings, onStatusCh
           <MetaTile label="Not Completed" value={String(pendingDevices)} />
         </div>}
         {reconciliation.hasChangedScope && <div className={`latest-scan-reconcile-box ${reconciliation.allResolved ? "all-resolved" : ""}`}><i className="pi pi-info-circle" /><div><strong>{reconciliation.allResolved ? "Request no longer has active findings in the latest scan" : "Request scope changed after the latest scan"}</strong><p>{reconciliation.allResolved ? "All findings in this request are no longer detected. The remediation should not push configuration unless a new scan reopens the findings." : `${reconciliation.skipped} of ${reconciliation.total} finding${reconciliation.total === 1 ? "" : "s"} will be skipped because the latest scan no longer detects them. Remaining active findings can still proceed.`}</p></div></div>}
+        {ticket.rollback && <div className={`latest-scan-reconcile-box ${ticket.rollback.available ? "" : "all-resolved"}`}><i className={`pi ${ticket.rollback.available ? "pi-history" : "pi-info-circle"}`} /><div><strong>{ticket.rollback.available ? "Manual rollback available" : "Manual rollback unavailable"}</strong><p>{ticket.rollback.reason}{ticket.rollback.available && ticket.rollback.expiresAt ? ` Window closes ${formatDateTime(ticket.rollback.expiresAt)}.` : ""}</p></div></div>}
       </Card>
       <div className="finding-detail-list">
         {ticket.devices.map((device) => {

@@ -11,6 +11,7 @@ from .services import (
     abort_ticket_deployment,
     delete_policy_settings,
     enqueue_ticket_for_deployment,
+    enqueue_ticket_rollback,
     create_and_release_ad_hoc_ticket,
     extract_policy_settings_from_docx,
     get_cached_executor_response,
@@ -298,6 +299,24 @@ def deployment_queue(request):
         except Exception as exc:
             return JsonResponse({"detail": f"Unable to abort deployment: {exc}"}, status=400)
     return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def deployment_rollback(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+    payload = read_json_body(request) or {}
+    ticket_id = str(payload.get("ticketId") or "").strip()
+    cr_ticket = str(payload.get("crTicket") or payload.get("cr_ticket") or "").strip()
+    actor = str(payload.get("actor") or "Current User")
+    if not ticket_id:
+        return JsonResponse({"detail": "ticketId is required"}, status=400)
+    if not cr_ticket:
+        return JsonResponse({"detail": "crTicket is required"}, status=400)
+    try:
+        return JsonResponse({"queueItem": enqueue_ticket_rollback(ticket_id, cr_ticket=cr_ticket, actor=actor)})
+    except Exception as exc:
+        return JsonResponse({"detail": f"Unable to queue rollback: {exc}"}, status=400)
 
 
 def executor_response(request):

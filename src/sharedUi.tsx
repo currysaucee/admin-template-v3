@@ -127,9 +127,13 @@ export function ImplementationDateCell({ date }: { date: string }) {
   return <div className="window-cell"><i className="pi pi-calendar" /><div><strong>{formatDateTime(date)}</strong><span>Implementation date</span></div></div>;
 }
 
-export function TicketActions({ ticket, onView, onStatusChange, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void; showView?: boolean }) {
+export function TicketActions({ ticket, onView, onStatusChange, onRollback, showView = true }: { ticket: Ticket; onView?: (ticket: Ticket) => void; onStatusChange: (id: string, status: TicketStatus, crTicket?: string) => void; onRollback?: (ticket: Ticket, crTicket: string) => Promise<void> | void; showView?: boolean }) {
   const [showReleaseDialog, setShowReleaseDialog] = React.useState(false);
+  const [showRollbackDialog, setShowRollbackDialog] = React.useState(false);
   const [crTicket, setCrTicket] = React.useState(ticket.crNumber || "");
+  const [rollbackCrTicket, setRollbackCrTicket] = React.useState("");
+  const [rollbackError, setRollbackError] = React.useState("");
+  const [rollbackSubmitting, setRollbackSubmitting] = React.useState(false);
   const canDecide = ticket.status === "Pending Approval";
   const canRelease = ticket.status === "Approved";
   const canCancel = ["Pending Approval", "Approved", "Queued", "In Progress"].includes(ticket.status);
@@ -143,6 +147,27 @@ export function TicketActions({ ticket, onView, onStatusChange, showView = true 
     onStatusChange(ticket.id, "Queued", value);
     setShowReleaseDialog(false);
   };
+  const closeRollbackDialog = () => {
+    if (rollbackSubmitting) return;
+    setShowRollbackDialog(false);
+    setRollbackCrTicket("");
+    setRollbackError("");
+  };
+  const confirmRollback = async () => {
+    const value = rollbackCrTicket.trim();
+    if (!value || !onRollback) return;
+    setRollbackSubmitting(true);
+    setRollbackError("");
+    try {
+      await onRollback(ticket, value);
+      setShowRollbackDialog(false);
+      setRollbackCrTicket("");
+    } catch (error) {
+      setRollbackError(error instanceof Error ? error.message : "Unable to queue rollback.");
+    } finally {
+      setRollbackSubmitting(false);
+    }
+  };
   return (
     <>
       <div className="action-row">
@@ -150,6 +175,7 @@ export function TicketActions({ ticket, onView, onStatusChange, showView = true 
         {canDecide && <Button label="Approve" icon="pi pi-check" size="small" severity="success" onClick={() => onStatusChange(ticket.id, "Approved")} />}
         {canDecide && <Button label="Reject" icon="pi pi-times" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Rejected")} />}
         {canRelease && <Button label="Release" icon="pi pi-send" size="small" onClick={() => setShowReleaseDialog(true)} />}
+        {onRollback && ticket.rollback?.available && <Button label="Rollback" icon="pi pi-history" size="small" severity="warning" outlined onClick={() => setShowRollbackDialog(true)} />}
         {canCancel && <Button label={["Queued", "In Progress"].includes(ticket.status) ? "Abort" : "Cancel"} icon="pi pi-ban" size="small" severity="danger" outlined onClick={() => onStatusChange(ticket.id, "Cancelled")} />}
       </div>
       <Dialog
@@ -164,6 +190,22 @@ export function TicketActions({ ticket, onView, onStatusChange, showView = true 
           <p>Enter the approved CR number before sending this request to the deployment queue.</p>
           <label htmlFor={`cr-ticket-${ticket.id}`}>CR Number</label>
           <InputText id={`cr-ticket-${ticket.id}`} value={crTicket} onChange={(event) => setCrTicket(event.target.value)} placeholder="e.g. CR12345678" autoFocus />
+        </div>
+      </Dialog>
+      <Dialog
+        visible={showRollbackDialog}
+        onHide={closeRollbackDialog}
+        header="Initiate Rollback"
+        style={{ width: "min(30rem, calc(100vw - 2rem))" }}
+        modal
+        footer={<div className="release-dialog-footer"><Button label="Cancel" outlined disabled={rollbackSubmitting} onClick={closeRollbackDialog} /><Button label="Confirm Rollback" icon="pi pi-history" severity="warning" loading={rollbackSubmitting} disabled={!rollbackCrTicket.trim()} onClick={() => void confirmRollback()} /></div>}
+      >
+        <div className="release-dialog-body">
+          <p>This queues the rollback commands captured when the request was created. Enter the approved CR number for this rollback.</p>
+          {ticket.rollback?.expiresAt && <p><strong>Available until:</strong> {formatDateTime(ticket.rollback.expiresAt)}</p>}
+          <label htmlFor={`rollback-cr-ticket-${ticket.id}`}>Rollback CR Number</label>
+          <InputText id={`rollback-cr-ticket-${ticket.id}`} value={rollbackCrTicket} onChange={(event) => setRollbackCrTicket(event.target.value)} placeholder="e.g. CR12345678" autoFocus />
+          {rollbackError && <small className="p-error">{rollbackError}</small>}
         </div>
       </Dialog>
     </>

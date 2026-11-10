@@ -1140,7 +1140,12 @@ def grouped_hcc_request_payload(records: list[HCCRequestRecord]) -> dict[str, An
             for device in row_devices
             if isinstance(device, dict)
         )
-    return {**grouped_payload, "id": records[0].request_id, "devices": grouped_devices}
+    return {
+        **grouped_payload,
+        "id": records[0].request_id,
+        "devices": grouped_devices,
+        "rollback": ticket_rollback_metadata(records[0].request_id, grouped_devices),
+    }
 
 
 def parse_implementation_time(value: Any) -> datetime:
@@ -1193,6 +1198,7 @@ BASE_REQUEST_STATUS_MAP = {
     "PARTIALLYCOMPLETE": "COMPLETED",
     "SKIPPED": "COMPLETED",
     "ROLLBACKCOMPLATED": "ROLLBACKCOMPLATED",
+    "ROLLBACKCOMPLETED": "ROLLBACKCOMPLATED",
     "ROLLBACKFAILED": "ROLLBACKFAILED",
     "CANCELLED": "CANCELLED",
     "FAILED": "FAILED",
@@ -1561,6 +1567,160 @@ def list_deployment_worker_heartbeats() -> list[dict[str, Any]]:
                 "lastQueueId": str(payload.get("lastQueueId") or database_worker.get("lastQueueId") or ""),
             }
     return sorted(workers_by_id.values(), key=lambda worker: worker.get("workerId", ""))
+
+
+def ticket_rollback_metadata(ticket_id: str, devices: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    queue_items = list(
+        DeploymentQueueItem.objects.using(scan_db_alias())
+        .filter(ticket_id=ticket_id)
+        .order_by("-completed_at", "-id")
+    )
+    rollback_active = next(
+        (
+            item for item in queue_items
+            if (item.execution_plan or {}).get("executionMode") == "manual-rollback"
+            and item.status in {"Queued", "Waiting", "Processing"}
+        ),
+        None,
+    )
+    rollback_completed = next(
+        (
+            item for item in queue_items
+            if (item.execution_plan or {}).get("executionMode") == "manual-rollback"
+            and item.status == "Complete"
+            and item.completed_at is not None
+        ),
+        None,
+    )
+    normal_run = next(
+        (
+            item for item in queue_items
+            if (item.execution_plan or {}).get("executionMode") != "manual-rollback"
+            and item.completed_at is not None
+            and any((step or {}).get("result") for step in ((item.result_payload or {}).get("steps") or []))
+        ),
+        None,
+    )
+    rollback_commands = [
+        command
+        for device in (devices or [])
+        if isinstance(device, dict)
+        for finding in (device.get("findings") or [])
+        if isinstance(finding, dict)
+        for command in (((finding.get("rollbackPlan") or {}).get("commands")) or [])
+        if str(command).strip()
+    ]
+    if normal_run is None:
+        return {"available": False, "reason": "Rollback becomes available after implementation has executed.", "commandCount": len(rollback_commands)}
+    expires_at = normal_run.completed_at + timedelta(hours=24)
+    expired = timezone.now() > expires_at
+    if rollback_completed:
+        reason = f"Rollback was completed by {rollback_completed.queue_id}."
+    elif rollback_active:
+        reason = f"Rollback is already queued as {rollback_active.queue_id}."
+    elif not rollback_commands:
+        reason = "No saved rollback commands are available for this request."
+    elif expired:
+        reason = "The 24-hour rollback window has expired."
+    else:
+        reason = "Rollback is available for 24 hours after implementation completed."
+    return {
+        "available": not rollback_completed and not rollback_active and bool(rollback_commands) and not expired,
+        "reason": reason,
+        "executedAt": api_datetime(normal_run.completed_at),
+        "expiresAt": api_datetime(expires_at),
+        "commandCount": len(rollback_commands),
+        "queueId": rollback_active.queue_id if rollback_active else "",
+    }
+
+
+def enqueue_ticket_rollback(ticket_id: str, cr_ticket: str, actor: str = "Current User") -> dict[str, Any]:
+    db_alias = scan_db_alias()
+    cr_ticket = str(cr_ticket or "").strip()
+    if not cr_ticket:
+        raise ValueError("CR number is required before initiating rollback.")
+    with transaction.atomic(using=db_alias):
+        records = list(
+            HCCRequestRecord.objects.using(db_alias).select_for_update()
+            .filter(request_id=ticket_id).order_by("id")
+        )
+        if not records:
+            raise ValueError(f"Request {ticket_id} was not found")
+        try:
+            HCCRequestRecord._meta.get_field("cr_ticket")
+        except FieldDoesNotExist as exc:
+            raise RuntimeError("HCCRequestRecord must inherit the Request.cr_ticket field before rollback can be queued.") from exc
+        grouped = grouped_hcc_request_payload(records)
+        eligibility = ticket_rollback_metadata(ticket_id, grouped.get("devices") or [])
+        if not eligibility.get("available"):
+            raise ValueError(str(eligibility.get("reason") or "Rollback is not available."))
+
+        rollback_devices: list[dict[str, Any]] = []
+        for device in grouped.get("devices") or []:
+            rollback_findings = []
+            for finding in device.get("findings") or []:
+                rollback_plan = finding.get("rollbackPlan") if isinstance(finding, dict) else None
+                commands = rollback_plan.get("commands") if isinstance(rollback_plan, dict) else []
+                commands = [str(command).strip() for command in (commands or []) if str(command).strip()]
+                if commands:
+                    rollback_findings.append({
+                        "policyId": normalize_policy_id(finding.get("id") or finding.get("templateKey")),
+                        "title": f"Rollback {finding.get('title') or finding.get('id') or 'policy'}",
+                        "status": "Pending Execution",
+                        "reason": "Manual rollback requested within the 24-hour window.",
+                        "implementationCommands": commands,
+                        "prePostCheckCommands": [],
+                    })
+            if rollback_findings:
+                rollback_devices.append({
+                    "id": device.get("parentRequestId"),
+                    "hostname": device.get("hostname"),
+                    "managementIp": device.get("managementIp"),
+                    "hardwareType": device.get("hardwareType"),
+                    "findings": rollback_findings,
+                })
+        if not rollback_devices:
+            raise ValueError("No saved rollback commands are available for this request.")
+
+        now = timezone.now()
+        for record in records:
+            inherited_request_id(record, required=True)
+            setattr(record, "cr_ticket", cr_ticket)
+            record.status = base_request_status("In Progress")
+            record.payload = {**record.payload, "crNumber": cr_ticket, "cr_ticket": cr_ticket, "status": "In Progress"}
+            record.save(using=db_alias)
+        ticket_payload = {
+            **grouped,
+            "crNumber": cr_ticket,
+            "cr_ticket": cr_ticket,
+            "status": "In Progress",
+            "queuedBy": actor,
+            "executionMode": "manual-rollback",
+            "rollback": {
+                **eligibility,
+                "available": False,
+                "reason": "Rollback has been queued.",
+            },
+        }
+        execution_plan = {
+            "ticketId": ticket_id,
+            "cr_ticket": cr_ticket,
+            "executionMode": "manual-rollback",
+            "devices": rollback_devices,
+        }
+        item = DeploymentQueueItem.objects.using(db_alias).create(
+            queue_id=f"RBQ-{now.strftime('%Y%m%d%H%M%S')}-{ticket_id}",
+            ticket_id=ticket_id,
+            ticket_payload=ticket_payload,
+            execution_plan=execution_plan,
+            status="Queued",
+            queued_at=now,
+            available_at=now,
+        )
+        item.ticket_payload["rollback"]["queueId"] = item.queue_id
+        item.ticket_payload["rollback"]["reason"] = f"Rollback is queued as {item.queue_id}."
+        item.save(using=db_alias, update_fields=["ticket_payload", "updated_at"])
+        return serialize_deployment_queue_item(item)
 
 
 def enqueue_ticket_for_deployment(ticket_id: str, cr_ticket: str, actor: str = "Current User") -> dict[str, Any]:
@@ -2435,6 +2595,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
 
     try:
         plan = item.execution_plan or build_deployment_execution_plan(item.ticket_payload)
+        is_manual_rollback = plan.get("executionMode") == "manual-rollback"
         all_findings = [finding for device in plan["devices"] for finding in device["findings"]]
         next_step = next(
             (
@@ -2450,7 +2611,8 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             item.completed_at = timezone.now()
             item.execution_plan = plan
             item.save(using=db_alias)
-            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Complete" if item.status == "Complete" else "Skipped")
+            final_status = "Rollback Completed" if is_manual_rollback else ("Complete" if item.status == "Complete" else "Skipped")
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, final_status)
             return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
 
         device, finding = next_step
@@ -2465,7 +2627,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         step_result: dict[str, Any] | None = None
         reversion_required = False
         check_payload = None
-        if plan.get("executionMode") != "developer-ad-hoc":
+        if plan.get("executionMode") not in {"developer-ad-hoc", "manual-rollback"}:
             check_payload = build_executor_check_payload(
                 device,
                 finding,
@@ -2589,7 +2751,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             final_findings = [queued_finding for queued_device in plan["devices"] for queued_finding in queued_device["findings"]]
             item.status = "Skipped" if final_findings and all(queued_finding.get("status") == "Skipped" for queued_finding in final_findings) else "Complete"
             item.completed_at = timezone.now()
-            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, item.status)
+            update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Rollback Completed" if is_manual_rollback else item.status)
         item.save(using=db_alias)
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}
     except Exception as exc:
@@ -2608,5 +2770,9 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         item.completed_at = timezone.now()
         item.save(using=db_alias)
         cache_executor_response(item.ticket_id, failure_result)
-        update_hcc_request_payload_status(item.ticket_id, item.ticket_payload, "Failed")
+        update_hcc_request_payload_status(
+            item.ticket_id,
+            item.ticket_payload,
+            "Rollback Failed" if (item.execution_plan or {}).get("executionMode") == "manual-rollback" else "Failed",
+        )
         return {"claimed": True, "queueItem": serialize_deployment_queue_item(item)}

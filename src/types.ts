@@ -2,7 +2,7 @@ export type Page = "dashboard" | "inventory" | "deviceDetail" | "ticketDetail" |
 export type UserRole = "Network Engineer" | "Approver" | "Change Manager";
 export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Device Unreachable" | "Scan Pending";
 export type ReachabilityFilter = "reachable" | "unreachable";
-export type TicketStatus = "Pending Approval" | "Approved" | "Queued" | "In Progress" | "Complete" | "Partially Complete" | "Skipped" | "Failed" | "Rejected" | "Cancelled";
+export type TicketStatus = "Pending Approval" | "Approved" | "Queued" | "In Progress" | "Complete" | "Partially Complete" | "Skipped" | "Failed" | "Rejected" | "Cancelled" | "Rollback Completed" | "Rollback Failed";
 export type TemplateApprovalStatus = "Pending Approval" | "Approved" | "Rejected";
 
 export type Finding = {
@@ -148,6 +148,14 @@ export type Ticket = {
   backoutPlan: string;
   createdAt: string;
   deploymentRun?: DeploymentRunResult;
+  rollback?: {
+    available: boolean;
+    reason: string;
+    executedAt?: string;
+    expiresAt?: string;
+    commandCount: number;
+    queueId?: string;
+  };
 };
 
 export type DeploymentQueueItem = {

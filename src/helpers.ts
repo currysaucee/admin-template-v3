@@ -6,6 +6,7 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
     case "Approved":
     case "Complete":
     case "Partially Complete":
+    case "Rollback Completed":
       return "success";
     case "Non-Compliant":
     case "Rejected":
@@ -18,6 +19,7 @@ export function getStatusSeverity(status: TicketStatus | ComplianceStatus) {
     case "In Progress":
       return "info";
     case "Failed":
+    case "Rollback Failed":
       return "danger";
     case "Cancelled":
     case "Skipped":

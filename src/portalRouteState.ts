@@ -3,6 +3,7 @@ import React from "react";
 import {
   deleteRealPolicySettings,
   enqueueRealDeployment,
+  enqueueRealRollback,
   extractRealPolicySettingsFromDocument,
   loadRealDeploymentQueueState,
   abortRealDeployment,
@@ -319,6 +320,10 @@ export async function abortRuntimeDeployment(ticketId: string) {
 
 export async function enqueueRuntimeDeployment(ticket: Ticket, crTicket: string) {
   return enqueueRealDeployment(ticket.id, crTicket);
+}
+
+export async function enqueueRuntimeRollback(ticket: Ticket, crTicket: string) {
+  return enqueueRealRollback(ticket.id, crTicket);
 }
 
 export type CreateTicketState = {

@@ -4,7 +4,7 @@ import { Card } from "primereact/card";
 import DefaultLayout from "../../layout/DefaultLayout";
 import { TicketDetailPage } from "./ticketDetail";
 import { reconcileTicketWithLatestScan } from "./helpers";
-import { enqueueRuntimeDeployment, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
+import { enqueueRuntimeDeployment, enqueueRuntimeRollback, getLatestRuntimeTicketId, getRouteValue, updateRuntimeTicketStatus, usePortalDevices, usePortalPolicySettings, usePortalTemplates, usePortalTickets } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import { styles } from "./styles";
 import type { Device, Ticket, TicketStatus } from "./types";
@@ -44,6 +44,11 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
       .then(applyConfirmedTicket)
       .catch((error: unknown) => console.error("Unable to update ticket.", error));
   }, [applyConfirmedTicket, hydratedTicket, tickets]);
+  const handleRollback = React.useCallback(async (currentTicket: Ticket, crTicket: string) => {
+    const queueItem = await enqueueRuntimeRollback(currentTicket, crTicket);
+    if (queueItem.ticket) applyConfirmedTicket(queueItem.ticket);
+    else applyConfirmedTicket({ ...currentTicket, crNumber: crTicket, status: "In Progress", rollback: { ...(currentTicket.rollback ?? { reason: "", commandCount: 0 }), available: false, reason: `Rollback is queued as ${queueItem.queueId}.`, queueId: queueItem.queueId } });
+  }, [applyConfirmedTicket]);
 
   if (!hydratedTicket) {
     return (
@@ -65,6 +70,7 @@ export default function TicketDetailPageWrapper(props: TicketDetailPageProps = {
           templates={templates}
           policySettings={policySettings}
           onStatusChange={handleStatusChange}
+          onRollback={handleRollback}
         />
       </div>
     </DefaultLayout>

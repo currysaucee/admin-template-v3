@@ -217,6 +217,15 @@ export async function enqueueRealDeployment(ticketId: string, crTicket: string):
   return payload.queueItem;
 }
 
+export async function enqueueRealRollback(ticketId: string, crTicket: string): Promise<DeploymentQueueItem> {
+  const payload = await requestJson<{ queueItem?: DeploymentQueueItem }>(endpoint("deployment-queue/rollback/"), {
+    method: "POST",
+    body: JSON.stringify({ ticketId, crTicket }),
+  });
+  if (!payload.queueItem) throw new Error("Backend did not return a queued rollback item.");
+  return payload.queueItem;
+}
+
 export async function abortRealDeployment(ticketId: string): Promise<DeploymentQueueItem | undefined> {
   const payload = await requestJson<{ queueItem?: DeploymentQueueItem }>(endpoint("deployment-queue/"), {
     method: "PATCH",
