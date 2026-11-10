@@ -37,7 +37,7 @@ from .models import (
     RemediationTemplateRecord,
     TemplateRequestRecord,
 )
-from .reversion_plans import build_arista_reversion_plan
+from .arista_reversion import build_arista_reversion_plan
 
 
 EXECUTOR_PAYLOAD_SCHEMA = "hcc-parent-request-id-v2"
