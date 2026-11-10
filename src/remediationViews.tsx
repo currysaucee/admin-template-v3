@@ -5,6 +5,41 @@ import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
 import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
+import { navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
+
+function openTicket(ticketId: string) {
+  setRouteValue("netcomply:selectedTicketId", ticketId);
+  navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId });
+}
+
+function ActiveTicketWarning({ finding }: { finding: Finding }) {
+  if (!finding.activeTicket) return null;
+  const schedule = finding.activeTicket.plannedStart ? ` for ${formatDateTime(finding.activeTicket.plannedStart)}` : "";
+  return (
+    <div className="finding-scheduled-warning">
+      <i className="pi pi-clock" />
+      <div>
+        <strong>Already scheduled{schedule}</strong>
+        <p>This device and policy cannot be selected again while the existing request is active. <button type="button" onClick={() => openTicket(finding.activeTicket!.ticketId)}>{finding.activeTicket.ticketId}</button></p>
+      </div>
+    </div>
+  );
+}
+
+function RollbackPlanBlock({ finding }: { finding: Finding }) {
+  const plan = finding.rollbackPlan;
+  if (!plan) return null;
+  return (
+    <div className={`finding-rollback-plan ${plan.available ? "" : "unavailable"}`}>
+      <div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>{plan.summary}</span></div></div>
+      {plan.commands.length > 0 ? (
+        <div className="command-list compact-command-list">
+          {plan.commands.map((command, index) => <div className="command-line" key={`${command}-${index}`}><span>{index + 1}</span><code>{command}</code></div>)}
+        </div>
+      ) : <p>No safe rollback command could be derived from the current scan evidence.</p>}
+    </div>
+  );
+}
 
 export function FindingDetailCard({ finding, template, run, executionResult, defaultExpanded = false, implementationOnly = false, policySetting, showPolicyModel = false, skipRemediationReason }: { finding: Finding; template?: RemediationTemplate; run?: DeploymentRunResult; executionResult?: FindingExecutionResult; defaultExpanded?: boolean; implementationOnly?: boolean; policySetting?: PolicySetting; policySupported?: boolean; showPolicyModel?: boolean; skipRemediationReason?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -19,12 +54,14 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
         <div><div className="finding-title-row"><Tag className="policy-id-tag" value={finding.id} severity="info" rounded /><h3>{displayTitle}</h3></div><p>{formatDateTime(finding.detectedAt)}</p></div>
         <div className="action-row">{isSkippedByLatestScan && <Tag value="Skipped by latest scan" severity="warning" rounded />}{!isSkippedByLatestScan && executionResult && <Tag value={executionStatus} severity={executionStatus === "Executed Successfully" ? "success" : executionFailed ? "danger" : "secondary"} rounded />}{!isSkippedByLatestScan && !executionResult && run && <Tag value={run.status} severity={run.status === "Successful" ? "success" : "danger"} rounded />}<Button label={expanded ? "Collapse" : "Expand"} icon={expanded ? "pi pi-chevron-up" : "pi pi-chevron-down"} size="small" outlined onClick={() => setExpanded((prev) => !prev)} /></div>
       </div>
+      <ActiveTicketWarning finding={finding} />
       {expanded && <>
       {isSkippedByLatestScan && <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>Execution will skip this finding</strong><p>{skipRemediationReason}</p></div></div>}
       <div className="finding-setting-comparison">
         <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
         <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{agreedSetting || "No agreed setting is configured."}</pre></div>
       </div>
+      <RollbackPlanBlock finding={finding} />
       <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
@@ -87,6 +124,8 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
           <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
           <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{agreedSetting || "No agreed setting is configured."}</pre></div>
         </div>
+        <ActiveTicketWarning finding={finding} />
+        <RollbackPlanBlock finding={finding} />
         <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} />
       </>}
     </div>

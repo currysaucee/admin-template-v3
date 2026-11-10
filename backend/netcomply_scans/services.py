@@ -37,6 +37,7 @@ from .models import (
     RemediationTemplateRecord,
     TemplateRequestRecord,
 )
+from .reversion_plans import build_arista_reversion_plan
 
 
 EXECUTOR_PAYLOAD_SCHEMA = "hcc-parent-request-id-v2"
@@ -638,6 +639,44 @@ def clear_hcc_tables(table_keys: list[str]) -> dict[str, Any]:
     }
 
 
+ACTIVE_REMEDIATION_STATUSES = {"PENDING", "PENDINGAPPROVAL", "APPROVED", "QUEUED", "INPROGRESS", "PROCESSING"}
+
+
+def request_status_is_active(record: HCCRequestRecord) -> bool:
+    payload = record.payload if isinstance(record.payload, dict) else {}
+    status = payload.get("status") or record.status
+    return re.sub(r"[^A-Z0-9]", "", str(status or "").upper()) in ACTIVE_REMEDIATION_STATUSES
+
+
+def active_remediation_reservations(records: list[HCCRequestRecord] | None = None) -> dict[tuple[str, str], dict[str, Any]]:
+    source_records = records if records is not None else list(
+        HCCRequestRecord.objects.using(scan_db_alias()).order_by("-updated_at", "-id")
+    )
+    reservations: dict[tuple[str, str], dict[str, Any]] = {}
+    for record in source_records:
+        if not request_status_is_active(record):
+            continue
+        payload = record.payload if isinstance(record.payload, dict) else {}
+        devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
+        for device in devices:
+            if not isinstance(device, dict):
+                continue
+            hostname = str(device.get("hostname") or "").strip()
+            findings = device.get("findings") if isinstance(device.get("findings"), list) else []
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                policy_id = normalize_policy_id(finding.get("id") or finding.get("policyId") or finding.get("templateKey"))
+                if not hostname or not policy_id:
+                    continue
+                reservations.setdefault((hostname.lower(), policy_id), {
+                    "ticketId": record.request_id,
+                    "plannedStart": str(payload.get("plannedStart") or record.implementation_date or ""),
+                    "status": str(payload.get("status") or record.status or ""),
+                })
+    return reservations
+
+
 def latest_devices_for_frontend(reachability: str = "") -> list[dict[str, Any]]:
     db_alias = scan_db_alias()
     if not ComplianceScanBatch.objects.using(db_alias).exists():
@@ -646,6 +685,7 @@ def latest_devices_for_frontend(reachability: str = "") -> list[dict[str, Any]]:
     devices: list[dict[str, Any]] = []
     seen_hostnames: set[str] = set()
     policy_settings: dict[str, dict[str, Any]] = {}
+    active_reservations = active_remediation_reservations()
     for record in PolicySettingRecord.objects.using(db_alias).order_by("id"):
         payload = policy_setting_payload(record)
         for value in (payload.get("id"), payload.get("settingNumber")):
@@ -675,6 +715,8 @@ def latest_devices_for_frontend(reachability: str = "") -> list[dict[str, Any]]:
             title = policy_setting.get("title") or finding.policy_title or finding.policy_id
             description = policy_setting.get("description") or finding.policy_description or policy_setting.get("standard") or ""
             expected_value = policy_setting.get("settingPayload") or finding.expected_config or finding.finding_payload
+            current_value = config_by_policy.get(policy_id, "")
+            rollback_plan = build_arista_reversion_plan(policy_id, current_value)
             findings.append({
                 "id": policy_id,
                 "templateKey": policy_id,
@@ -683,9 +725,11 @@ def latest_devices_for_frontend(reachability: str = "") -> list[dict[str, Any]]:
                 "standard": policy_setting.get("standard") or finding.policy_type or "Imported compliance scan",
                 "description": description,
                 "reason": "",
-                "currentValue": config_by_policy.get(policy_id, ""),
+                "currentValue": current_value,
                 "expectedValue": expected_value,
                 "detectedAt": api_datetime(device.batch.consumed_at),
+                "rollbackPlan": rollback_plan,
+                "activeTicket": active_reservations.get((device.hostname.strip().lower(), policy_id)),
             })
 
         devices.append({
@@ -1275,6 +1319,53 @@ def replace_tickets(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list_tickets_for_frontend()
 
 
+def enrich_ticket_reversion_plans(payload: dict[str, Any]) -> dict[str, Any]:
+    devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
+    enriched_devices: list[dict[str, Any]] = []
+    plan_sections: list[str] = []
+    for raw_device in devices:
+        if not isinstance(raw_device, dict):
+            continue
+        hostname = str(raw_device.get("hostname") or "Unknown device")
+        findings = raw_device.get("findings") if isinstance(raw_device.get("findings"), list) else []
+        enriched_findings: list[dict[str, Any]] = []
+        for raw_finding in findings:
+            if not isinstance(raw_finding, dict):
+                continue
+            policy_id = normalize_policy_id(raw_finding.get("id") or raw_finding.get("policyId") or raw_finding.get("templateKey"))
+            rollback_plan = build_arista_reversion_plan(policy_id, raw_finding.get("currentValue"))
+            enriched_finding = {**raw_finding, "rollbackPlan": rollback_plan}
+            enriched_findings.append(enriched_finding)
+            if rollback_plan and rollback_plan.get("available"):
+                commands = "\n".join(f"  {index}. {command}" for index, command in enumerate(rollback_plan.get("commands") or [], start=1))
+                plan_sections.append(f"{hostname} / {policy_id}: {rollback_plan.get('title')}\n{commands}")
+        enriched_devices.append({**raw_device, "findings": enriched_findings})
+    return {
+        **payload,
+        "devices": enriched_devices,
+        "backoutPlan": "\n\n".join(plan_sections) or str(payload.get("backoutPlan") or ""),
+    }
+
+
+def active_ticket_conflicts(payload: dict[str, Any], records: list[HCCRequestRecord]) -> list[dict[str, Any]]:
+    reservations = active_remediation_reservations(records)
+    conflicts: list[dict[str, Any]] = []
+    devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
+    for device in devices:
+        if not isinstance(device, dict):
+            continue
+        hostname = str(device.get("hostname") or "").strip()
+        findings = device.get("findings") if isinstance(device.get("findings"), list) else []
+        for finding in findings:
+            if not isinstance(finding, dict):
+                continue
+            policy_id = normalize_policy_id(finding.get("id") or finding.get("policyId") or finding.get("templateKey"))
+            reservation = reservations.get((hostname.lower(), policy_id))
+            if reservation:
+                conflicts.append({"hostname": hostname, "policyId": policy_id, **reservation})
+    return conflicts
+
+
 def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
     # POST callers do not own request IDs. Generate one here so every client uses
     # the same source of truth and cannot accidentally overwrite another request.
@@ -1286,10 +1377,36 @@ def upsert_ticket(payload: dict[str, Any]) -> dict[str, Any]:
     devices = payload.get("devices") if isinstance(payload.get("devices"), list) else []
     if not devices:
         raise TicketValidationError("Select at least one device finding.")
+    payload = enrich_ticket_reversion_plans(payload)
     db_alias = scan_db_alias()
     with transaction.atomic(using=db_alias):
+        hostnames = {
+            str(device.get("hostname") or "").strip()
+            for device in payload["devices"]
+            if isinstance(device, dict) and str(device.get("hostname") or "").strip()
+        }
+        # Serialize ticket creation per scanned device, including when the HCC
+        # request table is initially empty and therefore has no row to lock.
+        list(
+            ComplianceScanDevice.objects.using(db_alias)
+            .select_for_update()
+            .filter(hostname__in=hostnames)
+            .values_list("id", flat=True)
+        )
+        locked_records = list(HCCRequestRecord.objects.using(db_alias).select_for_update().all())
+        conflicts = active_ticket_conflicts(payload, locked_records)
+        if conflicts:
+            conflict = conflicts[0]
+            planned_start = f" for {conflict['plannedStart']}" if conflict.get("plannedStart") else ""
+            raise TicketValidationError(
+                f"{conflict['policyId']} on {conflict['hostname']} is already scheduled{planned_start} under ticket {conflict['ticketId']}."
+            )
         for device in devices:
-            row_payload = {**payload, "id": request_id, "devices": [device]}
+            enriched_device = next(
+                (candidate for candidate in payload["devices"] if candidate.get("hostname") == device.get("hostname")),
+                device,
+            )
+            row_payload = {**payload, "id": request_id, "devices": [enriched_device]}
             HCCRequestRecord.objects.using(db_alias).create(**hcc_request_fields(row_payload, request_id))
     records = list(HCCRequestRecord.objects.using(db_alias).filter(request_id=request_id).order_by("id"))
     return grouped_hcc_request_payload(records)

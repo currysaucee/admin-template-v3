@@ -240,7 +240,7 @@ export function getFixAvailability(device: { hardwareType: string; configSnapsho
 }
 
 export function hasExecutableFix(device: { hardwareType: string; configSnapshotPath?: string; configSnapshotFilename?: string; findings?: Array<{ currentValue?: string }> }, finding: Finding, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {
-  return getFixAvailability(device, finding, templates, policySettings).executable;
+  return !finding.activeTicket && getFixAvailability(device, finding, templates, policySettings).executable;
 }
 
 export function getExecutableFindings(device: Device, templates: RemediationTemplate[], policySettings: PolicySetting[] = []) {

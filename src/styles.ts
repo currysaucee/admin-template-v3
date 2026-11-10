@@ -133,6 +133,22 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .device-reversion-warning i { margin-top: 2px; color: #d97706; }
 .device-reversion-warning strong { display: block; }
 .device-reversion-warning p { margin: 4px 0 0; color: #92400e; line-height: 1.45; }
+.finding-scheduled-warning, .finding-scheduled-inline { display: flex; align-items: flex-start; gap: 9px; border: 1px solid #f6d365; border-radius: 9px; background: #fffbeb; color: #78350f; }
+.finding-scheduled-warning { margin-top: 12px; padding: 11px 13px; }
+.finding-scheduled-inline { margin-top: 9px; padding: 8px 10px; font-size: 12px; font-weight: 750; }
+.finding-scheduled-warning i, .finding-scheduled-inline i { margin-top: 2px; color: #d97706; }
+.finding-scheduled-warning p { margin: 3px 0 0; color: #92400e; line-height: 1.45; }
+.finding-scheduled-warning button, .finding-scheduled-inline button { appearance: none; border: 0; padding: 0; background: transparent; color: #2563eb; cursor: pointer; font: inherit; font-weight: 850; text-decoration: underline; text-underline-offset: 2px; }
+.finding-list-row-scheduled { border-color: #f6d365; background: #fffdf5; }
+.finding-rollback-plan { display: grid; gap: 10px; margin-top: 12px; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc; }
+.finding-rollback-plan.compact { margin-top: 0; }
+.finding-rollback-plan.unavailable { border-color: #fed7aa; background: #fff7ed; }
+.finding-rollback-heading { display: flex; align-items: flex-start; gap: 9px; }
+.finding-rollback-heading i { margin-top: 2px; color: #475569; }
+.finding-rollback-heading > div { display: grid; gap: 3px; }
+.finding-rollback-heading strong { color: #0f172a; }
+.finding-rollback-heading span, .finding-rollback-plan > p { color: #64748b; font-size: 12px; font-weight: 700; line-height: 1.45; }
+.finding-rollback-plan > p { margin: 0; }
 .latest-scan-reconcile-box, .latest-scan-skip-box { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; padding: 12px 14px; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 10px; background: #eff6ff; color: #1e3a8a; }
 .latest-scan-reconcile-box.all-resolved, .latest-scan-skip-box { border-color: #fde68a; border-left-color: #d97706; background: #fffbeb; color: #78350f; }
 .latest-scan-reconcile-box i, .latest-scan-skip-box i { margin-top: 2px; }

@@ -18,6 +18,19 @@ export type Finding = {
   detectedAt: string;
   latestScanStatus?: "Still Detected" | "No Longer Detected" | "Device Not In Latest Scan";
   latestScanNote?: string;
+  rollbackPlan?: {
+    available: boolean;
+    policyId: string;
+    title: string;
+    summary: string;
+    commands: string[];
+    sourceConfig: string;
+  } | null;
+  activeTicket?: {
+    ticketId: string;
+    plannedStart: string;
+    status: string;
+  } | null;
 };
 
 export type Device = {
