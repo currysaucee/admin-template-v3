@@ -38,6 +38,7 @@ from .models import (
     TemplateRequestRecord,
 )
 from .arista_reversion import build_arista_reversion_plan
+from .arista_config import arista_stanza_match, config_evidence_equal, is_arista_context
 
 
 EXECUTOR_PAYLOAD_SCHEMA = "hcc-parent-request-id-v2"
@@ -1831,6 +1832,12 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
 
     for ticket_device in ticket_payload.get("devices", []):
         latest_device = find_latest_device_for_ticket(ticket_device, latest_devices)
+        latest_findings_by_ref = {
+            normalize_policy_id(ref): finding
+            for finding in (latest_device.get("findings", []) if latest_device else [])
+            for ref in (finding.get("id"), finding.get("templateKey"))
+            if ref
+        }
         latest_finding_refs = {
             normalize_policy_id(ref)
             for finding in (latest_device.get("findings", []) if latest_device else [])
@@ -1842,6 +1849,9 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
             finding_ref = normalize_policy_id(finding.get("id") or finding.get("templateKey"))
             template = None if is_ad_hoc else resolve_queue_template(ticket_device, finding, templates)
             commands = finding.get("implementationCommands", []) if is_ad_hoc else (template.get("implementationCommands", []) if template else [])
+            latest_finding = latest_findings_by_ref.get(finding_ref)
+            ticket_scan_config = finding.get("currentValue")
+            latest_scan_config = latest_finding.get("currentValue") if latest_finding else None
             if is_ad_hoc and commands:
                 status = "Pending Execution"
                 reason = "Approved ad-hoc commands are ready for the normal deployment worker."
@@ -1854,6 +1864,9 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
             elif finding_ref not in latest_finding_refs:
                 status = "Skipped"
                 reason = "Policy is no longer detected as non-compliant in the latest scan."
+            elif is_arista_context(ticket_device.get("hardwareType"), finding_ref) and not config_evidence_equal(ticket_scan_config, latest_scan_config):
+                status = "Skipped"
+                reason = "Latest scan configuration differs from the configuration captured when this request was created."
             elif not commands:
                 status = "Skipped"
                 reason = "No approved executable template is available for this policy and hardware type."
@@ -1868,6 +1881,8 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
                 "reason": reason,
                 "implementationCommands": commands,
                 "prePostCheckCommands": template.get("prePostCheckCommands", []) if template else [],
+                "ticketScanConfig": ticket_scan_config,
+                "latestScanConfig": latest_scan_config,
             })
         planned_devices.append({
             "id": ticket_device.get("parentRequestId"),
@@ -2626,6 +2641,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
         post_check: dict[str, Any] | None = None
         step_result: dict[str, Any] | None = None
         reversion_required = False
+        pre_config_matches_ticket = True
         check_payload = None
         if plan.get("executionMode") not in {"developer-ad-hoc", "manual-rollback"}:
             check_payload = build_executor_check_payload(
@@ -2641,9 +2657,15 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             validate_executor_result(pre_executor_result)
             executor_results.append(pre_executor_result)
             pre_config = executor_captured_config(pre_executor_result)
+            configuration_match = None
+            policy_id = normalize_policy_id(finding.get("policyId") or finding.get("policyUuid"))
+            if is_arista_context(device.get("hardwareType"), policy_id):
+                configuration_match = arista_stanza_match(finding.get("ticketScanConfig"), pre_config)
+                pre_config_matches_ticket = bool(configuration_match.get("matches"))
             pre_check = {
                 "executor": pre_executor_result,
-                "assessment": call_policy_compliance_check(
+                "configurationMatch": configuration_match,
+                "assessment": None if not pre_config_matches_ticket else call_policy_compliance_check(
                     policy_uuid=str(finding.get("policyUuid") or finding.get("policyId") or ""),
                     hostname=str(device.get("hostname") or device.get("managementIp") or ""),
                     config=pre_config,
@@ -2651,9 +2673,12 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
                 ),
             }
 
-        if pre_check is not None and pre_check["assessment"].get("comply") is True:
+        if pre_check is not None and not pre_config_matches_ticket:
             finding["status"] = "Skipped"
-            finding["reason"] = pre_check["assessment"].get("reason") or "Pre-check confirmed the policy is already compliant."
+            finding["reason"] = pre_check["configurationMatch"].get("reason") or "Live configuration differs from the ticket-time scan."
+        elif pre_check is not None and (pre_check.get("assessment") or {}).get("comply") is True:
+            finding["status"] = "Skipped"
+            finding["reason"] = (pre_check.get("assessment") or {}).get("reason") or "Pre-check confirmed the policy is already compliant."
         else:
             step_result = call_deployment_executor(step_plan)
             validate_executor_result(step_result)

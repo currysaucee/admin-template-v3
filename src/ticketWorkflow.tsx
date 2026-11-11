@@ -9,7 +9,7 @@ import { Message } from "primereact/message";
 import { Tooltip } from "primereact/tooltip";
 
 import type { Device, Finding, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findFindingKey, formatDateTime, getFindingDisplayTitle, getFixAvailability, resolveTemplateForDevice } from "./helpers";
+import { findFindingKey, formatConfigText, formatDateTime, getFindingDisplayTitle, getFixAvailability, resolveTemplateForDevice } from "./helpers";
 import { navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 
@@ -160,16 +160,18 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                             {activeTicket && <div className="finding-scheduled-inline"><i className="pi pi-clock" /><span>Already scheduled{activeTicket.plannedStart ? ` for ${formatDateTime(activeTicket.plannedStart)}` : ""} under <button type="button" onClick={() => { setRouteValue("netcomply:selectedTicketId", activeTicket.ticketId); navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: activeTicket.ticketId }); }}>{activeTicket.ticketId}</button>.</span></div>}
                           </div>
                           <div className="finding-setting-comparison">
-                            <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
-                            <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{finding.expectedValue || availability.template?.agreedSetting || "No agreed setting is configured."}</pre></div>
+                            <div className="setting-evidence current"><strong>Current Setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
+                            <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{formatConfigText(finding.expectedValue || availability.template?.agreedSetting) || "No agreed setting is configured."}</pre></div>
                           </div>
-                          {finding.rollbackPlan && <div className="finding-rollback-plan compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>{finding.rollbackPlan.summary}</span></div></div>{finding.rollbackPlan.commands.length > 0 && <div className="command-list compact-command-list">{finding.rollbackPlan.commands.map((command, index) => <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>)}</div>}</div>}
-                          <div className="finding-standard-cell">
+                          <div className="finding-plan-comparison">
+                          {finding.rollbackPlan ? <div className="finding-rollback-plan compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>{finding.rollbackPlan.summary}</span></div></div>{finding.rollbackPlan.commands.length > 0 && <div className="command-list compact-command-list">{finding.rollbackPlan.commands.map((command, index) => <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>)}</div>}</div> : <div className="finding-rollback-plan unavailable compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>No rollback plan is available.</span></div></div></div>}
+                          <div className="finding-standard-cell implementation-plan-block">
                             <div className="implementation-heading"><strong>Implementation Commands</strong><i className="pi pi-question-circle implementation-help-icon" tabIndex={0} aria-label="About implementation commands" /></div>
                           <div className="command-list compact-command-list implementation-command-preview">
                             {(implementationCommands.length ? implementationCommands : ["No implementation command configured."]).map((command, index) => (
-                              <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>
+                              <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>
                             ))}
+                          </div>
                           </div>
                           </div>
                         </div>
@@ -214,7 +216,7 @@ function ReviewStep({ selectedTicketDevices, templates, policySettings }: Parame
                         <div className="finding-title-row"><Tag className="policy-id-tag review-policy-id-tag" value={finding.id} severity="info" rounded /><strong>{getFindingDisplayTitle(finding, policySettings)}</strong></div>
                         <div className="command-list compact-command-list implementation-command-preview">
                           {(template?.implementationCommands.length ? template.implementationCommands : ["No implementation command configured."]).map((command, index) => (
-                            <div key={`${device.deviceId}-${finding.id}-${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code></div>
+                            <div key={`${device.deviceId}-${finding.id}-${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>
                           ))}
                         </div>
                       </div>

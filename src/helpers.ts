@@ -48,6 +48,15 @@ export function formatDateTime(value?: string | Date | null) {
   });
 }
 
+export function formatConfigText(value?: string | null) {
+  return String(value ?? "")
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+}
+
 export function findFindingKey(deviceId: string, findingId: string) {
   return `${deviceId}:${findingId}`;
 }

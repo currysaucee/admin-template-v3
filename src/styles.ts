@@ -110,6 +110,10 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-problem-description { margin: 8px 0 0; color: #64748b; font-size: 13px; line-height: 1.45; }
 .finding-request-content { min-width: 0; display: grid; gap: 14px; }
 .finding-setting-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.finding-plan-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.finding-plan-comparison > .finding-rollback-plan, .finding-plan-comparison > .execution-preview { margin-top: 0; min-width: 0; }
+.finding-plan-comparison > .finding-rollback-plan, .finding-plan-comparison > .implementation-plan-block, .finding-plan-comparison > .execution-preview > .phase-section { height: 100%; }
+.implementation-plan-block { min-width: 0; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc; align-content: start; }
 .setting-evidence { min-width: 0; padding: 12px 14px; border: 1px solid #dbe3ef; border-radius: 11px; background: #f8fafc; }
 .setting-evidence strong { display: block; margin-bottom: 7px; color: #334155; font-size: 12px; }
 .setting-evidence pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #0f172a; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
@@ -608,7 +612,7 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .wizard-footer .p-button { flex: 1 1 180px; }
   .finding-list-header { display: none; }
   .finding-list-row { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
-  .finding-setting-comparison { grid-template-columns: 1fr; }
+  .finding-setting-comparison, .finding-plan-comparison { grid-template-columns: 1fr; }
   .inventory-actions-column { position: static; box-shadow: none; }
   .mobile-field-label { display: block; }
   .command-line { grid-template-columns: 32px minmax(0, 1fr); }

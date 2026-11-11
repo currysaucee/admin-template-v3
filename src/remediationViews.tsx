@@ -4,7 +4,7 @@ import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 
 import type { DeploymentRunResult, Finding, FindingExecutionResult, PolicySetting, RemediationTemplate, TicketDevice } from "./types";
-import { findPolicySettingForFinding, formatDateTime, getFindingDisplayTitle, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
+import { findPolicySettingForFinding, formatConfigText, formatDateTime, getFindingDisplayTitle, getTemplateDisplayName, resolveTemplateForDevice } from "./helpers";
 import { navigateToPortalPath, portalRoutePaths, setRouteValue } from "./portalRouteState";
 
 function openTicket(ticketId: string) {
@@ -34,7 +34,7 @@ function RollbackPlanBlock({ finding }: { finding: Finding }) {
       <div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>{plan.summary}</span></div></div>
       {plan.commands.length > 0 ? (
         <div className="command-list compact-command-list">
-          {plan.commands.map((command, index) => <div className="command-line" key={`${command}-${index}`}><span>{index + 1}</span><code>{command}</code></div>)}
+          {plan.commands.map((command, index) => <div className="command-line" key={`${command}-${index}`}><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>)}
         </div>
       ) : <p>No safe rollback command could be derived from the current scan evidence.</p>}
     </div>
@@ -58,11 +58,10 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
       {expanded && <>
       {isSkippedByLatestScan && <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>Execution will skip this finding</strong><p>{skipRemediationReason}</p></div></div>}
       <div className="finding-setting-comparison">
-        <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
-        <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{agreedSetting || "No agreed setting is configured."}</pre></div>
+        <div className="setting-evidence current"><strong>Current Setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
+        <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{formatConfigText(agreedSetting) || "No agreed setting is configured."}</pre></div>
       </div>
-      <RollbackPlanBlock finding={finding} />
-      <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} />
+      <div className="finding-plan-comparison"><RollbackPlanBlock finding={finding} /><TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} /></div>
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
     </Card>
@@ -121,12 +120,11 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
       </button>
       {expanded && <>
         <div className="finding-setting-comparison">
-          <div className="setting-evidence current"><strong>Current Setting</strong><pre>{finding.currentValue || finding.reason || "Current setting was not included in the scan payload."}</pre></div>
-          <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{agreedSetting || "No agreed setting is configured."}</pre></div>
+          <div className="setting-evidence current"><strong>Current Setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
+          <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{formatConfigText(agreedSetting) || "No agreed setting is configured."}</pre></div>
         </div>
         <ActiveTicketWarning finding={finding} />
-        <RollbackPlanBlock finding={finding} />
-        <TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} />
+        <div className="finding-plan-comparison"><RollbackPlanBlock finding={finding} /><TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} /></div>
       </>}
     </div>
   );
@@ -151,7 +149,7 @@ function PolicyModelBlock({ setting, fallbackPayload }: { setting?: PolicySettin
         <span>Policy Setting model</span>
         <strong>{setting?.title ?? "Template-linked policy payload"}</strong>
       </div>
-      <pre>{setting?.settingPayload || fallbackPayload || "No Policy Setting payload linked."}</pre>
+      <pre>{formatConfigText(setting?.settingPayload || fallbackPayload) || "No Policy Setting payload linked."}</pre>
     </div>
   );
 }
@@ -162,7 +160,7 @@ function CommandList({ phase = "fix", title, badge, commands, runCommands }: { p
       <div className="execution-section-header"><strong>{title}</strong>{badge && <Tag value={badge} severity="warning" />}</div>
       <div className="command-list">{commands.map((command, index) => {
         const runCommand = runCommands?.[index];
-        return <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{command}</code>{runCommand && <Tag value={runCommand.status} severity={runCommand.status === "Executed" ? "success" : "secondary"} />}</div>;
+        return <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code>{runCommand && <Tag value={runCommand.status} severity={runCommand.status === "Executed" ? "success" : "secondary"} />}</div>;
       })}</div>
     </div>
   );
