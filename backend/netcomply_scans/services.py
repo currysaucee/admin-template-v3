@@ -38,7 +38,7 @@ from .models import (
     TemplateRequestRecord,
 )
 from .arista_reversion import build_arista_reversion_plan
-from .arista_config import arista_stanza_match, config_evidence_equal, is_arista_context
+from .arista_config import arista_policy_state_match, arista_scan_state_equal, is_arista_context
 
 
 EXECUTOR_PAYLOAD_SCHEMA = "hcc-parent-request-id-v2"
@@ -1864,7 +1864,7 @@ def build_deployment_execution_plan(ticket_payload: dict[str, Any]) -> dict[str,
             elif finding_ref not in latest_finding_refs:
                 status = "Skipped"
                 reason = "Policy is no longer detected as non-compliant in the latest scan."
-            elif is_arista_context(ticket_device.get("hardwareType"), finding_ref) and not config_evidence_equal(ticket_scan_config, latest_scan_config):
+            elif is_arista_context(ticket_device.get("hardwareType"), finding_ref) and not arista_scan_state_equal(finding_ref, ticket_scan_config, latest_scan_config):
                 status = "Skipped"
                 reason = "Latest scan configuration differs from the configuration captured when this request was created."
             elif not commands:
@@ -2660,7 +2660,7 @@ def process_next_deployment_queue_item(worker_id: str = "netcomply-worker") -> d
             configuration_match = None
             policy_id = normalize_policy_id(finding.get("policyId") or finding.get("policyUuid"))
             if is_arista_context(device.get("hardwareType"), policy_id):
-                configuration_match = arista_stanza_match(finding.get("ticketScanConfig"), pre_config)
+                configuration_match = arista_policy_state_match(policy_id, finding.get("ticketScanConfig"), pre_config)
                 pre_config_matches_ticket = bool(configuration_match.get("matches"))
             pre_check = {
                 "executor": pre_executor_result,

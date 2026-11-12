@@ -4,7 +4,7 @@ import DefaultLayout from "../../layout/DefaultLayout";
 import { executeRealAdHocCommands, loadRealAdHocExecutionStatus, runRealScanImport } from "./dataMode";
 import { DeveloperConsolePage } from "./developerConsolePage";
 import { formatDateTime } from "./helpers";
-import { deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, onboardRuntimePolicySettings, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
+import { abortRuntimeDeployment, deleteRuntimePolicySettings, extractRuntimePolicySettingsFromDocument, lookupRuntimePolicySetting, navigateToPortalPath, onboardRuntimePolicySettings, portalRoutePaths, setRouteValue, usePortalDeploymentQueueState, usePortalDevices, usePortalPolicySettings } from "./portalRouteState";
 import { styles } from "./styles";
 import type { PolicySetting } from "./types";
 
@@ -13,6 +13,7 @@ type DeveloperConsolePageProps = Partial<React.ComponentProps<typeof DeveloperCo
 export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageProps = {}) {
   const { items: loadedPolicySettings } = usePortalPolicySettings(props.policySettings);
   const { devices } = usePortalDevices();
+  const { queue: deploymentQueue, workerHealth: deploymentWorkerHealth } = usePortalDeploymentQueueState();
   const [policySettings, setPolicySettingsState] = React.useState<PolicySetting[]>(loadedPolicySettings);
   const [scanImportRunning, setScanImportRunning] = React.useState(false);
   const [scanImportMessage, setScanImportMessage] = React.useState("");
@@ -63,6 +64,10 @@ export default function DeveloperConsolePageWrapper(props: DeveloperConsolePageP
           devices={props.devices ?? devices}
           onExecuteAdHoc={props.onExecuteAdHoc ?? executeRealAdHocCommands}
           onLoadAdHocStatus={props.onLoadAdHocStatus ?? loadRealAdHocExecutionStatus}
+          deploymentQueue={props.deploymentQueue ?? deploymentQueue}
+          deploymentWorkerHealth={props.deploymentWorkerHealth ?? deploymentWorkerHealth}
+          onAbortDeployment={props.onAbortDeployment ?? (async (ticketId) => { await abortRuntimeDeployment(ticketId); })}
+          onViewDeploymentTicket={props.onViewDeploymentTicket ?? ((ticketId) => { setRouteValue("netcomply:selectedTicketId", ticketId); navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId }); })}
         />
       </div>
     </DefaultLayout>

@@ -156,7 +156,7 @@ function WorkerHealthStrip({ workers }: { workers: DeploymentWorkerHealth[] }) {
   );
 }
 
-export function DeploymentQueuePage({ queue, workerHealth = [], onAbort, onViewTicket }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[]; onAbort?: (ticketId: string) => Promise<void> | void; onViewTicket?: (ticketId: string) => void }) {
+export function DeploymentQueuePage({ queue, workerHealth = [], onAbort, onViewTicket, embedded = false }: { queue: DeploymentQueueItem[]; workerHealth?: DeploymentWorkerHealth[]; onAbort?: (ticketId: string) => Promise<void> | void; onViewTicket?: (ticketId: string) => void; embedded?: boolean }) {
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
   const [now, setNow] = React.useState(Date.now());
   const [abortingId, setAbortingId] = React.useState("");
@@ -174,8 +174,8 @@ export function DeploymentQueuePage({ queue, workerHealth = [], onAbort, onViewT
   };
 
   return (
-    <section className="page-content">
-      <PageHeader title="Deployment Queue" subtitle="Review released HCC requests in execution order before workers consume them." />
+    <section className={embedded ? "embedded-deployment-queue" : "page-content"}>
+      {!embedded && <PageHeader title="Deployment Queue" subtitle="Review released HCC requests in execution order before workers consume them." />}
       <WorkerHealthStrip workers={workerHealth} />
       <Card className="queue-board-card">
         {queue.length === 0 ? (

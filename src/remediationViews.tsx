@@ -28,7 +28,7 @@ function ActiveTicketWarning({ finding }: { finding: Finding }) {
 
 function RollbackPlanBlock({ finding }: { finding: Finding }) {
   const plan = finding.rollbackPlan;
-  if (!plan) return null;
+  if (!plan) return <div className="finding-rollback-plan unavailable"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback not available</strong><span>No policy-specific rollback plan has been configured.</span></div></div></div>;
   return (
     <div className={`finding-rollback-plan ${plan.available ? "" : "unavailable"}`}>
       <div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>{plan.summary}</span></div></div>
@@ -37,6 +37,26 @@ function RollbackPlanBlock({ finding }: { finding: Finding }) {
           {plan.commands.map((command, index) => <div className="command-line" key={`${command}-${index}`}><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>)}
         </div>
       ) : <p>No safe rollback command could be derived from the current scan evidence.</p>}
+    </div>
+  );
+}
+
+function RemediationJourney({ finding, agreedSetting, template, run, implementationOnly, policySetting, showPolicyModel, showFailureBehaviour }: { finding: Finding; agreedSetting: string; template?: RemediationTemplate; run?: DeploymentRunResult; implementationOnly: boolean; policySetting?: PolicySetting; showPolicyModel?: boolean; showFailureBehaviour?: boolean }) {
+  return (
+    <div className="remediation-journey">
+      <section className="remediation-lane current-state-lane">
+        <header className="remediation-lane-header"><span>Before</span><div><strong>Current device state</strong><small>Configuration captured when this request was raised.</small></div></header>
+        <div className="setting-evidence current"><strong>Detected setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
+        <div className="remediation-action-label"><i className="pi pi-history" /><span><strong>If we need to undo the change</strong><small>These commands restore the captured state.</small></span></div>
+        <RollbackPlanBlock finding={finding} />
+      </section>
+      <div className="remediation-direction" aria-hidden="true"><span>Remediate</span><i className="pi pi-arrow-right" /></div>
+      <section className="remediation-lane target-state-lane">
+        <header className="remediation-lane-header"><span>After</span><div><strong>Approved target state</strong><small>The compliant configuration this request is intended to reach.</small></div></header>
+        <div className="setting-evidence agreed"><strong>Agreed setting</strong><pre>{formatConfigText(agreedSetting) || "No agreed setting is configured."}</pre></div>
+        <div className="remediation-action-label"><i className="pi pi-wrench" /><span><strong>How we will get there</strong><small>These implementation commands are sent to the device.</small></span></div>
+        <TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} />
+      </section>
     </div>
   );
 }
@@ -57,11 +77,7 @@ export function FindingDetailCard({ finding, template, run, executionResult, def
       <ActiveTicketWarning finding={finding} />
       {expanded && <>
       {isSkippedByLatestScan && <div className="latest-scan-skip-box"><i className="pi pi-info-circle" /><div><strong>Execution will skip this finding</strong><p>{skipRemediationReason}</p></div></div>}
-      <div className="finding-setting-comparison">
-        <div className="setting-evidence current"><strong>Current Setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
-        <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{formatConfigText(agreedSetting) || "No agreed setting is configured."}</pre></div>
-      </div>
-      <div className="finding-plan-comparison"><RollbackPlanBlock finding={finding} /><TemplateExecutionPreview template={template} run={run} mode={implementationOnly ? "implementation" : "full"} policySetting={policySetting} showPolicyModel={showPolicyModel} /></div>
+      <RemediationJourney finding={finding} agreedSetting={agreedSetting} template={template} run={run} implementationOnly={implementationOnly} policySetting={policySetting} showPolicyModel={showPolicyModel} />
       {executionResult?.message && <div className={`finding-result-note ${executionFailed ? "failed" : ""}`}>{executionResult.message}</div>}
       </>}
     </Card>
@@ -119,12 +135,8 @@ function FindingFixAccordion({ finding, template, policySetting, defaultExpanded
         </div>
       </button>
       {expanded && <>
-        <div className="finding-setting-comparison">
-          <div className="setting-evidence current"><strong>Current Setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
-          <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{formatConfigText(agreedSetting) || "No agreed setting is configured."}</pre></div>
-        </div>
         <ActiveTicketWarning finding={finding} />
-        <div className="finding-plan-comparison"><RollbackPlanBlock finding={finding} /><TemplateExecutionPreview template={template} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} mode={implementationOnly ? "implementation" : "full"} /></div>
+        <RemediationJourney finding={finding} agreedSetting={agreedSetting} template={template} implementationOnly={implementationOnly} policySetting={policySetting} showPolicyModel={showPolicyModel} showFailureBehaviour={showFailureBehaviour} />
       </>}
     </div>
   );

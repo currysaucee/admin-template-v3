@@ -114,6 +114,25 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .finding-plan-comparison > .finding-rollback-plan, .finding-plan-comparison > .execution-preview { margin-top: 0; min-width: 0; }
 .finding-plan-comparison > .finding-rollback-plan, .finding-plan-comparison > .implementation-plan-block, .finding-plan-comparison > .execution-preview > .phase-section { height: 100%; }
 .implementation-plan-block { min-width: 0; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc; align-content: start; }
+.remediation-journey { display: grid; grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr); gap: 0; align-items: stretch; margin-top: 14px; }
+.remediation-lane { min-width: 0; display: grid; grid-template-rows: auto auto auto 1fr; gap: 12px; padding: 16px; border: 1px solid #dbe3ef; background: #fff; }
+.current-state-lane { border-radius: 12px 0 0 12px; background: #f8fafc; }
+.target-state-lane { border-radius: 0 12px 12px 0; border-color: #bbf7d0; background: #f7fef9; }
+.remediation-lane-header { display: flex; align-items: flex-start; gap: 10px; }
+.remediation-lane-header > span { flex: 0 0 auto; padding: 4px 7px; border-radius: 6px; background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.target-state-lane .remediation-lane-header > span { background: #dcfce7; color: #166534; }
+.remediation-lane-header > div, .remediation-action-label span { display: grid; gap: 3px; }
+.remediation-lane-header strong { color: #0f172a; font-size: 14px; }
+.remediation-lane-header small, .remediation-action-label small { color: #64748b; font-size: 11px; line-height: 1.4; }
+.remediation-action-label { display: flex; align-items: flex-start; gap: 9px; padding-top: 2px; }
+.remediation-action-label i { margin-top: 2px; color: #64748b; }
+.remediation-action-label strong { color: #334155; font-size: 12px; }
+.remediation-direction { display: grid; place-content: center; justify-items: center; gap: 6px; border-top: 1px solid #dbe3ef; border-bottom: 1px solid #dbe3ef; background: linear-gradient(90deg, #f8fafc 0%, #fff 50%, #f7fef9 100%); color: #64748b; }
+.remediation-direction span { font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.remediation-direction i { color: #16a34a; font-size: 18px; }
+.remediation-lane .setting-evidence, .remediation-lane .finding-rollback-plan, .remediation-lane .execution-preview { margin: 0; }
+.remediation-lane .execution-preview { align-self: stretch; }
+.remediation-lane .execution-preview > .phase-section, .remediation-lane .implementation-plan-block { height: 100%; }
 .setting-evidence { min-width: 0; padding: 12px 14px; border: 1px solid #dbe3ef; border-radius: 11px; background: #f8fafc; }
 .setting-evidence strong { display: block; margin-bottom: 7px; color: #334155; font-size: 12px; }
 .setting-evidence pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #0f172a; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
@@ -486,6 +505,9 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
 .queue-board-card .p-card-body { padding: 0; }
 .worker-health-card { margin-bottom: 18px; }
 .worker-health-card .p-card-body { padding: 18px; }
+.embedded-deployment-queue { display: grid; gap: 16px; margin-top: 16px; }
+.embedded-deployment-queue .worker-health-card { margin-bottom: 0; }
+.developer-queue-section > .developer-operation-row { padding-bottom: 14px; border-bottom: 1px solid #e5e7eb; }
 .worker-health-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .worker-health-header h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
 .worker-health-header p { margin: 5px 0 0; color: #64748b; font-weight: 700; }
@@ -613,6 +635,11 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .finding-list-header { display: none; }
   .finding-list-row { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
   .finding-setting-comparison, .finding-plan-comparison { grid-template-columns: 1fr; }
+  .remediation-journey { grid-template-columns: 1fr; gap: 0; }
+  .current-state-lane { border-radius: 12px 12px 0 0; }
+  .target-state-lane { border-radius: 0 0 12px 12px; }
+  .remediation-direction { min-height: 52px; border: 0; border-left: 1px solid #dbe3ef; border-right: 1px solid #dbe3ef; }
+  .remediation-direction i { transform: rotate(90deg); }
   .inventory-actions-column { position: static; box-shadow: none; }
   .mobile-field-label { display: block; }
   .command-line { grid-template-columns: 32px minmax(0, 1fr); }

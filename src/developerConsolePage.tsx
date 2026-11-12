@@ -13,7 +13,8 @@ import { Tag } from "primereact/tag";
 
 import { formatDate, formatDateTime } from "./helpers";
 import { PageHeader } from "./sharedUi";
-import type { AdHocExecutionStatus, AdHocExecutorResult, Device, PolicyLookupResult, PolicySetting } from "./types";
+import { DeploymentQueuePage } from "./deploymentQueuePage";
+import type { AdHocExecutionStatus, AdHocExecutorResult, DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicyLookupResult, PolicySetting } from "./types";
 
 type DraftPolicyRow = {
   rowId: string;
@@ -167,6 +168,10 @@ export function DeveloperConsolePage({
   devices = [],
   onExecuteAdHoc,
   onLoadAdHocStatus,
+  deploymentQueue = [],
+  deploymentWorkerHealth = [],
+  onAbortDeployment,
+  onViewDeploymentTicket,
 }: {
   policySettings: PolicySetting[];
   setPolicySettings: React.Dispatch<React.SetStateAction<PolicySetting[]>>;
@@ -182,6 +187,10 @@ export function DeveloperConsolePage({
   devices?: Device[];
   onExecuteAdHoc?: (device: string, crNumber: string, commands: string[]) => Promise<AdHocExecutorResult>;
   onLoadAdHocStatus?: (ticketId: string) => Promise<AdHocExecutionStatus>;
+  deploymentQueue?: DeploymentQueueItem[];
+  deploymentWorkerHealth?: DeploymentWorkerHealth[];
+  onAbortDeployment?: (ticketId: string) => Promise<void> | void;
+  onViewDeploymentTicket?: (ticketId: string) => void;
 }) {
   const [draftRows, setDraftRows] = React.useState<DraftPolicyRow[]>([createDraftRow()]);
   const [filter, setFilter] = React.useState("");
@@ -594,6 +603,12 @@ export function DeveloperConsolePage({
                 </div>
               </div>
             </Dialog>
+          </div>
+        </AccordionTab>
+        <AccordionTab header={<span className="developer-section-title"><i className="pi pi-list-check" /> Deployment Queue</span>}>
+          <div className="developer-section-body developer-queue-section">
+            <div className="developer-operation-row"><div><h2>Deployment activity</h2><p className="section-subtitle">Inspect worker health, queued policy changes, and pre-check, implementation, and post-check evidence.</p></div><Tag value={`${deploymentQueue.length} queue item${deploymentQueue.length === 1 ? "" : "s"}`} severity="info" rounded /></div>
+            <DeploymentQueuePage queue={deploymentQueue} workerHealth={deploymentWorkerHealth} onAbort={onAbortDeployment} onViewTicket={onViewDeploymentTicket} embedded />
           </div>
         </AccordionTab>
       </Accordion>

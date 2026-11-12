@@ -159,20 +159,23 @@ function ScopeStep({ devices, templates, policySettings, selectedDeviceIds, setS
                             <p className="finding-problem-description">{finding.description || finding.reason || "The latest scan detected a policy mismatch on this device."}</p>
                             {activeTicket && <div className="finding-scheduled-inline"><i className="pi pi-clock" /><span>Already scheduled{activeTicket.plannedStart ? ` for ${formatDateTime(activeTicket.plannedStart)}` : ""} under <button type="button" onClick={() => { setRouteValue("netcomply:selectedTicketId", activeTicket.ticketId); navigateToPortalPath(portalRoutePaths.ticketDetail, { ticketId: activeTicket.ticketId }); }}>{activeTicket.ticketId}</button>.</span></div>}
                           </div>
-                          <div className="finding-setting-comparison">
-                            <div className="setting-evidence current"><strong>Current Setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
-                            <div className="setting-evidence agreed"><strong>Agreed Setting</strong><pre>{formatConfigText(finding.expectedValue || availability.template?.agreedSetting) || "No agreed setting is configured."}</pre></div>
-                          </div>
-                          <div className="finding-plan-comparison">
-                          {finding.rollbackPlan ? <div className="finding-rollback-plan compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>{finding.rollbackPlan.summary}</span></div></div>{finding.rollbackPlan.commands.length > 0 && <div className="command-list compact-command-list">{finding.rollbackPlan.commands.map((command, index) => <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>)}</div>}</div> : <div className="finding-rollback-plan unavailable compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback Plan</strong><span>No rollback plan is available.</span></div></div></div>}
-                          <div className="finding-standard-cell implementation-plan-block">
-                            <div className="implementation-heading"><strong>Implementation Commands</strong><i className="pi pi-question-circle implementation-help-icon" tabIndex={0} aria-label="About implementation commands" /></div>
-                          <div className="command-list compact-command-list implementation-command-preview">
-                            {(implementationCommands.length ? implementationCommands : ["No implementation command configured."]).map((command, index) => (
-                              <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>
-                            ))}
-                          </div>
-                          </div>
+                          <div className="remediation-journey compact-journey">
+                            <section className="remediation-lane current-state-lane">
+                              <header className="remediation-lane-header"><span>Before</span><div><strong>Current device state</strong><small>Configuration detected by the scan.</small></div></header>
+                              <div className="setting-evidence current"><strong>Detected setting</strong><pre>{formatConfigText(finding.currentValue || finding.reason) || "Current setting was not included in the scan payload."}</pre></div>
+                              <div className="remediation-action-label"><i className="pi pi-history" /><span><strong>If we need to undo the change</strong><small>Rollback restores this captured state.</small></span></div>
+                              {finding.rollbackPlan ? <div className="finding-rollback-plan compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback commands</strong><span>{finding.rollbackPlan.summary}</span></div></div>{finding.rollbackPlan.commands.length > 0 && <div className="command-list compact-command-list">{finding.rollbackPlan.commands.map((command, index) => <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>)}</div>}</div> : <div className="finding-rollback-plan unavailable compact"><div className="finding-rollback-heading"><i className="pi pi-history" /><div><strong>Rollback not available</strong><span>No policy-specific rollback plan is configured.</span></div></div></div>}
+                            </section>
+                            <div className="remediation-direction" aria-hidden="true"><span>Remediate</span><i className="pi pi-arrow-right" /></div>
+                            <section className="remediation-lane target-state-lane">
+                              <header className="remediation-lane-header"><span>After</span><div><strong>Approved target state</strong><small>The compliant configuration this request will apply.</small></div></header>
+                              <div className="setting-evidence agreed"><strong>Agreed setting</strong><pre>{formatConfigText(finding.expectedValue || availability.template?.agreedSetting) || "No agreed setting is configured."}</pre></div>
+                              <div className="remediation-action-label"><i className="pi pi-wrench" /><span><strong>How we will get there</strong><small>These commands are sent to the device.</small></span></div>
+                              <div className="finding-standard-cell implementation-plan-block">
+                                <div className="implementation-heading"><strong>Implementation commands</strong><i className="pi pi-question-circle implementation-help-icon" tabIndex={0} aria-label="About implementation commands" /></div>
+                                <div className="command-list compact-command-list implementation-command-preview">{(implementationCommands.length ? implementationCommands : ["No implementation command configured."]).map((command, index) => <div key={`${command}-${index}`} className="command-line"><span>{index + 1}</span><code>{formatConfigText(command)}</code></div>)}</div>
+                              </div>
+                            </section>
                           </div>
                         </div>
                       </div>
