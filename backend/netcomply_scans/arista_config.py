@@ -56,6 +56,64 @@ def matching_command_lines(config: Any, command: str) -> list[str]:
     ]
 
 
+def arista_context_stanzas(config: Any, context: str) -> list[str]:
+    """Return every EOS stanza beginning at `context` and ending at the next `!`.
+
+    Executor output can include command echoes and other text before the stanza,
+    so the context does not need to be the first line in a pre-split block.
+    """
+    lines = readable_config(config).splitlines()
+    expected_context = re.sub(r"\s+", " ", context.strip()).lower()
+    stanzas: list[str] = []
+    for index, line in enumerate(lines):
+        normalized_line = re.sub(r"\s+", " ", line.strip()).lower()
+        if normalized_line != expected_context:
+            continue
+        stanza_lines = [line]
+        for child_line in lines[index + 1:]:
+            if child_line.strip() == "!":
+                break
+            stanza_lines.append(child_line)
+        stanzas.append("\n".join(stanza_lines).strip())
+    return stanzas
+
+
+def arista_stanza_value_match(policy_id: str, rule: dict[str, str], ticket_config: Any, running_config: Any) -> dict[str, Any]:
+    context = str(rule["context"])
+    command = str(rule["command"])
+    expected_commands = matching_command_lines(ticket_config, command)
+    stanzas = arista_context_stanzas(running_config, context)
+    live_commands = [line for stanza in stanzas for line in matching_command_lines(stanza, command)]
+    normalized_live = {re.sub(r"\s+", " ", line.strip()).lower() for line in live_commands}
+    normalized_expected = [re.sub(r"\s+", " ", line.strip()).lower() for line in expected_commands]
+
+    if not expected_commands:
+        return {
+            "matches": False,
+            "reason": f"The request does not contain a captured '{command}' value for {policy_id}.",
+            "expected": readable_config(ticket_config),
+            "matchedStanza": "",
+        }
+    if any(expected in normalized_live for expected in normalized_expected):
+        matched_stanza = next(
+            (stanza for stanza in stanzas if any(expected in {re.sub(r"\s+", " ", line.strip()).lower() for line in matching_command_lines(stanza, command)} for expected in normalized_expected)),
+            "",
+        )
+        return {
+            "matches": True,
+            "reason": f"Live '{context}' stanza contains the ticket-time {command} value.",
+            "expected": "\n".join([context, *expected_commands]),
+            "matchedStanza": matched_stanza,
+        }
+    return {
+        "matches": False,
+        "reason": f"Live '{context}' stanza does not contain the ticket-time {command} value.",
+        "expected": "\n".join([context, *expected_commands]),
+        "matchedStanza": "\n\n".join(stanzas),
+        "liveValues": live_commands,
+    }
+
+
 def arista_scan_state_equal(policy_id: Any, ticket_config: Any, latest_config: Any) -> bool:
     rule = ARISTA_POLICY_RULES.get(policy_key(policy_id), {})
     if rule.get("mode") == "forbidden_line":
@@ -106,6 +164,8 @@ def arista_stanza_match(ticket_config: Any, running_config: Any) -> dict[str, An
 def arista_policy_state_match(policy_id: Any, ticket_config: Any, running_config: Any) -> dict[str, Any]:
     key = policy_key(policy_id)
     rule = ARISTA_POLICY_RULES.get(key, {})
+    if rule.get("mode") == "stanza_value":
+        return arista_stanza_value_match(key, rule, ticket_config, running_config)
     if rule.get("mode") != "forbidden_line":
         return arista_stanza_match(ticket_config, running_config)
 
