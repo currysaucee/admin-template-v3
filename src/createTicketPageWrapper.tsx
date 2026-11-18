@@ -25,15 +25,7 @@ export default function CreateTicketPageWrapper(props: CreateTicketPageProps = {
     const routeDeviceIds = getRouteValue("deviceIds", "netcomply:selectedDeviceIds");
     const routeDeviceId = getRouteValue("deviceId", "netcomply:selectedDeviceId");
     const selectedDeviceIds = routeDeviceIds ? routeDeviceIds.split(",").filter(Boolean) : routeDeviceId ? [routeDeviceId] : [];
-    const storedFindingKeys = getRouteValue("findingKeys", "netcomply:selectedFindingKeys").split(",").filter(Boolean);
-    const selectedFindingKeys = storedFindingKeys.length
-      ? storedFindingKeys
-      : selectedDeviceIds.flatMap((deviceId) => {
-          const device = devices.find((item) => item.id === deviceId);
-          if (!device) return [];
-          return device.findings.map((finding) => `${device.id}:${finding.id}`);
-        });
-    return { ...initial, selectedDeviceIds, selectedFindingKeys };
+    return { ...initial, selectedDeviceIds, selectedFindingKeys: [] };
   });
 
   const selectedDevices = devices.filter((device) => state.selectedDeviceIds.includes(device.id));

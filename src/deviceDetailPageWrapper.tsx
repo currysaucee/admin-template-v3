@@ -3,7 +3,7 @@ import { Card } from "primereact/card";
 
 import DefaultLayout from "../../layout/DefaultLayout";
 import { DeviceDetailPage } from "./dashboardInventory";
-import { getPreselectedFindingKeys, getRouteValue, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
+import { getRouteValue, navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
 import { PageHeader } from "./sharedUi";
 import { styles } from "./styles";
 
@@ -39,7 +39,7 @@ export default function DeviceDetailPageWrapper(props: DeviceDetailPageProps = {
           onCreateTicket={props.onCreateTicket ?? ((selectedDevice) => {
             setRouteValue("netcomply:selectedDeviceIds", "");
             setRouteValue("netcomply:selectedDeviceId", selectedDevice.id);
-            setRouteValue("netcomply:selectedFindingKeys", getPreselectedFindingKeys(selectedDevice, templates, policySettings).join(","));
+            setRouteValue("netcomply:selectedFindingKeys", "");
             navigateToPortalPath(portalRoutePaths.createTicket, { deviceId: selectedDevice.id });
           })}
         />

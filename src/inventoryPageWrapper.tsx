@@ -2,7 +2,6 @@ import React from "react";
 
 import DefaultLayout from "../../layout/DefaultLayout";
 import { InventoryPage } from "./dashboardInventory";
-import { findFindingKey, getExecutableFindings, normalizePolicyReference } from "./helpers";
 import { navigateToPortalPath, portalRoutePaths, setRouteValue, usePortalDevices, usePortalPolicySettings, usePortalTemplates } from "./portalRouteState";
 import { styles } from "./styles";
 import type { Device, ReachabilityFilter } from "./types";
@@ -29,22 +28,16 @@ export default function InventoryPageWrapper(props: InventoryPageProps = {}) {
           policySettings={policySettings}
           bulkInventorySelection={selectedBulkDevices}
           setBulkInventorySelection={props.setBulkInventorySelection ?? setBulkInventorySelection}
-          onBulkCreate={props.onBulkCreate ?? ((policyFilters = []) => {
+          onBulkCreate={props.onBulkCreate ?? (() => {
             const selectedIds = selectedBulkDevices.map((device) => device.id).join(",");
-            const filterSet = new Set(policyFilters.map((value) => normalizePolicyReference(value)));
-            const selectedFindingKeys = selectedBulkDevices.flatMap((device) =>
-              getExecutableFindings(device, templates, policySettings)
-                .filter((finding) => filterSet.size === 0 || [finding.id, finding.templateKey].map((value) => normalizePolicyReference(value)).some((value) => filterSet.has(value)))
-                .map((finding) => findFindingKey(device.id, finding.id))
-            );
             setRouteValue("netcomply:selectedDeviceId", "");
             setRouteValue("netcomply:selectedDeviceIds", selectedIds);
-            setRouteValue("netcomply:selectedFindingKeys", selectedFindingKeys.join(","));
+            setRouteValue("netcomply:selectedFindingKeys", "");
             navigateToPortalPath(portalRoutePaths.createTicket, { deviceIds: selectedIds });
           })}
           onViewDevice={props.onViewDevice ?? ((device) => {
             setRouteValue("netcomply:selectedDeviceId", device.id);
-            setRouteValue("netcomply:selectedFindingKeys", getExecutableFindings(device, templates, policySettings).map((finding) => `${device.id}:${finding.id}`).join(","));
+            setRouteValue("netcomply:selectedFindingKeys", "");
             navigateToPortalPath(portalRoutePaths.deviceDetail, { deviceId: device.id });
           })}
         />

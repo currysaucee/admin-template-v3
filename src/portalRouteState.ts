@@ -23,7 +23,7 @@ import {
   saveRealTickets,
   updateRealTicketStatus,
 } from "./dataMode";
-import { formatDate, findFindingKey, getExecutableFindings, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
+import { formatDate, findFindingKey, getTemplateCommandCount, hasExecutableFix, resolveTemplateForDevice } from "./helpers";
 import type { DeploymentQueueItem, DeploymentWorkerHealth, Device, PolicySetting, ReachabilityFilter, RemediationTemplate, TemplateRequest, Ticket, TicketDevice, TicketStatus, UserRole } from "./types";
 
 export const portalRoutePaths = {
@@ -364,10 +364,6 @@ export function getSelectedTicketDevices(devices: Device[], selectedDeviceIds: s
 
 export function getSelectedCommandCount(selectedTicketDevices: TicketDevice[], templates: RemediationTemplate[], policySettings: PolicySetting[]) {
   return selectedTicketDevices.reduce((total, device) => total + device.findings.reduce((count, finding) => count + getTemplateCommandCount(resolveTemplateForDevice(device, finding, templates, policySettings)), 0), 0);
-}
-
-export function getPreselectedFindingKeys(device: Device, templates: RemediationTemplate[], policySettings: PolicySetting[]) {
-  return getExecutableFindings(device, templates, policySettings).map((finding) => findFindingKey(device.id, finding.id));
 }
 
 export function createPendingTicket(currentRole: UserRole, selectedTicketDevices: TicketDevice[], state: CreateTicketState): Ticket {
